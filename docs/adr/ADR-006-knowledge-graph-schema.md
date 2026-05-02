@@ -215,6 +215,18 @@ The renderer loads both files via the manifest and joins by id at consumption ti
 
 Files (`graph.json`, `llm-annotations.json`) carry no `schema_version` field of their own. The contract is "read manifest first, then dispatch on declared schema versions." This eliminates the liar risk of duplicated version metadata and aligns with how Docker images, npm lockfiles, OCI artefacts, and BIDS scientific datasets work.
 
+**Canonical-form requirement.** The `sha256` hashes are computed over the *canonical-form* serialization of each artefact, not arbitrary bytes. Canonical form is defined by `codeograph/graph/writer.py::canonical_serialize`:
+
+* `json.dumps(..., sort_keys=True, separators=(",", ":"), ensure_ascii=False)`
+* trailing newline (`\n`) at end of file
+* LF line endings (enforced by `.gitattributes` rule `*.json text eol=lf`)
+* nodes sorted by `id`; edges sorted by `(type, from, to)`
+* node-property arrays (`implements`, `modifiers`, etc.) sorted before emission
+* no wall-clock timestamps, run ids, or absolute filesystem paths anywhere in `graph.json` (those live in the manifest)
+* JavaParser version pinned in `pyproject.toml`; upgrades are explicit goldens-refresh events, not silent drift
+
+The contract is testable: a CI check runs the writer twice on the same input and asserts byte-identical output. The same canonical-form bytes power both the manifest `sha256` integrity hash and the byte-equal comparison used by golden-graph testing in ADR-007.
+
 ADR-022 will own the manifest's other responsibilities (run-level structured logging, reproducibility); this ADR pins only the version-tracking contract.
 
 ### Fork 7 — v1.1 extension points: (c) Pure semver
@@ -240,6 +252,7 @@ This ADR depends on ADR-022 for manifest semantics: the version-tracking contrac
 * Prompt iteration during ADR-014 prompt tuning is fast: re-run only Pass 1, only `llm-annotations.json` changes, `graph.json` stays cached.
 * Partial output is coherent — if Pass 1 fails for some classes, `graph.json` is still complete and `llm-annotations.json` documents the gaps via `extraction_mode: llm_failed`.
 * Manifest-only versioning eliminates duplicated metadata and provides cryptographic file-pairing integrity via SHA-256.
+* Canonical-form serialization is testable in CI (writer runs twice on the same input, output must be byte-identical), giving an automated guard against accidental non-determinism.
 * Pure semver discipline means every schema change is a deliberate ADR moment.
 
 **Negative.**
@@ -250,6 +263,8 @@ This ADR depends on ADR-022 for manifest semantics: the version-tracking contrac
 * Pure semver means v1.0 readers cannot open v1.1 files. Mitigated: not a real loss — there is no installed base of v1.0 readers to support.
 * FQCN string IDs are larger than hash IDs. At expected scales (300–8K classes), this is manageable; at 10K+ classes the file size cost becomes noticeable but not prohibitive.
 * Edge-model hybrid means `extends`/`implements` need a small materialisation step for symmetric Cypher traversal. Documented as the trade-off.
+* JavaParser version upgrades produce content drift (line numbers, parameter type strings, generic representations can shift), forcing deliberate goldens refresh on every dep bump. Pinned in `pyproject.toml`; upgrades are explicit, reviewer-visible events.
+* Writer-side canonical-form discipline (sorted keys, sorted arrays, no leaked non-determinism) must be maintained for every new field type. CI double-write check enforces it but does not prevent the discipline lapse from happening in the first place.
 
 ## Confirmation
 
@@ -405,7 +420,9 @@ Confirmation that this decision is implemented correctly will come from:
 * Good, because SHA-256 hashes provide cryptographic file-pairing integrity.
 * Good, because matches Docker / npm / OCI / BIDS handling.
 * Good, because filenames stay clean.
+* Good, because the canonical-form bytes that produce the SHA-256 are the same bytes used by ADR-007 byte-equal golden testing — one contract, two uses.
 * Bad, because individual files cannot be read standalone — manifest is mandatory.
+* Bad, because requires ongoing writer-side canonical-form discipline (sorted keys, sorted arrays, no leaked non-determinism); enforced by CI double-write check but discipline must hold across every new field type.
 
 ### Fork 7 — v1.1 extension points
 
@@ -467,3 +484,7 @@ Confirmation that this decision is implemented correctly will come from:
 * BIDS scientific data format — https://bids.neuroimaging.io (reference for manifest-driven multi-artefact data formats).
 * Tree-sitter / Babel split between AST and analysis passes — reference for Fork 5 separate-file pattern.
 * SemVer 2.0.0 — https://semver.org (reference for Fork 7 versioning policy).
+
+## Amendments
+
+**2026-05-02 — Canonical-form clarification.** Fork 6's `sha256` contract clarified to be over canonical-form serialization rather than arbitrary bytes. Writer rules listed in Decision Outcome → Fork 6 (sorted keys, sorted node and edge arrays, LF endings, no leaked non-determinism, JavaParser version pinned). Adds CI double-write check as testable enforcement. Surfaced during ADR-007 golden-test design, where byte-equal goldens and the manifest sha256 contract were identified as the same constraint and benefit from explicit canonical-form rules. No reversal of any prior decision; clarification only.
