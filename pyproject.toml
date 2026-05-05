@@ -63,7 +63,7 @@ known-first-party = ["codeograph"]
 python_version = "3.12"
 strict = true
 ignore_missing_imports = true
-exclude = ["codeograph/graph/_generated_models.py"]
+exclude = ["codeograph/graph/models/"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

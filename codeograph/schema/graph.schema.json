@@ -1,0 +1,196 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/gvsambhu/codeograph/schemas/graph.schema.json",
+  "title": "Codeograph Knowledge Graph",
+  "description": "Deterministic property-graph produced by the AST pass. Contains nodes[] and edges[]. This file is canonical-form serialised (sorted keys, sorted arrays, LF line endings, no timestamps or run IDs) so sha256 digests are byte-stable across identical runs.",
+  "type": "object",
+  "required": ["nodes", "edges"],
+  "additionalProperties": false,
+  "properties": {
+    "nodes": {
+      "type": "array",
+      "description": "All graph nodes. Discriminated by the 'kind' property.",
+      "items": { "$ref": "#/$defs/Node" }
+    },
+    "edges": {
+      "type": "array",
+      "description": "All graph edges. Discriminated by the 'kind' property.",
+      "items": { "$ref": "#/$defs/Edge" }
+    }
+  },
+
+  "$defs": {
+
+    "Node": {
+      "oneOf": [
+        { "$ref": "#/$defs/ModuleNode" },
+        { "$ref": "#/$defs/ClassNode" },
+        { "$ref": "#/$defs/InterfaceNode" },
+        { "$ref": "#/$defs/EnumNode" },
+        { "$ref": "#/$defs/RecordNode" },
+        { "$ref": "#/$defs/AnnotationTypeNode" },
+        { "$ref": "#/$defs/MethodNode" },
+        { "$ref": "#/$defs/FieldNode" }
+      ]
+    },
+
+    "ModuleNode": {
+      "$comment": "TODO (learner): fill in properties. Suggested: name (string), build_tool (enum: maven|gradle), source_roots (string[]), pom_path (string). What else does a graph consumer need to know about a module?",
+      "type": "object",
+      "required": ["id", "kind"],
+      "additionalProperties": false,
+      "properties": {
+        "id":   { "type": "string", "pattern": "^mod:.+", "description": "Format: mod:<module-name>. e.g. mod:module-core" },
+        "kind": { "type": "string", "const": "module" }
+      }
+    },
+
+    "ClassNode": {
+      "$comment": "TODO (learner): fill in properties. Suggested: name, modifiers (public/abstract/final/static), stereotype (Spring annotation: @Service/@Repository/@RestController/@Component/@Configuration/@Entity or null), superclass (fqcn or null), interfaces (fqcn[]), is_inner_class (bool), source_file, line_range ([start,end]). Class-level complexity from ADR-004: wmc (int), cbo (int), lcom4 (int).",
+      "type": "object",
+      "required": ["id", "kind"],
+      "additionalProperties": false,
+      "properties": {
+        "id":   { "type": "string", "description": "Fully-qualified class name. e.g. com.example.UserService" },
+        "kind": { "type": "string", "const": "class" }
+      }
+    },
+
+    "InterfaceNode": {
+      "$comment": "TODO (learner): fill in properties. Suggested: name, modifiers, extends_interfaces (fqcn[]), source_file, line_range. Note: InterfaceNode and ClassNode share several fields — consider whether a shared $defs base is worth the complexity for v1.",
+      "type": "object",
+      "required": ["id", "kind"],
+      "additionalProperties": false,
+      "properties": {
+        "id":   { "type": "string", "description": "Fully-qualified interface name." },
+        "kind": { "type": "string", "const": "interface" }
+      }
+    },
+
+    "EnumNode": {
+      "$comment": "TODO (learner): fill in properties. Suggested: name, modifiers, constants (string[]), implements_interfaces (fqcn[]), source_file, line_range.",
+      "type": "object",
+      "required": ["id", "kind"],
+      "additionalProperties": false,
+      "properties": {
+        "id":   { "type": "string", "description": "Fully-qualified enum name." },
+        "kind": { "type": "string", "const": "enum" }
+      }
+    },
+
+    "RecordNode": {
+      "$comment": "TODO (learner): fill in properties. Suggested: name, components ([{name, type}]), implements_interfaces (fqcn[]), source_file, line_range.",
+      "type": "object",
+      "required": ["id", "kind"],
+      "additionalProperties": false,
+      "properties": {
+        "id":   { "type": "string", "description": "Fully-qualified record name." },
+        "kind": { "type": "string", "const": "record" }
+      }
+    },
+
+    "AnnotationTypeNode": {
+      "$comment": "TODO (learner): fill in properties. Suggested: name, modifiers, elements ([{name, type, default}]), source_file, line_range.",
+      "type": "object",
+      "required": ["id", "kind"],
+      "additionalProperties": false,
+      "properties": {
+        "id":   { "type": "string", "description": "Fully-qualified annotation type name." },
+        "kind": { "type": "string", "const": "annotation_type" }
+      }
+    },
+
+    "MethodNode": {
+      "$comment": "TODO (learner): fill in properties. Suggested: name, return_type (string), parameters ([{name, type}]), modifiers, annotations (string[]), is_constructor (bool), line_range. Method-level complexity from ADR-004 lives here (deterministic, AST-derived): cyclomatic_complexity (int), cognitive_complexity (int), method_loc (int). These do NOT go in llm-annotations.json.",
+      "type": "object",
+      "required": ["id", "kind"],
+      "additionalProperties": false,
+      "properties": {
+        "id":   { "type": "string", "description": "Format: <fqcn>#<method>(<param-types>). e.g. com.example.UserService#findById(Long)" },
+        "kind": { "type": "string", "const": "method" }
+      }
+    },
+
+    "FieldNode": {
+      "$comment": "TODO (learner): fill in properties. Suggested: name, type (string), modifiers, annotations (string[]). Design question: does @Autowired appear here as an annotation string while the AUTOWIRES edge captures the semantic meaning? Or add is_autowired (bool) as a convenience? Decide and be consistent.",
+      "type": "object",
+      "required": ["id", "kind"],
+      "additionalProperties": false,
+      "properties": {
+        "id":   { "type": "string", "description": "Format: <fqcn>.<field-name>. e.g. com.example.UserService.userRepository" },
+        "kind": { "type": "string", "const": "field" }
+      }
+    },
+
+    "Edge": {
+      "oneOf": [
+        { "$ref": "#/$defs/ContainsEdge" },
+        { "$ref": "#/$defs/CallsResolvedEdge" },
+        { "$ref": "#/$defs/CallsUnresolvedEdge" },
+        { "$ref": "#/$defs/DependsOnEdge" },
+        { "$ref": "#/$defs/AutowiresEdge" }
+      ]
+    },
+
+    "ContainsEdge": {
+      "$comment": "TODO (learner): does ContainsEdge need any properties beyond source/target/kind? e.g. ordinal position of a method within a class? Probably no for v1 — keep minimal.",
+      "type": "object",
+      "required": ["source", "target", "kind"],
+      "additionalProperties": false,
+      "properties": {
+        "source": { "type": "string", "description": "ID of the containing node (module, class)." },
+        "target": { "type": "string", "description": "ID of the contained node (class, method, field)." },
+        "kind":   { "type": "string", "const": "contains" }
+      }
+    },
+
+    "CallsResolvedEdge": {
+      "$comment": "TODO (learner): add properties. Suggested: call_count (int — how many times this method calls the target within its body). Anything else the graph consumer needs?",
+      "type": "object",
+      "required": ["source", "target", "kind"],
+      "additionalProperties": false,
+      "properties": {
+        "source": { "type": "string", "description": "Calling method ID." },
+        "target": { "type": "string", "description": "Called method ID — resolved to a known node." },
+        "kind":   { "type": "string", "const": "calls_resolved" }
+      }
+    },
+
+    "CallsUnresolvedEdge": {
+      "$comment": "TODO (learner): add properties. Suggested: raw_call_expr (string — the literal call expression from source, for debuggability). Consider: call_count here too, or one edge per callee name is enough?",
+      "type": "object",
+      "required": ["source", "target", "kind"],
+      "additionalProperties": false,
+      "properties": {
+        "source": { "type": "string", "description": "Calling method ID." },
+        "target": { "type": "string", "description": "Best-effort callee name. May not match any node ID in the graph." },
+        "kind":   { "type": "string", "const": "calls_unresolved" }
+      }
+    },
+
+    "DependsOnEdge": {
+      "$comment": "TODO (learner): does DependsOnEdge need properties beyond source/target/kind? Note: CBO is calculated by counting distinct depends_on targets per class — this edge as-is is sufficient for that. Keep minimal unless there is a clear need.",
+      "type": "object",
+      "required": ["source", "target", "kind"],
+      "additionalProperties": false,
+      "properties": {
+        "source": { "type": "string", "description": "Depending class ID." },
+        "target": { "type": "string", "description": "Depended-upon class ID." },
+        "kind":   { "type": "string", "const": "depends_on" }
+      }
+    },
+
+    "AutowiresEdge": {
+      "$comment": "TODO (learner): add properties. Suggested: injection_type (enum: field|constructor|setter) — the renderer needs this to generate correct DI wiring in the target language (constructor injection in Go/TS vs field injection).",
+      "type": "object",
+      "required": ["source", "target", "kind"],
+      "additionalProperties": false,
+      "properties": {
+        "source": { "type": "string", "description": "Field ID carrying the injection annotation." },
+        "target": { "type": "string", "description": "Injected class ID." },
+        "kind":   { "type": "string", "const": "autowires" }
+      }
+    }
+
+  }
+}

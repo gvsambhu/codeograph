@@ -11,17 +11,19 @@ help:
 	@echo "  golden-update   Refresh golden graph files"
 	@echo "  clean           Remove generated artefacts"
 
-# Regenerate _generated_models.py from the JSON Schema files.
-# CI runs this and then checks 'git diff --exit-code' to ensure the file is fresh.
+# Regenerate Pydantic models from JSON Schema files into codeograph/graph/models/.
+# Multiple schema files → output must be a directory (codegen produces one .py per schema).
+# CI runs this and then checks 'git diff --exit-code' to ensure generated files are fresh.
 schema-models:
 	$(PYTHON) -m datamodel_code_generator \
 		--input codeograph/schema/ \
 		--input-file-type jsonschema \
-		--output codeograph/graph/_generated_models.py \
+		--output codeograph/graph/models/ \
 		--output-model-type pydantic_v2.BaseModel \
 		--field-constraints \
 		--use-standard-collections \
-		--use-union-operator
+		--use-union-operator \
+		--use-annotated
 
 lint:
 	ruff check .
