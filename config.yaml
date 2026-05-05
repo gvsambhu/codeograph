@@ -1,0 +1,10 @@
+# Codeograph configuration — lowest priority source.
+# Env vars and .env always override values set here.
+# Do not store secrets (API keys) in this file.
+#
+# All fields are optional; omitted fields use the hardcoded defaults in Settings.
+
+llm_provider: anthropic
+llm_model: claude-sonnet-4-6
+llm_concurrency: 5
+max_pass1_failure_ratio: 0.10
