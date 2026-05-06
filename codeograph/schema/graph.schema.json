@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/gvsambhu/codeograph/schemas/graph.schema.json",
   "title": "Codeograph Knowledge Graph",
-  "description": "Deterministic property-graph produced by the AST pass. Contains nodes[] and edges[]. This file is canonical-form serialised (sorted keys, sorted arrays, LF line endings, no timestamps or run IDs) so sha256 digests are byte-stable across identical runs.",
+  "description": "Deterministic property-graph produced by the AST pass. Contains nodes[] and edges[]. Canonical-form serialised (sorted keys, sorted arrays, LF endings, no timestamps/run-IDs) so sha256 is byte-stable across identical runs.",
   "type": "object",
   "required": ["nodes", "edges"],
   "additionalProperties": false,
@@ -35,90 +35,282 @@
     },
 
     "ModuleNode": {
-      "$comment": "TODO (learner): fill in properties. Suggested: name (string), build_tool (enum: maven|gradle), source_roots (string[]), pom_path (string). What else does a graph consumer need to know about a module?",
       "type": "object",
-      "required": ["id", "kind"],
+      "required": ["id", "kind", "name", "build_tool", "source_roots"],
       "additionalProperties": false,
       "properties": {
         "id":   { "type": "string", "pattern": "^mod:.+", "description": "Format: mod:<module-name>. e.g. mod:module-core" },
-        "kind": { "type": "string", "const": "module" }
+        "kind": { "type": "string", "const": "module" },
+        "name": {
+          "type": "string",
+          "description": "Maven artifactId of this module."
+        },
+        "build_tool": {
+          "type": "string",
+          "enum": ["maven", "gradle"],
+          "description": "Build system detected for this module (ADR-002)."
+        },
+        "source_roots": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Source root paths. See source_file DECISION below for what these are relative to."
+        },
+        "pom_path": {
+          "type": ["string", "null"],
+          "description": "Path to pom.xml. Null for Gradle modules in v1."
+        }
       }
     },
 
     "ClassNode": {
-      "$comment": "TODO (learner): fill in properties. Suggested: name, modifiers (public/abstract/final/static), stereotype (Spring annotation: @Service/@Repository/@RestController/@Component/@Configuration/@Entity or null), superclass (fqcn or null), interfaces (fqcn[]), is_inner_class (bool), source_file, line_range ([start,end]). Class-level complexity from ADR-004: wmc (int), cbo (int), lcom4 (int).",
+      "$comment": "DECISION-1: stereotype enum — list below covers the most common Spring stereotypes. Add or remove values to match exactly what JavaParser + Lombok synthesis will detect. If a class has multiple stereotype annotations (rare but possible), which one wins? First found? Highest priority? Decide and document in ADR-003.",
       "type": "object",
-      "required": ["id", "kind"],
+      "required": ["id", "kind", "name", "modifiers", "source_file", "line_range"],
       "additionalProperties": false,
       "properties": {
         "id":   { "type": "string", "description": "Fully-qualified class name. e.g. com.example.UserService" },
-        "kind": { "type": "string", "const": "class" }
+        "kind": { "type": "string", "const": "class" },
+        "name": { "type": "string", "description": "Simple class name. e.g. UserService" },
+        "modifiers": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["public", "protected", "private", "abstract", "final", "static"] },
+          "description": "Java access and non-access modifiers declared on this class."
+        },
+        "stereotype": {
+          "type": ["string", "null"],
+          "enum": ["@Service", "@Repository", "@Controller", "@RestController", "@Component", "@Configuration", "@Entity", "@Aspect", null],
+          "description": "Primary Spring stereotype annotation, if any. DECISION-1: confirm this list."
+        },
+        "superclass": {
+          "type": ["string", "null"],
+          "description": "FQCN of the superclass, or null if extends Object implicitly."
+        },
+        "implements": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "FQCNs of implemented interfaces."
+        },
+        "is_inner_class": {
+          "type": "boolean",
+          "description": "True if this class is declared inside another class."
+        },
+        "source_file": {
+          "type": "string",
+          "description": "DECISION-2 (see below): path to the .java source file."
+        },
+        "line_range": {
+          "type": "array",
+          "items": { "type": "integer" },
+          "minItems": 2,
+          "maxItems": 2,
+          "description": "[start_line, end_line] of the class declaration."
+        },
+        "wmc": {
+          "type": "integer",
+          "description": "Weighted Method Count — sum of cyclomatic complexities of all methods (ADR-004, Chidamber & Kemerer 1994). Deterministic; lives here not in llm-annotations."
+        },
+        "cbo": {
+          "type": "integer",
+          "description": "Coupling Between Objects — count of distinct classes this class depends on (ADR-004, Chidamber & Kemerer 1994)."
+        },
+        "lcom4": {
+          "type": "integer",
+          "description": "Lack of Cohesion of Methods 4 — number of connected components in the method-field usage graph (ADR-004, Hitz & Montazeri 1995)."
+        }
       }
     },
 
     "InterfaceNode": {
-      "$comment": "TODO (learner): fill in properties. Suggested: name, modifiers, extends_interfaces (fqcn[]), source_file, line_range. Note: InterfaceNode and ClassNode share several fields — consider whether a shared $defs base is worth the complexity for v1.",
       "type": "object",
-      "required": ["id", "kind"],
+      "required": ["id", "kind", "name", "modifiers", "source_file", "line_range"],
       "additionalProperties": false,
       "properties": {
         "id":   { "type": "string", "description": "Fully-qualified interface name." },
-        "kind": { "type": "string", "const": "interface" }
+        "kind": { "type": "string", "const": "interface" },
+        "name": { "type": "string" },
+        "modifiers": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["public", "protected", "private", "abstract", "static"] }
+        },
+        "extends_interfaces": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "FQCNs of extended interfaces."
+        },
+        "source_file": { "type": "string", "description": "DECISION-2 (see below)." },
+        "line_range": {
+          "type": "array",
+          "items": { "type": "integer" },
+          "minItems": 2,
+          "maxItems": 2
+        }
       }
     },
 
     "EnumNode": {
-      "$comment": "TODO (learner): fill in properties. Suggested: name, modifiers, constants (string[]), implements_interfaces (fqcn[]), source_file, line_range.",
       "type": "object",
-      "required": ["id", "kind"],
+      "required": ["id", "kind", "name", "modifiers", "constants", "source_file", "line_range"],
       "additionalProperties": false,
       "properties": {
         "id":   { "type": "string", "description": "Fully-qualified enum name." },
-        "kind": { "type": "string", "const": "enum" }
+        "kind": { "type": "string", "const": "enum" },
+        "name": { "type": "string" },
+        "modifiers": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["public", "protected", "private"] }
+        },
+        "constants": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Enum constant names in declaration order."
+        },
+        "implements": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "FQCNs of implemented interfaces."
+        },
+        "source_file": { "type": "string", "description": "DECISION-2 (see below)." },
+        "line_range": {
+          "type": "array",
+          "items": { "type": "integer" },
+          "minItems": 2,
+          "maxItems": 2
+        }
       }
     },
 
     "RecordNode": {
-      "$comment": "TODO (learner): fill in properties. Suggested: name, components ([{name, type}]), implements_interfaces (fqcn[]), source_file, line_range.",
       "type": "object",
-      "required": ["id", "kind"],
+      "required": ["id", "kind", "name", "components", "source_file", "line_range"],
       "additionalProperties": false,
       "properties": {
         "id":   { "type": "string", "description": "Fully-qualified record name." },
-        "kind": { "type": "string", "const": "record" }
+        "kind": { "type": "string", "const": "record" },
+        "name": { "type": "string" },
+        "components": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/NameTypePair" },
+          "description": "Record components in declaration order."
+        },
+        "implements": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "FQCNs of implemented interfaces."
+        },
+        "source_file": { "type": "string", "description": "DECISION-2 (see below)." },
+        "line_range": {
+          "type": "array",
+          "items": { "type": "integer" },
+          "minItems": 2,
+          "maxItems": 2
+        }
       }
     },
 
     "AnnotationTypeNode": {
-      "$comment": "TODO (learner): fill in properties. Suggested: name, modifiers, elements ([{name, type, default}]), source_file, line_range.",
       "type": "object",
-      "required": ["id", "kind"],
+      "required": ["id", "kind", "name", "modifiers", "source_file", "line_range"],
       "additionalProperties": false,
       "properties": {
         "id":   { "type": "string", "description": "Fully-qualified annotation type name." },
-        "kind": { "type": "string", "const": "annotation_type" }
+        "kind": { "type": "string", "const": "annotation_type" },
+        "name": { "type": "string" },
+        "modifiers": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["public", "protected", "private"] }
+        },
+        "elements": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/AnnotationElement" },
+          "description": "Annotation element declarations."
+        },
+        "source_file": { "type": "string", "description": "DECISION-2 (see below)." },
+        "line_range": {
+          "type": "array",
+          "items": { "type": "integer" },
+          "minItems": 2,
+          "maxItems": 2
+        }
       }
     },
 
     "MethodNode": {
-      "$comment": "TODO (learner): fill in properties. Suggested: name, return_type (string), parameters ([{name, type}]), modifiers, annotations (string[]), is_constructor (bool), line_range. Method-level complexity from ADR-004 lives here (deterministic, AST-derived): cyclomatic_complexity (int), cognitive_complexity (int), method_loc (int). These do NOT go in llm-annotations.json.",
+      "$comment": "DECISION-3: extraction_mode — ADR-005 defines a signatures_only fallback when a class body exceeds 80K tokens. If that fallback fires, complexity metrics cannot be computed. Two options: (a) include extraction_mode here as 'full' | 'signatures_only' so consumers know which methods have complete data; (b) leave it off the node and record it only in llm-annotations or the run manifest. Option (a) is recommended — it makes the graph self-describing.",
       "type": "object",
-      "required": ["id", "kind"],
+      "required": ["id", "kind", "name", "return_type", "parameters", "modifiers", "is_constructor", "line_range"],
       "additionalProperties": false,
       "properties": {
         "id":   { "type": "string", "description": "Format: <fqcn>#<method>(<param-types>). e.g. com.example.UserService#findById(Long)" },
-        "kind": { "type": "string", "const": "method" }
+        "kind": { "type": "string", "const": "method" },
+        "name": { "type": "string", "description": "Method name. For constructors, matches the class simple name." },
+        "return_type": {
+          "type": "string",
+          "description": "Return type as a string. 'void' for void methods. Constructor return_type is the class FQCN."
+        },
+        "parameters": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/NameTypePair" },
+          "description": "Method parameters in declaration order."
+        },
+        "modifiers": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["public", "protected", "private", "abstract", "final", "static", "synchronized", "native"] }
+        },
+        "annotations": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Annotation simple names present on this method. e.g. [\"Override\", \"GetMapping\"]."
+        },
+        "is_constructor": { "type": "boolean" },
+        "line_range": {
+          "type": "array",
+          "items": { "type": "integer" },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "cyclomatic_complexity": {
+          "type": ["integer", "null"],
+          "description": "McCabe cyclomatic complexity (ADR-004). Null if extraction_mode is signatures_only."
+        },
+        "cognitive_complexity": {
+          "type": ["integer", "null"],
+          "description": "SonarSource cognitive complexity (ADR-004, Campbell 2018). Null if extraction_mode is signatures_only."
+        },
+        "method_loc": {
+          "type": ["integer", "null"],
+          "description": "Method lines of code excluding blank lines and comments (ADR-004). Null if extraction_mode is signatures_only."
+        },
+        "extraction_mode": {
+          "type": "string",
+          "enum": ["full", "signatures_only"],
+          "description": "DECISION-3: include this field? If yes, 'full' means all complexity metrics are present; 'signatures_only' means metrics are null (ADR-005 oversized-input fallback)."
+        }
       }
     },
 
     "FieldNode": {
-      "$comment": "TODO (learner): fill in properties. Suggested: name, type (string), modifiers, annotations (string[]). Design question: does @Autowired appear here as an annotation string while the AUTOWIRES edge captures the semantic meaning? Or add is_autowired (bool) as a convenience? Decide and be consistent.",
+      "$comment": "DECISION-4: is_autowired convenience field — the AUTOWIRES edge already captures Spring DI semantics. Adding is_autowired (bool) here makes it easy to query 'all injected fields on this class' without traversing edges. Tradeoff: small redundancy vs query convenience. Recommended: include it — the renderer will query this often.",
       "type": "object",
-      "required": ["id", "kind"],
+      "required": ["id", "kind", "name", "type", "modifiers"],
       "additionalProperties": false,
       "properties": {
         "id":   { "type": "string", "description": "Format: <fqcn>.<field-name>. e.g. com.example.UserService.userRepository" },
-        "kind": { "type": "string", "const": "field" }
+        "kind": { "type": "string", "const": "field" },
+        "name": { "type": "string" },
+        "type": { "type": "string", "description": "Declared field type as a string. e.g. UserRepository, List<Order>, String." },
+        "modifiers": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["public", "protected", "private", "final", "static", "transient", "volatile"] }
+        },
+        "annotations": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Annotation simple names on this field. e.g. [\"Autowired\", \"NotNull\"]."
+        },
+        "is_autowired": {
+          "type": "boolean",
+          "description": "DECISION-4: convenience flag — true if this field carries @Autowired, @Inject, or equivalent. Redundant with the AUTOWIRES edge but simplifies renderer queries."
+        }
       }
     },
 
@@ -133,43 +325,47 @@
     },
 
     "ContainsEdge": {
-      "$comment": "TODO (learner): does ContainsEdge need any properties beyond source/target/kind? e.g. ordinal position of a method within a class? Probably no for v1 — keep minimal.",
       "type": "object",
       "required": ["source", "target", "kind"],
       "additionalProperties": false,
       "properties": {
-        "source": { "type": "string", "description": "ID of the containing node (module, class)." },
-        "target": { "type": "string", "description": "ID of the contained node (class, method, field)." },
+        "source": { "type": "string", "description": "ID of the containing node." },
+        "target": { "type": "string", "description": "ID of the contained node." },
         "kind":   { "type": "string", "const": "contains" }
       }
     },
 
     "CallsResolvedEdge": {
-      "$comment": "TODO (learner): add properties. Suggested: call_count (int — how many times this method calls the target within its body). Anything else the graph consumer needs?",
       "type": "object",
       "required": ["source", "target", "kind"],
       "additionalProperties": false,
       "properties": {
-        "source": { "type": "string", "description": "Calling method ID." },
-        "target": { "type": "string", "description": "Called method ID — resolved to a known node." },
-        "kind":   { "type": "string", "const": "calls_resolved" }
+        "source":     { "type": "string", "description": "Calling method ID." },
+        "target":     { "type": "string", "description": "Called method ID — resolved to a known node." },
+        "kind":       { "type": "string", "const": "calls_resolved" },
+        "call_count": {
+          "type": "integer",
+          "description": "How many times this method calls the target within its body."
+        }
       }
     },
 
     "CallsUnresolvedEdge": {
-      "$comment": "TODO (learner): add properties. Suggested: raw_call_expr (string — the literal call expression from source, for debuggability). Consider: call_count here too, or one edge per callee name is enough?",
       "type": "object",
       "required": ["source", "target", "kind"],
       "additionalProperties": false,
       "properties": {
-        "source": { "type": "string", "description": "Calling method ID." },
-        "target": { "type": "string", "description": "Best-effort callee name. May not match any node ID in the graph." },
-        "kind":   { "type": "string", "const": "calls_unresolved" }
+        "source":        { "type": "string", "description": "Calling method ID." },
+        "target":        { "type": "string", "description": "Best-effort callee name. May not match any node ID." },
+        "kind":          { "type": "string", "const": "calls_unresolved" },
+        "raw_call_expr": {
+          "type": "string",
+          "description": "The literal call expression from source, for debuggability. e.g. orderService.findByUser(userId)"
+        }
       }
     },
 
     "DependsOnEdge": {
-      "$comment": "TODO (learner): does DependsOnEdge need properties beyond source/target/kind? Note: CBO is calculated by counting distinct depends_on targets per class — this edge as-is is sufficient for that. Keep minimal unless there is a clear need.",
       "type": "object",
       "required": ["source", "target", "kind"],
       "additionalProperties": false,
@@ -181,14 +377,43 @@
     },
 
     "AutowiresEdge": {
-      "$comment": "TODO (learner): add properties. Suggested: injection_type (enum: field|constructor|setter) — the renderer needs this to generate correct DI wiring in the target language (constructor injection in Go/TS vs field injection).",
+      "$comment": "DECISION-5: injection_type — the renderer needs to know whether to generate constructor injection or field injection in the target language (Go has no field injection; NestJS prefers constructor). If JavaParser cannot determine the injection style (e.g. @Autowired on a field vs constructor param), what is the fallback value? Recommended: 'field' as default, since that is what most legacy Spring code uses.",
       "type": "object",
       "required": ["source", "target", "kind"],
       "additionalProperties": false,
       "properties": {
-        "source": { "type": "string", "description": "Field ID carrying the injection annotation." },
-        "target": { "type": "string", "description": "Injected class ID." },
-        "kind":   { "type": "string", "const": "autowires" }
+        "source":         { "type": "string", "description": "Field ID carrying the injection annotation." },
+        "target":         { "type": "string", "description": "Injected class ID." },
+        "kind":           { "type": "string", "const": "autowires" },
+        "injection_type": {
+          "type": "string",
+          "enum": ["field", "constructor", "setter"],
+          "description": "DECISION-5: how the dependency is injected. Drives renderer output."
+        }
+      }
+    },
+
+    "NameTypePair": {
+      "type": "object",
+      "required": ["name", "type"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "type": { "type": "string", "description": "Type as a string. e.g. Long, List<Order>, UserRepository." }
+      }
+    },
+
+    "AnnotationElement": {
+      "type": "object",
+      "required": ["name", "type"],
+      "additionalProperties": false,
+      "properties": {
+        "name":          { "type": "string" },
+        "type":          { "type": "string" },
+        "default_value": {
+          "type": ["string", "null"],
+          "description": "String representation of the default value, or null if no default."
+        }
       }
     }
 
