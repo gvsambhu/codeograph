@@ -167,6 +167,88 @@ ADR-003 reserves the AST layer as the locus of complexity computation and pins t
 
 ADR-004 extends the set and pins thresholds with citations (per project guardrail — no threshold picked from memory). Extension is additive: each new metric becomes a new walker emitting a new key in the `complexity` dict. No ADR-003 revision required, no schema revision required.
 
+### 9. Spring annotation coverage (v1)
+
+Section 2 named six stereotypes plus three HTTP mapping annotations as the AST-extraction targets. That seed list was incomplete: real Spring Boot codebases use dozens of annotations across REST, JPA, DI, transactions, validation, security, async, and caching. ADR-003's parser must decide which annotations get *interpreted* (lifted to a structured field, edge, or hazard tag) versus merely *captured* (present in the generic `annotations[]` list on the node but not otherwise distinguished).
+
+**Capture vs interpret.** Every annotation that appears in source is captured as an `AnnotationFact` entry on the relevant `ClassFacts` / `MethodFact` / `FieldFact`. The list below pins which annotations are additionally *interpreted* in v1 — i.e., trigger structured-field population, edge emission, or hazard tagging.
+
+#### v1 baseline interpreted annotations
+
+| # | Annotation | Detection target | Interpretation in v1 |
+|---|---|---|---|
+| **Stereotypes** | | | |
+| 1 | `@Component` | class | `stereotype = "Component"` |
+| 2 | `@Service` | class | `stereotype = "Service"` |
+| 3 | `@Repository` | class | `stereotype = "Repository"` |
+| 4 | `@Controller` | class | `stereotype = "Controller"` |
+| 5 | `@RestController` | class | `stereotype = "RestController"` |
+| 6 | `@Configuration` | class | `stereotype = "Configuration"` |
+| **DI** | | | |
+| 7 | `@Autowired` | field / constructor / setter | `autowires` edge from declaring class to field/param type |
+| 8 | `@Qualifier(name)` | field / constructor param | `autowires` edge carries `qualifier` attribute |
+| 9 | `@Value("${...}")` (Spring DI; distinct from Lombok `@Value`) | field / constructor param | `annotations[]` entry with `kind: config_property`; flagged for v1.1 hazard `external_config_dependency` |
+| **HTTP class- and method-mapping** | | | |
+| 10 | `@RequestMapping` | class / method | `http_metadata.path` populated; method-level entry merges with class-level path |
+| 11 | `@GetMapping` | method | `http_metadata = {method: "GET", path: ...}` |
+| 12 | `@PostMapping` | method | `http_metadata = {method: "POST", path: ...}` |
+| 13 | `@PutMapping` | method | `http_metadata = {method: "PUT", path: ...}` |
+| 14 | `@DeleteMapping` | method | `http_metadata = {method: "DELETE", path: ...}` |
+| 15 | `@PatchMapping` | method | `http_metadata = {method: "PATCH", path: ...}` |
+| **HTTP arg binding** | | | |
+| 16 | `@PathVariable` | method param | `ParamFact.binding = {kind: "path", name}` |
+| 17 | `@RequestParam` | method param | `ParamFact.binding = {kind: "query", name, required, default}` |
+| 18 | `@RequestBody` | method param | `ParamFact.binding = {kind: "body"}` |
+| 19 | `@RequestHeader` | method param | `ParamFact.binding = {kind: "header", name}` |
+| 20 | `@ResponseBody` | method / class | `MethodFact.response_body = true` (implicit `true` on `@RestController` classes — not double-flagged) |
+| **REST exception flow** | | | |
+| 21 | `@ControllerAdvice` | class | `stereotype = "ControllerAdvice"` |
+| 22 | `@ExceptionHandler(SomeException.class)` | method | `MethodFact.exception_handler = "<exception-fqcn>"` |
+| 23 | `@ResponseStatus(HttpStatus.X)` | class / method | `MethodFact.response_status = "<status-code>"` |
+| **JPA core** | | | |
+| 24 | `@Entity` | class | `stereotype = "Entity"` |
+| 25 | `@Table(name)` | class | `ClassFacts.table_name = "<name>"` |
+| 26 | `@Id` | field | `FieldFact.is_id = true` |
+| 27 | `@GeneratedValue(strategy)` | field | `FieldFact.generation = "<strategy>"` |
+| 28 | `@Column(name, nullable, length)` | field | `FieldFact.column = {name, nullable, length}` |
+| **JPA relations** | | | |
+| 29 | `@ManyToOne` | field | `relation` edge from owning class to target with `cardinality: "many-to-one"` |
+| 30 | `@OneToMany` | field | `relation` edge with `cardinality: "one-to-many"` |
+| 31 | `@OneToOne` | field | `relation` edge with `cardinality: "one-to-one"` |
+| 32 | `@JoinColumn(name)` | field | edge attribute `join_column = "<name>"` on the relation edge |
+| **Transactions** | | | |
+| 33 | `@Transactional(propagation, isolation)` | class / method | `migration_hazard` entry `kind: "transactional_propagation"` with detail; v1.1 ADR-012 (error-handling translation) consumes |
+| **Boot bootstrap** | | | |
+| 34 | `@SpringBootApplication` | class | `stereotype = "SpringBootApplication"`; this class flagged as `entry_point: true` |
+| 35 | `@Bean` | method | `MethodFact.is_bean_factory = true`; emits `bean_factory` edge from declaring `@Configuration` class to return type |
+| **Validation (basic)** | | | |
+| 36 | `@Valid` | method param | `ParamFact.validate = true` |
+| 37 | `@NotNull` / `@NotBlank` | field / param | `FieldFact.constraints[]` or `ParamFact.constraints[]` entry |
+| 38 | `@Size(min, max)` | field / param | `constraints[]` entry with bounds |
+
+**Total v1 interpreted annotations:** 38 (with `@NotNull` / `@NotBlank` counted as one row).
+
+#### Deferred to v1.1
+
+| Category | Annotations | Owning ADR |
+|---|---|---|
+| Security | `@PreAuthorize`, `@PostAuthorize`, `@Secured`, `@RolesAllowed` | ADR-024 (output-path safety) consumes |
+| Async / scheduling | `@Async`, `@Scheduled`, `@EventListener`, `@TransactionalEventListener` | ADR-012 (error-handling translation) consumes for hazards |
+| Caching | `@Cacheable`, `@CacheEvict`, `@CachePut` | New v1.1 ADR if needed |
+| Profile / conditional | `@Profile`, `@Primary`, `@Lazy`, `@ConditionalOnProperty` and other `@ConditionalOn*` | New v1.1 ADR; affects bean-graph determinism |
+| Configuration binding | `@ConfigurationProperties`, `@ConstructorBinding`, `@NestedConfigurationProperty` | New v1.1 ADR |
+| Validation extended | `@Email`, `@Min`, `@Max`, `@Future`, `@Past`, `@Pattern`, custom constraints | Extension of v1 baseline |
+| Test classes | `@SpringBootTest`, `@DataJpaTest`, `@MockBean`, `@WebMvcTest`, JUnit 5 (`@Test`, `@BeforeEach`, etc.) | New v1.1 ADR; v1 detects test sources via path heuristic only and excludes from main graph |
+| JPA extended | `@ManyToMany`, `@Transient`, `@Embedded`, `@Embeddable`, `@Inheritance`, `@DiscriminatorColumn`, `@Version` | Extension |
+| HTTP arg extended | `@CookieValue`, `@SessionAttribute`, `@ModelAttribute`, `@MatrixVariable` | Extension |
+| Cross-cutting | `@CrossOrigin` | Extension |
+
+**v1 behaviour for deferred annotations:** captured in `annotations[]` (so a downstream consumer can see them) but **not interpreted** — no structured field, no edge, no hazard. Tagging as a deferred class is implicit: the absence of stereotype/edge/hazard for an annotation that should produce one is a known v1 limit, not a bug.
+
+#### Implementation note for parser dev
+
+Adding interpretation for a new annotation is a small focused change: one switch case in `parser/annotation_interpreters.py`, one optional new field in the relevant `*Fact` dataclass, an entry in this table. No schema migration required if the new field is optional and added as a property on an existing node.
+
 ### Consequences
 
 * Good, because structural facts (signatures, annotations, call edges, complexity) are deterministic, free of token cost, and reproducible — underpinning golden-graph testing (ADR-007) and eval (ADR-017).
@@ -179,6 +261,7 @@ ADR-004 extends the set and pins thresholds with citations (per project guardrai
 * Bad, because Gradle projects get second-class symbol resolution until a later ADR adds Gradle dep extraction. Flagged as a known v1 limit.
 * Bad, because `~/.m2` being empty silently degrades Maven resolution — we document and detect but cannot auto-populate.
 * Bad, because Lombok synthesis is a side-pass we maintain against Lombok's spec; Lombok feature changes require updates here.
+* Bad, because the v1 annotation taxonomy (38 interpreted annotations) leaves real Spring Boot concepts uninterpreted in v1 (security, async, caching, profile, advanced validation, test taxonomy). Mitigated: deferred annotations are still captured in `annotations[]`, just not lifted to structured fields; v1.1 ADRs extend coverage; `tests/fixtures/codeograph-corpus` exercises the v1 baseline list to keep the gap visible.
 
 ### Confirmation
 
@@ -311,3 +394,7 @@ References:
 * JavaParser — https://javaparser.org/
 * JavaParser Symbol Solver — https://www.javadoc.io/doc/com.github.javaparser/javaparser-symbol-solver-core/
 * MADR template — https://github.com/adr/madr
+
+## Amendments
+
+**2026-05-03 — Spring annotation coverage pinned (v1).** Section 9 added enumerating the 38 annotations Codeograph interprets in v1 across stereotypes, DI, HTTP class+method mapping, HTTP arg binding, REST exception flow, JPA core, JPA relations, transactions, Boot bootstrap, and basic validation. Deferred categories (security, async/scheduling, caching, profile/conditional, configuration binding, validation extended, test classes, JPA extended, HTTP arg extended, cross-cutting) called out explicitly with v1 behaviour: captured in `annotations[]` but not interpreted. Surfaced when planning DC1 parser implementation, where the gap between section 2's seed list and the real Spring Boot taxonomy would have forced ad-hoc decisions during dev. No reversal of any prior decision.
