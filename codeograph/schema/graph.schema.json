@@ -53,7 +53,7 @@
         "source_roots": {
           "type": "array",
           "items": { "type": "string" },
-          "description": "Source root paths relative to the repository root. e.g. ['module-core/src/main/java']. See DECISION-2 on source_file for the same convention."
+          "description": "Source root paths relative to the repository root. e.g. ['module-core/src/main/java']. Same convention as source_file on class/interface/etc. nodes (DECISION-2 resolved)."
         },
         "pom_path": {
           "type": ["string", "null"],
@@ -63,7 +63,7 @@
     },
 
     "ClassNode": {
-      "$comment": "DECISION-1 resolved (ADR-003 §9 amendment): stereotype uses short names with no @ prefix. 9 stereotypes interpreted: Component, Service, Repository, Controller, RestController, Configuration, ControllerAdvice, Entity, SpringBootApplication. First-found wins when multiple stereotypes are present (rare). DECISION-2 open: source_file path convention — relative to repo root is recommended (sha256-stable, unambiguous regardless of working directory).",
+      "$comment": "DECISION-1 resolved: stereotype uses short names, no @ prefix. 9 values, first-found wins when multiple present (rare). DECISION-2 resolved: source_file is relative to the repository root (e.g. 'module-core/src/main/java/com/example/UserService.java'). Must never be absolute — absolute paths break sha256 reproducibility across machines. DECISION-3 resolved: extraction_mode lives on ClassNode (not MethodNode) because the fallback applies to an entire class body, not individual methods.",
       "type": "object",
       "required": ["id", "kind", "name", "modifiers", "source_file", "line_range", "extraction_mode"],
       "additionalProperties": false,
@@ -101,7 +101,7 @@
         },
         "source_file": {
           "type": "string",
-          "description": "DECISION-2 (open): path to the .java source file. Recommended: relative to repository root (e.g. 'module-core/src/main/java/com/example/UserService.java'). Must not be absolute — absolute paths break sha256 reproducibility across machines."
+          "description": "Path to the .java source file, relative to the repository root. e.g. 'module-core/src/main/java/com/example/UserService.java'. Never absolute — absolute paths break sha256 reproducibility across machines (DECISION-2 resolved)."
         },
         "line_range": {
           "type": "array",
@@ -160,7 +160,7 @@
           "items": { "type": "string" },
           "description": "FQCNs of extended interfaces."
         },
-        "source_file": { "type": "string", "description": "DECISION-2 (open): path relative to repository root." },
+        "source_file": { "type": "string", "description": "Path relative to the repository root (DECISION-2 resolved)." },
         "line_range": {
           "type": "array",
           "items": { "type": "integer" },
@@ -197,7 +197,7 @@
           "items": { "type": "string" },
           "description": "FQCNs of implemented interfaces."
         },
-        "source_file": { "type": "string", "description": "DECISION-2 (open): path relative to repository root." },
+        "source_file": { "type": "string", "description": "Path relative to the repository root (DECISION-2 resolved)." },
         "line_range": {
           "type": "array",
           "items": { "type": "integer" },
@@ -230,7 +230,7 @@
           "items": { "type": "string" },
           "description": "FQCNs of implemented interfaces."
         },
-        "source_file": { "type": "string", "description": "DECISION-2 (open): path relative to repository root." },
+        "source_file": { "type": "string", "description": "Path relative to the repository root (DECISION-2 resolved)." },
         "line_range": {
           "type": "array",
           "items": { "type": "integer" },
@@ -257,7 +257,7 @@
           "items": { "$ref": "#/$defs/AnnotationElement" },
           "description": "Annotation element declarations."
         },
-        "source_file": { "type": "string", "description": "DECISION-2 (open): path relative to repository root." },
+        "source_file": { "type": "string", "description": "Path relative to the repository root (DECISION-2 resolved)." },
         "line_range": {
           "type": "array",
           "items": { "type": "integer" },
@@ -337,7 +337,7 @@
     },
 
     "FieldNode": {
-      "$comment": "DECISION-4 open: is_autowired convenience bool — recommended include; makes it easy to query all injected fields without traversing edges. DECISION-5 is on AutowiresEdge. JPA fields: is_id, generation, column, constraints capture interpreted annotations from ADR-003 §9 (JPA core and JPA relations categories).",
+      "$comment": "DECISION-4 resolved: is_autowired is included as a convenience bool — makes it easy to query all injected fields without edge traversal; small redundancy with AutowiresEdge is acceptable. JPA fields: is_id, generation, column, constraints capture interpreted annotations from ADR-003 §9 (JPA core category).",
       "type": "object",
       "required": ["id", "kind", "name", "type", "modifiers"],
       "additionalProperties": false,
@@ -357,7 +357,7 @@
         },
         "is_autowired": {
           "type": "boolean",
-          "description": "DECISION-4 (open — recommended include): true if this field carries @Autowired, @Inject, or equivalent. Redundant with the AutowiresEdge but simplifies renderer queries without edge traversal."
+          "description": "True if this field carries @Autowired, @Inject, or equivalent (DECISION-4 resolved: include). Redundant with the AutowiresEdge but simplifies renderer queries without edge traversal."
         },
         "is_id": {
           "type": "boolean",
@@ -445,7 +445,7 @@
     },
 
     "AutowiresEdge": {
-      "$comment": "DECISION-5 open: injection_type fallback — when JavaParser cannot determine the injection style (ambiguous or unannotated), what value to emit? Recommended: 'field' as default since that is what most legacy Spring code uses. qualifier captures @Qualifier value when present.",
+      "$comment": "DECISION-5 resolved: injection_type fallback is 'field' — most legacy Spring code uses field injection, so this is the safe default when JavaParser cannot determine injection style. qualifier captures @Qualifier value when present.",
       "type": "object",
       "required": ["source", "target", "kind"],
       "additionalProperties": false,
@@ -456,7 +456,7 @@
         "injection_type": {
           "type": "string",
           "enum": ["field", "constructor", "setter"],
-          "description": "DECISION-5 (open — recommended 'field' as fallback): how the dependency is injected. Drives renderer output (Go has no field injection; NestJS prefers constructor)."
+          "description": "How the dependency is injected (DECISION-5 resolved: fallback is 'field'). Drives renderer output — Go has no field injection; NestJS prefers constructor. Emit 'field' when JavaParser cannot determine injection style."
         },
         "qualifier": {
           "type": ["string", "null"],
