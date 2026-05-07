@@ -1,5 +1,5 @@
 """
-SourceDiscovery — walk a corpus root and enumerate all Java modules.
+SourceDiscoverer — walk a corpus root and enumerate all Java modules.
 
 Responsibilities (ADR-002):
   - Find every Maven / Gradle module within the corpus
@@ -56,18 +56,18 @@ _CANDIDATE_SOURCE_ROOTS: list[str] = [
 ]
 
 
-class SourceDiscovery:
+class SourceDiscoverer:
     """
     Walk a corpus root directory and produce a list of ModuleSpec objects.
 
-    Designed to be instantiated once and called once per run.  Stateless
-    between calls — safe to reuse across multiple acquire() invocations in
-    tests.
+    Designed to be instantiated once per run and injected into the concrete
+    acquirers. Stateless between calls — safe to reuse across multiple
+    acquire() invocations in tests.
     """
 
     def discover(self, corpus_root: Path) -> list[ModuleSpec]:
         """
-        Entry point.  Walk corpus_root, find modules, return their specs.
+        Entry point. Walk corpus_root, find modules, return their specs.
 
         :param corpus_root: Absolute path to the top of the corpus on disk.
         :returns: List of ModuleSpec, one per detected module, depth-first.
@@ -157,7 +157,7 @@ class SourceDiscovery:
         Return all existing Java source root directories inside module_root.
 
         Check each path in _CANDIDATE_SOURCE_ROOTS; include those that exist
-        and are directories.  Return absolute Path objects.
+        and are directories. Return absolute Path objects.
 
         Example: for a standard Maven module —
           module_root/src/main/java  → exists → include
@@ -187,27 +187,23 @@ class SourceDiscovery:
         Build a pathspec filter by chaining .gitignore files and the fallback
         pattern set.
 
-        Chain (earlier entries take precedence for ignore semantics, but
-        pathspec.PathSpec merges them so any match = ignored):
+        Chain (merged into one PathSpec — any match = ignored):
           1. Hardcoded _FALLBACK_IGNORE_PATTERNS (always present)
           2. corpus_root/.gitignore  (if it exists)
           3. module_root/.gitignore  (if it exists and differs from corpus_root)
 
         The returned PathSpec is used to test relative paths:
-          filter.match_file("target/classes/Foo.class")  → True (ignored)
+          filter.match_file("target/classes/Foo.class")  → True  (ignored)
           filter.match_file("src/main/java/Foo.java")    → False (include)
 
         Implementation notes:
           - Read .gitignore files with Path.read_text(encoding="utf-8").
             splitlines() gives you the individual patterns.
-          - pathspec.PathSpec.from_lines("gitwildmatch", patterns) constructs
-            a spec from a list of strings.
-          - To merge multiple specs: collect all pattern lines into a single
-            list, then build one PathSpec from the combined list.  Do NOT
-            call from_lines multiple times and AND them — that doesn't work
-            with pathspec's API; merge the line lists instead.
-          - Ignore blank lines and comment lines (starting with #) when
-            reading .gitignore, though pathspec handles them gracefully anyway.
+          - Merge all pattern lines into a single list, then build one
+            PathSpec from the combined list. Do NOT build multiple PathSpec
+            objects and AND them — merge the line lists instead.
+          - pathspec.PathSpec.from_lines("gitwildmatch", all_lines) constructs
+            the filter.
 
         Python APIs you will use:
           - Path.exists(), Path.read_text()
@@ -227,7 +223,7 @@ class SourceDiscovery:
         """
         Return all .java files under source_root that pass the file_filter.
 
-        The filter operates on paths *relative to corpus_root* (that is the
+        The filter operates on paths relative to corpus_root (that is the
         convention pathspec expects when the patterns came from a repo-root
         .gitignore).
 
@@ -235,11 +231,10 @@ class SourceDiscovery:
           - Use source_root.rglob("*.java") to get all .java files.
           - For each file, compute its path relative to corpus_root:
               relative = file.relative_to(corpus_root)
-          - Call file_filter.match_file(str(relative)) — if True, the file
-            is ignored; skip it.
+          - Call file_filter.match_file(str(relative)) — if True, skip it.
           - Return the list of absolute Path objects for files that pass.
-          - Sort the result for stable ordering (deterministic graph output,
-            required by ADR-006 canonical-form sha256 contract).
+          - Sort the result for stable ordering (required by ADR-006
+            canonical-form sha256 contract).
 
         Python APIs you will use:
           - Path.rglob("*.java")
@@ -263,7 +258,7 @@ class SourceDiscovery:
         Fallback (Gradle or unreadable pom.xml): use the directory name.
 
         Parsing is intentionally minimal — a single regex on the raw text
-        rather than a full XML parse.  pom.xml is only read for the name;
+        rather than a full XML parse. pom.xml is only read for the name;
         we never need the full POM model in v1 (ADR-002: build system =
         detect + declare, no POM parsing).
         """
