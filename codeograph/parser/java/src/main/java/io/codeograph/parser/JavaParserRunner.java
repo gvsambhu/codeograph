@@ -5,9 +5,11 @@ import com.github.javaparser.ParserConfiguration;
 import com.github.javaparser.StaticJavaParser;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.Modifier;
+import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.NodeList;
 import com.github.javaparser.ast.body.*;
 import com.github.javaparser.ast.expr.*;
+import com.github.javaparser.ast.stmt.*;
 import com.github.javaparser.ast.type.ReferenceType;
 import com.github.javaparser.ast.visitor.VoidVisitorAdapter;
 import org.json.JSONArray;
@@ -17,7 +19,9 @@ import java.io.File;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -58,6 +62,33 @@ public class JavaParserRunner {
     /** Bean Validation (JSR-380) constraint annotations relevant for the graph schema. */
     private static final List<String> CONSTRAINT_ANNOTATIONS = List.of(
             "NotNull", "NotBlank", "NotEmpty", "Size", "Min", "Max", "Email", "Pattern"
+    );
+
+    /**
+     * Type names excluded from CBO (Coupling Between Objects) counting.
+     *
+     * Excludes Java primitives, boxed types, and ubiquitous java.lang / java.util
+     * classes whose presence does not indicate meaningful coupling to a domain type.
+     * Keeping this conservative avoids inflating CBO with noise.
+     *
+     * CBO reference: Chidamber & Kemerer (1994), "A Metrics Suite for Object
+     * Oriented Design", IEEE TSE 20(6), 476–493.
+     */
+    private static final Set<String> CBO_EXCLUDED_TYPES = Set.of(
+            // primitives
+            "void", "int", "long", "double", "float", "boolean", "char", "byte", "short",
+            // boxed primitives + java.lang staples
+            "String", "Object", "Integer", "Long", "Double", "Float",
+            "Boolean", "Character", "Byte", "Short", "Number",
+            // common collection containers (element type is the coupling signal, not the container)
+            "List", "Set", "Map", "Collection", "Iterable", "Optional",
+            "ArrayList", "LinkedList", "HashMap", "HashSet", "LinkedHashMap",
+            // functional / stream
+            "Stream", "Function", "Consumer", "Supplier", "Predicate", "BiFunction",
+            // misc java.lang
+            "Class", "Enum", "Record", "Comparable", "Cloneable",
+            // type-inference placeholder
+            "var"
     );
 
     public static void main(String[] args) {
@@ -104,7 +135,7 @@ public class JavaParserRunner {
      * in practice exactly one public type exists per file (Java convention).
      * We process the first type declaration found.
      */
-    private static JSONObject buildEnvelope(CompilationUnit cu, String sourceFile) {
+    static JSONObject buildEnvelope(CompilationUnit cu, String sourceFile) {
         TypeDeclaration<?> type = cu.getPrimaryType()
                 .orElseGet(() -> cu.getTypes().isEmpty() ? null : cu.getTypes().get(0));
 
@@ -238,12 +269,26 @@ public class JavaParserRunner {
         // 13. Fields
         obj.put("fields", buildFields(decl, fqcn));
 
-        // 14. Methods
-        obj.put("methods", buildMethods(decl, fqcn));
+        // 14. Methods — build first so WMC can sum cyclomatic values
+        JSONArray methodsArr = buildMethods(decl, fqcn);
+        obj.put("methods", methodsArr);
 
-        // 15. Class-level complexity metrics — null here; populated by M7
-        obj.put("wmc", JSONObject.NULL);
-        obj.put("cbo", JSONObject.NULL);
+        // 15. Class-level complexity metrics
+        // WMC (Weighted Methods per Class) = sum of method cyclomatic complexities.
+        // Reference: Chidamber & Kemerer (1994), IEEE TSE 20(6), 476–493.
+        int wmc = 0;
+        for (int i = 0; i < methodsArr.length(); i++) {
+            Object cc = methodsArr.getJSONObject(i).get("cyclomatic_complexity");
+            if (cc instanceof Integer ccInt) wmc += ccInt;
+        }
+        obj.put("wmc", wmc);
+
+        // CBO (Coupling Between Objects) = distinct non-trivial type references.
+        // Reference: Chidamber & Kemerer (1994), IEEE TSE 20(6), 476–493.
+        obj.put("cbo", computeCbo(decl));
+
+        // LCOM4 (Lack of Cohesion of Methods 4) — deferred to v1.1;
+        // requires method–field access graph which needs symbol resolution.
         obj.put("lcom4", JSONObject.NULL);
 
         return obj;
@@ -483,7 +528,7 @@ public class JavaParserRunner {
      *   constraints = annotation names that are Bean Validation constraints
      *                 (NotNull, Size, Email, Min, Max, NotBlank, NotEmpty, Pattern)
      */
-    private static JSONArray buildFields(ClassOrInterfaceDeclaration decl, String classFqcn) {
+    static JSONArray buildFields(ClassOrInterfaceDeclaration decl, String classFqcn) {
         JSONArray fields = new JSONArray();
 
         for (FieldDeclaration fieldDecl : decl.getFields()) {
@@ -648,7 +693,7 @@ public class JavaParserRunner {
      *           e.g. ["ownerRepo.findById(id)", "validator.validate(owner)"]
      *           Hint: visit MethodCallExpr nodes inside the method body
      */
-    private static JSONArray buildMethods(ClassOrInterfaceDeclaration decl, String classFqcn) {
+    static JSONArray buildMethods(ClassOrInterfaceDeclaration decl, String classFqcn) {
         JSONArray methods = new JSONArray();
         String simpleName = decl.getNameAsString();
 
@@ -699,10 +744,10 @@ public class JavaParserRunner {
             // HTTP mapping metadata (null for non-handler methods)
             mObj.put("http_metadata", buildHttpMetadata(annotationList, method.getAnnotations()));
 
-            // Complexity — null here; populated by M7
-            mObj.put("cyclomatic_complexity", JSONObject.NULL);
-            mObj.put("cognitive_complexity",  JSONObject.NULL);
-            mObj.put("method_loc",            JSONObject.NULL);
+            // Complexity metrics (McCabe 1976 for cyclomatic; Campbell/SonarSource 2018 for cognitive)
+            mObj.put("cyclomatic_complexity", computeCyclomatic(method));
+            mObj.put("cognitive_complexity",  computeCognitive(method));
+            mObj.put("method_loc",            computeMethodLoc(method));
 
             // Raw call expressions — Python uses these to build CallsEdge
             JSONArray calls = new JSONArray();
@@ -739,9 +784,9 @@ public class JavaParserRunner {
             mObj.put("response_status",   JSONObject.NULL);
             mObj.put("http_metadata",     JSONObject.NULL);
 
-            mObj.put("cyclomatic_complexity", JSONObject.NULL);
-            mObj.put("cognitive_complexity",  JSONObject.NULL);
-            mObj.put("method_loc",            JSONObject.NULL);
+            mObj.put("cyclomatic_complexity", computeCyclomatic(ctor));
+            mObj.put("cognitive_complexity",  computeCognitive(ctor));
+            mObj.put("method_loc",            computeMethodLoc(ctor));
 
             JSONArray calls = new JSONArray();
             ctor.findAll(MethodCallExpr.class).forEach(call -> calls.put(call.toString()));
@@ -927,6 +972,184 @@ public class JavaParserRunner {
         meta.put("method", httpMethod != null ? httpMethod : JSONObject.NULL);
         meta.put("path",   path);
         return meta;
+    }
+
+    // -------------------------------------------------------------------------
+    // Complexity metrics
+    // -------------------------------------------------------------------------
+
+    /**
+     * Cyclomatic complexity (McCabe 1976) for a method or constructor.
+     *
+     * V(G) = number of binary decisions + 1.
+     * Counts: if/else-if, for, enhanced-for, while, do-while, switch case labels,
+     * catch clauses, ternary expressions, and binary logical operators (&amp;&amp; / ||).
+     *
+     * Reference: McCabe, T.J. (1976). "A Complexity Measure."
+     *            IEEE Transactions on Software Engineering, 2(4), 308–320.
+     */
+    static int computeCyclomatic(Node scope) {
+        int cc = 1; // base: one unconditional execution path
+        cc += scope.findAll(IfStmt.class).size();                      // if / else-if
+        cc += scope.findAll(ForStmt.class).size();                     // for
+        cc += scope.findAll(ForEachStmt.class).size();                 // enhanced for
+        cc += scope.findAll(WhileStmt.class).size();                   // while
+        cc += scope.findAll(DoStmt.class).size();                      // do-while
+        cc += scope.findAll(CatchClause.class).size();                 // catch
+        cc += scope.findAll(ConditionalExpr.class).size();             // ternary ?:
+        cc += scope.findAll(SwitchEntry.class).stream()
+                .filter(e -> !e.getLabels().isEmpty())                 // non-default cases
+                .count();
+        cc += scope.findAll(BinaryExpr.class).stream()
+                .filter(e -> e.getOperator() == BinaryExpr.Operator.AND
+                          || e.getOperator() == BinaryExpr.Operator.OR)
+                .count();
+        return cc;
+    }
+
+    /**
+     * Cognitive complexity (Campbell / SonarSource 2018) for a method.
+     *
+     * Structural increments penalise nesting depth; logical operator sequences
+     * are counted as a unit rather than per operator.
+     *
+     * Reference: Campbell, G.A. (2018). "Cognitive Complexity: A new way of
+     *            measuring understandability." SonarSource white paper.
+     *            https://www.sonarsource.com/resources/cognitive-complexity/
+     */
+    static int computeCognitive(MethodDeclaration method) {
+        int[] acc = {0};
+        method.getBody().ifPresent(body -> traverseCognitive(body, 0, acc));
+        return acc[0];
+    }
+
+    /** Overload for constructors (body is never absent). */
+    static int computeCognitive(ConstructorDeclaration ctor) {
+        int[] acc = {0};
+        traverseCognitive(ctor.getBody(), 0, acc);
+        return acc[0];
+    }
+
+    /**
+     * Recursive AST traversal for cognitive complexity.
+     *
+     * Nesting-incrementing structures (if/for/while/do/switch/catch/lambda)
+     * each add (1 + current depth). else and else-if add 1 only (no nesting
+     * increment per spec §1.3). Logical operator sequences count as 1 per
+     * contiguous run of the same operator.
+     */
+    private static void traverseCognitive(Node node, int depth, int[] acc) {
+        for (Node child : node.getChildNodes()) {
+            if (child instanceof IfStmt ifStmt) {
+                handleIfChain(ifStmt, depth, acc);
+
+            } else if (child instanceof ForStmt
+                    || child instanceof ForEachStmt
+                    || child instanceof WhileStmt
+                    || child instanceof DoStmt
+                    || child instanceof SwitchStmt) {
+                acc[0] += 1 + depth;
+                traverseCognitive(child, depth + 1, acc);
+
+            } else if (child instanceof CatchClause) {
+                acc[0] += 1 + depth;
+                traverseCognitive(child, depth + 1, acc);
+
+            } else if (child instanceof LambdaExpr) {
+                // Lambdas add 1 and increase nesting depth for their body
+                acc[0] += 1;
+                traverseCognitive(child, depth + 1, acc);
+
+            } else if (child instanceof BinaryExpr bExpr) {
+                BinaryExpr.Operator op = bExpr.getOperator();
+                if (op == BinaryExpr.Operator.AND || op == BinaryExpr.Operator.OR) {
+                    // Count only the root of a same-operator run (not each operator in a && b && c)
+                    boolean isRunRoot = !(bExpr.getParentNode().orElse(null)
+                            instanceof BinaryExpr parent && parent.getOperator() == op);
+                    if (isRunRoot) acc[0] += 1;
+                }
+                traverseCognitive(child, depth, acc);
+
+            } else {
+                traverseCognitive(child, depth, acc);
+            }
+        }
+    }
+
+    /**
+     * Walk an if / else-if / else chain applying the SonarSource rule:
+     *   if:      +1 + nesting_depth   (structural + nesting increment)
+     *   else-if: +1                   (structural only — no nesting increment)
+     *   else:    +1                   (structural only — no nesting increment)
+     */
+    private static void handleIfChain(IfStmt root, int depth, int[] acc) {
+        boolean first = true;
+        Statement current = root;
+
+        while (current instanceof IfStmt curIf) {
+            acc[0] += first ? (1 + depth) : 1;
+            first = false;
+            traverseCognitive(curIf.getThenStmt(), depth + 1, acc);
+            if (curIf.getElseStmt().isEmpty()) break;
+            current = curIf.getElseStmt().get();
+        }
+
+        // Plain else block (current is not an IfStmt after the chain ends)
+        if (!(current instanceof IfStmt)) {
+            acc[0] += 1;
+            traverseCognitive(current, depth + 1, acc);
+        }
+    }
+
+    /**
+     * Physical lines of code for a method or constructor (begin to end inclusive).
+     * Includes blank lines and comments — use as a coarse size proxy.
+     * Fine-grained executable-line counting requires source text re-parsing (deferred).
+     */
+    static int computeMethodLoc(MethodDeclaration method) {
+        return method.getRange().map(r -> r.end.line - r.begin.line + 1).orElse(0);
+    }
+
+    /** Overload for constructors. */
+    static int computeMethodLoc(ConstructorDeclaration ctor) {
+        return ctor.getRange().map(r -> r.end.line - r.begin.line + 1).orElse(0);
+    }
+
+    /**
+     * CBO (Coupling Between Objects) — count of distinct non-trivial type names
+     * referenced in field declarations, method parameters, and method return types.
+     *
+     * Generics are stripped to the outer type name (e.g. List&lt;User&gt; → List,
+     * then excluded as a container type). Primitives and java.lang/java.util
+     * staples are excluded via CBO_EXCLUDED_TYPES.
+     *
+     * Reference: Chidamber &amp; Kemerer (1994). "A Metrics Suite for Object Oriented
+     *            Design." IEEE TSE, 20(6), 476–493.
+     */
+    static int computeCbo(ClassOrInterfaceDeclaration decl) {
+        Set<String> types = new HashSet<>();
+
+        // Field types
+        decl.getFields().forEach(f -> types.add(stripGenerics(f.getElementType().asString())));
+
+        // Method return types + parameter types
+        decl.getMethods().forEach(m -> {
+            types.add(stripGenerics(m.getTypeAsString()));
+            m.getParameters().forEach(p -> types.add(stripGenerics(p.getType().asString())));
+        });
+
+        // Constructor parameter types
+        decl.getConstructors().forEach(c ->
+                c.getParameters().forEach(p -> types.add(stripGenerics(p.getType().asString()))));
+
+        types.removeIf(t -> t.isBlank() || CBO_EXCLUDED_TYPES.contains(t));
+        return types.size();
+    }
+
+    /** Strip generic type parameters: "List&lt;User&gt;" → "List", "Map&lt;String,Long&gt;" → "Map". */
+    private static String stripGenerics(String type) {
+        int idx = type.indexOf('<');
+        return (idx >= 0 ? type.substring(0, idx) : type).trim();
     }
 
     // -------------------------------------------------------------------------
