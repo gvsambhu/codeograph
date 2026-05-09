@@ -69,3 +69,6 @@ exclude = ["codeograph/graph/models/"]
 testpaths = ["tests"]
 addopts = "-v --tb=short"
 # Use --update-goldens to refresh golden files in tests/test_golden.py
+markers = [
+    "integration: marks tests that require JVM subprocess or real JAR (deselect with -m 'not integration')",
+]
