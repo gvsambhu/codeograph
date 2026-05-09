@@ -52,6 +52,8 @@ runs/
 *.class
 hs_err_pid*.log
 replay_pid*.log
+# Maven build output
+target/
 
 # OS
 Thumbs.db

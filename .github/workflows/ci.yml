@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Python — lint, type-check, test
+  # ---------------------------------------------------------------------------
+  python:
+    name: Python (lint + typecheck + pytest)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Lint (ruff)
+        run: ruff check . && ruff format --check .
+
+      - name: Type-check (mypy)
+        run: mypy codeograph/
+
+      - name: Test (pytest)
+        run: pytest tests/ -v --tb=short
+
+  # ---------------------------------------------------------------------------
+  # Java — compile and test the parser JAR
+  # ---------------------------------------------------------------------------
+  java:
+    name: Java (mvn test)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          # Cache Maven's local repository so JUnit + JavaParser deps aren't
+          # re-downloaded on every run.
+          cache: maven
+
+      - name: Test (mvn)
+        working-directory: codeograph/parser/java
+        run: mvn test --batch-mode --no-transfer-progress
