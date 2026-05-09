@@ -9,13 +9,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from codeograph.input.acquirers.base_acquirer import BaseAcquirer
+from codeograph.input.acquirers.base_acquirer import AcquisitionError, BaseAcquirer
 from codeograph.input.source_discoverer import SourceDiscoverer
 from codeograph.input.models import AcquisitionSource, CorpusSpec
-
-
-class AcquisitionError(Exception):
-    """Raised when a local corpus path is invalid."""
 
 
 class LocalAcquirer(BaseAcquirer):

@@ -19,6 +19,7 @@ from pathlib import Path
 
 class AcquisitionSource(StrEnum):
     """How the corpus was obtained."""
+
     LOCAL = "local"
     GIT_URL = "git_url"
     ZIP = "zip"
@@ -26,6 +27,7 @@ class AcquisitionSource(StrEnum):
 
 class BuildTool(StrEnum):
     """Build system detected for a module (ADR-002)."""
+
     MAVEN = "maven"
     GRADLE = "gradle"
 
@@ -35,7 +37,7 @@ class ModuleSpec:
     """
     A single Maven/Gradle module within the corpus.
 
-    Produced by SourceDiscovery and consumed by the Parser.  All paths are
+    Produced by SourceDiscoverer and consumed by the Parser. All paths are
     absolute (discovery resolves them); the graph writer converts them to
     repo-root-relative strings before serialisation (DECISION-2).
     """
@@ -59,6 +61,11 @@ class ModuleSpec:
 
     #: Absolute path to pom.xml, or None for Gradle modules (v1 limitation per ADR-002).
     pom_path: Path | None = None
+
+    #: Absolute paths to .java files that passed the gitignore filter, across
+    #: all source roots in this module. Populated by SourceDiscoverer.discover();
+    #: the parser iterates this list directly without any further filesystem walking.
+    java_files: list[Path] = field(default_factory=list)
 
 
 @dataclass(frozen=True)

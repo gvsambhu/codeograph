@@ -13,6 +13,21 @@ from abc import ABC, abstractmethod
 from codeograph.input.models import CorpusSpec
 
 
+class AcquisitionError(Exception):
+    """
+    Raised when a corpus cannot be acquired.
+
+    Defined here so callers can catch it from a single import regardless
+    of which concrete acquirer (Local, Git, Zip) raises it::
+
+        from codeograph.input.acquirers.base_acquirer import AcquisitionError
+        try:
+            corpus = acquirer.acquire(input_spec)
+        except AcquisitionError as e:
+            ...
+    """
+
+
 class BaseAcquirer(ABC):
     """
     Abstract base for the three acquisition strategies.

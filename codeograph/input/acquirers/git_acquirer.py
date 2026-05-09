@@ -7,16 +7,14 @@ InputAcquirer.cleanup() after the pipeline run.
 
 from __future__ import annotations
 
+import shutil
+import subprocess
 import tempfile
 from pathlib import Path
 
-from codeograph.input.acquirers.base_acquirer import BaseAcquirer
+from codeograph.input.acquirers.base_acquirer import AcquisitionError, BaseAcquirer
 from codeograph.input.source_discoverer import SourceDiscoverer
 from codeograph.input.models import AcquisitionSource, CorpusSpec
-
-
-class AcquisitionError(Exception):
-    """Raised when git clone fails or git is not on PATH."""
 
 
 class GitAcquirer(BaseAcquirer):
@@ -32,27 +30,42 @@ class GitAcquirer(BaseAcquirer):
 
     def acquire(self, input_spec: str) -> CorpusSpec:
         """
-        Clone input_spec (a git URL) to a temp directory and discover modules.
+        Shallow-clone input_spec into a temp directory and discover modules.
 
-        :param input_spec: A git-clonable URL.
-                           e.g. https://github.com/spring-projects/spring-petclinic.git
-                                git@github.com:org/repo.git
-        :raises AcquisitionError: If git is not on PATH or clone fails.
+        Creates a temporary directory via tempfile.mkdtemp(), runs
+        `git clone --depth 1` into it, then delegates to SourceDiscoverer.
+        The returned CorpusSpec carries is_temp_dir=True so the pipeline
+        orchestrator knows to call InputAcquirer.cleanup() in its finally block.
 
-        Implementation notes:
-          - Create a temp dir: tmp_dir = Path(tempfile.mkdtemp())
-          - Run: subprocess.run(
+        :param input_spec: A git-clonable URL, e.g.
+                           https://github.com/spring-projects/spring-petclinic.git
+                           git@github.com:org/repo.git
+        :raises AcquisitionError: If git is not on PATH (FileNotFoundError) or
+                                   the clone fails (non-zero exit, CalledProcessError).
+                                   stderr from git is included in the message.
+                                   The temp directory is cleaned up before raising —
+                                   no orphaned directories left on failure.
+        """
+        tmp_dir: Path = Path(tempfile.mkdtemp())
+
+        try:
+            subprocess.run(
                 ["git", "clone", "--depth", "1", input_spec, str(tmp_dir)],
+                capture_output=True,
+                text=True,
                 check=True,
             )
-          - Wrap subprocess.CalledProcessError and FileNotFoundError in
-            AcquisitionError with a human-readable message.
-          - Call self._discoverer.discover(tmp_dir) for modules.
-          - Return CorpusSpec with is_temp_dir=True so the orchestrator
-            knows to call InputAcquirer.cleanup() after the run.
+        except subprocess.CalledProcessError as e:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+            raise AcquisitionError(f"git clone failed: {e.stderr.strip()}")
+        except FileNotFoundError:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+            raise AcquisitionError("git not found on PATH — install git and retry")
 
-        Python APIs:
-          subprocess.run, subprocess.CalledProcessError, tempfile.mkdtemp
-        """
-        # TODO (learner): implement git clone → temp dir → discover
-        raise NotImplementedError("GitAcquirer.acquire not yet implemented")
+        modules = self._discoverer.discover(tmp_dir)
+        return CorpusSpec(
+            acquisition_source=AcquisitionSource.GIT_URL,
+            corpus_root=tmp_dir,
+            modules=modules,
+            is_temp_dir=True,
+        )

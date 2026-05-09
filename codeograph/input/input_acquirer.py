@@ -72,6 +72,7 @@ class InputAcquirer:
 
         :param input_spec: Raw argument from `codeograph run <INPUT>`.
         :raises AcquisitionError: Propagated from the concrete acquirer.
+            Import from codeograph.input.acquirers.base_acquirer to catch it.
         """
         source_type = _detect_input_type(input_spec)
         return self._acquirers[source_type].acquire(input_spec)

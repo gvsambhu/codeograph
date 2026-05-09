@@ -5,15 +5,19 @@ Responsibilities (ADR-002):
   - Find every Maven / Gradle module within the corpus
   - Detect the build tool for each module
   - Locate Java source roots inside each module
-  - Build a pathspec file filter from .gitignore files (chain: repo root →
-    module root) plus a hardcoded fallback set
-  - Return a list[ModuleSpec] ordered by discovery (depth-first)
+  - Build two-scope gitignore filters: one corpus-level (hardcoded fallbacks +
+    corpus-root .gitignore), one per-module (module-root .gitignore only)
+  - Enumerate .java files per source root, applying both filters independently
+    at their correct scope (corpus-relative path vs. module-relative path)
+  - Return a fully-populated list[ModuleSpec] (including java_files) in
+    depth-first order — the parser receives files, not directories
 
 This class only reads the filesystem; it does not parse Java source files.
 """
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pathspec
@@ -67,18 +71,33 @@ class SourceDiscoverer:
 
     def discover(self, corpus_root: Path) -> list[ModuleSpec]:
         """
-        Entry point. Walk corpus_root, find modules, return their specs.
+        Entry point. Walk corpus_root, find all modules, and return their specs.
+
+        Loads corpus-level ignore patterns once, then for each module detects
+        the build tool, source roots, and java files (filtered via gitignore
+        chain). Each ModuleSpec is fully populated — the parser receives a
+        ready list of files, not directories to walk.
 
         :param corpus_root: Absolute path to the top of the corpus on disk.
-        :returns: List of ModuleSpec, one per detected module, depth-first.
+        :returns: One ModuleSpec per detected module, in depth-first order.
         """
         module_roots = self._find_module_roots(corpus_root)
         specs: list[ModuleSpec] = []
+        corpus_patterns: list[str] = self._load_corpus_patterns(corpus_root)
+        corpus_filter = pathspec.PathSpec.from_lines("gitwildmatch", corpus_patterns)
+
         for root in module_roots:
             build_tool = self._detect_build_tool(root)
             source_roots = self._find_source_roots(root)
             pom_path = (root / "pom.xml") if build_tool == BuildTool.MAVEN else None
             name = self._module_name(root, pom_path)
+            java_files: list[Path] = []
+
+            module_filter = self._build_module_filter(root)
+            for source_root in source_roots:
+                java_files.extend(
+                    self._list_java_files(source_root, corpus_root, root, corpus_filter, module_filter)
+                )
             specs.append(
                 ModuleSpec(
                     module_id=f"mod:{name}",
@@ -87,53 +106,55 @@ class SourceDiscoverer:
                     build_tool=build_tool,
                     source_roots=source_roots,
                     pom_path=pom_path,
+                    java_files=java_files,
                 )
             )
+
         return specs
 
+    def _recursive_find_module_roots(self, root: Path) -> list[Path]:
+        """
+        DFS walk from root; returns every directory that contains a pom.xml,
+        build.gradle, or build.gradle.kts. Skips build output and IDE
+        directories to avoid scanning generated class files.
+        """
+        results: list[Path] = []
+
+        if (
+            (root / "pom.xml").exists()
+            or (root / "build.gradle").exists()
+            or (root / "build.gradle.kts").exists()
+        ):
+            results.append(root)
+
+        for child in root.iterdir():
+            if child.is_dir() and child.name not in {"target", "build", ".git", ".idea", ".vscode"}:
+                results.extend(self._recursive_find_module_roots(child))
+
+        return results
+
     # ------------------------------------------------------------------
-    # Module root discovery  — YOU WRITE THIS
+    # Module root discovery
     # ------------------------------------------------------------------
 
     def _find_module_roots(self, corpus_root: Path) -> list[Path]:
         """
-        Recursively walk corpus_root and return the root directory of every
-        Maven / Gradle module found.
+        Return the root directory of every Maven / Gradle module under
+        corpus_root.
 
-        A module root is any directory that contains a pom.xml OR a
-        build.gradle / build.gradle.kts file.
+        Validates that corpus_root is a directory, then delegates the DFS
+        walk to _recursive_find_module_roots. Result order is depth-first
+        (parent module before its children).
 
-        Implementation notes:
-          - Use Path.rglob("pom.xml") and Path.rglob("build.gradle") to find
-            all candidate files, then take their parent directories.
-          - De-duplicate: a directory may have both pom.xml and build.gradle
-            (rare but possible). Use a set of Path objects, then sort for
-            stable ordering.
-          - Exclude paths that live inside another module's build output.
-            Simplest approach: after collecting all candidate roots, drop any
-            root whose path contains "target/" or "build/" as a path component.
-          - Return the de-duplicated list sorted by path (depth-first order
-            falls out naturally from lexicographic sort on absolute paths).
-
-        Example: given this tree —
-          my-app/
-            pom.xml               → module root
-            module-api/pom.xml    → module root
-            module-core/pom.xml   → module root
-        Returns: [my-app/, my-app/module-api/, my-app/module-core/]
-
-        Python APIs you will use:
-          - Path.rglob(pattern)  — yields Path objects matching the glob
-          - path.parent  — the directory containing a file
-          - set / sorted  — de-duplication and stable ordering
-          - path.parts   — tuple of path components, useful for the
-                           "target/" / "build/" exclusion check
+        :raises NotADirectoryError: If corpus_root is not a directory.
         """
-        # TODO (learner): implement recursive module root discovery
-        raise NotImplementedError("_find_module_roots not yet implemented")
+        if not corpus_root.is_dir():
+            raise NotADirectoryError(f"{corpus_root} is not a directory")
+
+        return self._recursive_find_module_roots(corpus_root)
 
     # ------------------------------------------------------------------
-    # Build tool detection  (AI-generated — trivial, no TODO)
+    # Build tool detection
     # ------------------------------------------------------------------
 
     @staticmethod
@@ -149,101 +170,120 @@ class SourceDiscoverer:
         return BuildTool.GRADLE
 
     # ------------------------------------------------------------------
-    # Source root detection  — YOU WRITE THIS
+    # Source root detection
     # ------------------------------------------------------------------
 
     def _find_source_roots(self, module_root: Path) -> list[Path]:
         """
         Return all existing Java source root directories inside module_root.
 
-        Check each path in _CANDIDATE_SOURCE_ROOTS; include those that exist
-        and are directories. Return absolute Path objects.
+        Checks each path in _CANDIDATE_SOURCE_ROOTS in order; includes those
+        that exist on disk. Kotlin roots are in the candidate list for
+        completeness but excluded here — they are not parsed in v1.
 
-        Example: for a standard Maven module —
-          module_root/src/main/java  → exists → include
-          module_root/src/test/java  → exists → include
-          module_root/src/main/kotlin → does not exist → skip
-
-        Implementation notes:
-          - Iterate _CANDIDATE_SOURCE_ROOTS, resolve each with
-            (module_root / candidate).
-          - Include only if candidate.is_dir().
-          - Return the list in the same order as _CANDIDATE_SOURCE_ROOTS
-            (deterministic).
-
-        Python APIs you will use:
-          - Path.__truediv__ (the / operator)
-          - Path.is_dir()
+        :returns: Absolute Path objects in _CANDIDATE_SOURCE_ROOTS order
+                  (deterministic, no sorting needed).
         """
-        # TODO (learner): implement source root detection
-        raise NotImplementedError("_find_source_roots not yet implemented")
+        result: list[Path] = []
+        for source_root_str in _CANDIDATE_SOURCE_ROOTS:
+            candidate = module_root / source_root_str
+            if source_root_str != "src/main/kotlin" and candidate.is_dir():
+                result.append(candidate)
+        return result
 
     # ------------------------------------------------------------------
-    # .gitignore-based file filter  — YOU WRITE THIS
+    # File filtering (two-scope: corpus-level + module-level)
     # ------------------------------------------------------------------
 
-    def build_file_filter(self, corpus_root: Path, module_root: Path) -> pathspec.PathSpec:
+    def _load_corpus_patterns(self, corpus_root: Path) -> list[str]:
         """
-        Build a pathspec filter by chaining .gitignore files and the fallback
-        pattern set.
+        Build the corpus-level pattern list: hardcoded fallbacks merged with
+        corpus_root/.gitignore (if present). Called once per run; the result
+        is compiled into a corpus_filter PathSpec in discover() and reused for
+        every module.
 
-        Chain (merged into one PathSpec — any match = ignored):
-          1. Hardcoded _FALLBACK_IGNORE_PATTERNS (always present)
-          2. corpus_root/.gitignore  (if it exists)
-          3. module_root/.gitignore  (if it exists and differs from corpus_root)
+        Patterns are tested against corpus-root-relative paths in
+        _list_java_files, so no path-prefix adjustment is needed here.
 
-        The returned PathSpec is used to test relative paths:
-          filter.match_file("target/classes/Foo.class")  → True  (ignored)
-          filter.match_file("src/main/java/Foo.java")    → False (include)
+        Deduplicates via dict.fromkeys to preserve insertion order without
+        repeating patterns (order matters for gitignore negation semantics).
 
-        Implementation notes:
-          - Read .gitignore files with Path.read_text(encoding="utf-8").
-            splitlines() gives you the individual patterns.
-          - Merge all pattern lines into a single list, then build one
-            PathSpec from the combined list. Do NOT build multiple PathSpec
-            objects and AND them — merge the line lists instead.
-          - pathspec.PathSpec.from_lines("gitwildmatch", all_lines) constructs
-            the filter.
-
-        Python APIs you will use:
-          - Path.exists(), Path.read_text()
-          - str.splitlines()
-          - pathspec.PathSpec.from_lines("gitwildmatch", lines)
+        :returns: Deduplicated list of gitwildmatch patterns.
         """
-        # TODO (learner): implement .gitignore chain → pathspec filter
-        raise NotImplementedError("build_file_filter not yet implemented")
+        all_patterns: list[str] = list(_FALLBACK_IGNORE_PATTERNS)
+        if (corpus_root / ".gitignore").exists():
+            all_patterns.extend(
+                (corpus_root / ".gitignore").read_text(encoding="utf-8").splitlines()
+            )
+        return list(dict.fromkeys(all_patterns))
+
+    def _build_module_filter(self, module_root: Path) -> pathspec.PathSpec:
+        """
+        Build a module-scoped pathspec filter from module_root/.gitignore only.
+
+        This filter is intentionally separate from the corpus filter. Patterns
+        here are tested against module-root-relative paths in _list_java_files,
+        so they are correctly scoped to this module's subtree and cannot
+        accidentally match files in sibling modules.
+
+        Example — module-core/.gitignore contains "generated/":
+          module_filter.match_file("src/main/generated/Foo.java") → True  (ignored)
+          # module-api's files are never tested against this filter
+
+        Returns an empty PathSpec (matches nothing) when no .gitignore exists.
+        """
+        patterns: list[str] = []
+        module_gitignore = module_root / ".gitignore"
+        if module_gitignore.exists():
+            patterns = module_gitignore.read_text(encoding="utf-8").splitlines()
+        return pathspec.PathSpec.from_lines("gitwildmatch", patterns)
 
     # ------------------------------------------------------------------
-    # Java file listing  — YOU WRITE THIS
+    # Java file listing
     # ------------------------------------------------------------------
 
-    def list_java_files(
-        self, source_root: Path, corpus_root: Path, file_filter: pathspec.PathSpec
+    def _list_java_files(
+        self,
+        source_root: Path,
+        corpus_root: Path,
+        module_root: Path,
+        corpus_filter: pathspec.PathSpec,
+        module_filter: pathspec.PathSpec,
     ) -> list[Path]:
         """
-        Return all .java files under source_root that pass the file_filter.
+        Return all .java files under source_root that pass both scope filters.
 
-        The filter operates on paths relative to corpus_root (that is the
-        convention pathspec expects when the patterns came from a repo-root
-        .gitignore).
+        Two-scope filtering (ADR-002): each file is tested at the correct path
+        scope for each filter layer.
 
-        Implementation notes:
-          - Use source_root.rglob("*.java") to get all .java files.
-          - For each file, compute its path relative to corpus_root:
-              relative = file.relative_to(corpus_root)
-          - Call file_filter.match_file(str(relative)) — if True, skip it.
-          - Return the list of absolute Path objects for files that pass.
-          - Sort the result for stable ordering (required by ADR-006
-            canonical-form sha256 contract).
+          corpus_filter  ← tested against path relative to corpus_root
+                           catches patterns from hardcoded list and corpus .gitignore
+                           e.g. "module-core/target/Foo.class"
 
-        Python APIs you will use:
-          - Path.rglob("*.java")
-          - Path.relative_to(base)
-          - pathspec.PathSpec.match_file(path_str)
-          - sorted(...)
+          module_filter  ← tested against path relative to module_root
+                           catches patterns from module-level .gitignore only,
+                           scoped to this module — cannot affect sibling modules
+                           e.g. "src/main/generated/Foo.java"
+
+        A file is kept only if neither filter matches. Result is sorted for
+        stable ordering (ADR-006 canonical-form sha256 contract).
+
+        :param source_root: A single source root dir, e.g. module/src/main/java.
+        :param corpus_root: Corpus root; anchors corpus-relative path computation.
+        :param module_root: Module root; anchors module-relative path computation.
+        :param corpus_filter: PathSpec from hardcoded fallbacks + corpus .gitignore.
+        :param module_filter: PathSpec from module-level .gitignore only.
+        :returns: Sorted list of absolute Path objects for .java files that pass both filters.
         """
-        # TODO (learner): implement filtered Java file walk
-        raise NotImplementedError("list_java_files not yet implemented")
+        results = []
+        for file in source_root.rglob("*.java"):
+            corpus_rel = file.relative_to(corpus_root)
+            module_rel = file.relative_to(module_root)
+            if not corpus_filter.match_file(str(corpus_rel)) and not module_filter.match_file(
+                str(module_rel)
+            ):
+                results.append(file)
+        return sorted(results)
 
     # ------------------------------------------------------------------
     # Module name helper  (AI-generated — no TODO)
@@ -263,7 +303,6 @@ class SourceDiscoverer:
         detect + declare, no POM parsing).
         """
         if pom_path is not None and pom_path.exists():
-            import re
             text = pom_path.read_text(encoding="utf-8", errors="replace")
             # Match the first <artifactId> that is a direct child of <project>
             # (not inside <dependency> or <parent>).

@@ -7,26 +7,24 @@ InputAcquirer.cleanup() after the pipeline run.
 
 from __future__ import annotations
 
+import shutil
 import tempfile
+import zipfile
 from pathlib import Path
 
-from codeograph.input.acquirers.base_acquirer import BaseAcquirer
-from codeograph.input.source_discoverer import SourceDiscoverer
+from codeograph.input.acquirers.base_acquirer import AcquisitionError, BaseAcquirer
 from codeograph.input.models import AcquisitionSource, CorpusSpec
-
-
-class AcquisitionError(Exception):
-    """Raised when the zip file is invalid or extraction fails."""
+from codeograph.input.source_discoverer import SourceDiscoverer
 
 
 class ZipAcquirer(BaseAcquirer):
     """
     Extract a zip archive to a temp directory and discover modules.
 
-    Handles the common case where the zip contains a single top-level
-    directory (e.g. GitHub "Download ZIP" archives produce
-    repo-main/ inside the zip). In that case the inner directory is
-    used as corpus_root, not the bare extraction directory.
+    The extraction directory itself is used as corpus_root. GitHub
+    "Download ZIP" archives that produce a single inner directory
+    (e.g. repo-main/) are handled correctly by SourceDiscoverer's DFS —
+    it will locate modules inside that inner directory automatically.
     """
 
     def __init__(self, discoverer: SourceDiscoverer) -> None:
@@ -34,27 +32,37 @@ class ZipAcquirer(BaseAcquirer):
 
     def acquire(self, input_spec: str) -> CorpusSpec:
         """
-        Extract input_spec (a local .zip path) to a temp directory and
-        discover modules.
+        Validate, extract, and discover modules from a local .zip archive.
+
+        Resolves and validates the zip path, extracts into a temp directory,
+        then delegates to SourceDiscoverer. The returned CorpusSpec carries
+        is_temp_dir=True so the pipeline orchestrator knows to call
+        InputAcquirer.cleanup() in its finally block.
 
         :param input_spec: Absolute or relative path to a .zip file.
         :raises AcquisitionError: If the path does not exist, is not a file,
-                                   or is not a valid zip archive.
-
-        Implementation notes:
-          - Validate: zip_path = Path(input_spec); check .exists() and .is_file()
-          - Create temp dir: tmp_dir = Path(tempfile.mkdtemp())
-          - Extract: with zipfile.ZipFile(zip_path) as zf: zf.extractall(tmp_dir)
-          - Wrap zipfile.BadZipFile in AcquisitionError.
-          - Single-top-level-dir pattern: list tmp_dir.iterdir(); if exactly one
-            entry exists and it is a directory, use that entry as corpus_root.
-            Otherwise use tmp_dir directly.
-          - Call self._discoverer.discover(corpus_root) for modules.
-          - Return CorpusSpec with is_temp_dir=True.
-
-        Python APIs:
-          zipfile.ZipFile, zipfile.BadZipFile, tempfile.mkdtemp,
-          Path.iterdir(), Path.is_dir()
+                                   or is not a valid zip archive. The temp
+                                   directory is cleaned up before raising.
         """
-        # TODO (learner): implement zip extract → temp dir → discover
-        raise NotImplementedError("ZipAcquirer.acquire not yet implemented")
+        zip_path = Path(input_spec).resolve()
+        if not zip_path.exists():
+            raise AcquisitionError(f"Path does not exist: {input_spec}")
+        if not zip_path.is_file():
+            raise AcquisitionError(f"Not a file: {input_spec}")
+
+        tmp_dir: Path = Path(tempfile.mkdtemp())
+
+        try:
+            with zipfile.ZipFile(zip_path) as zf:
+                zf.extractall(tmp_dir)
+        except zipfile.BadZipFile:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+            raise AcquisitionError(f"Invalid or corrupt zip file: {zip_path}")
+
+        modules = self._discoverer.discover(tmp_dir)
+        return CorpusSpec(
+            acquisition_source=AcquisitionSource.ZIP,
+            corpus_root=tmp_dir,
+            modules=modules,
+            is_temp_dir=True,
+        )
