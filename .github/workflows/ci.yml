@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, "dev/**"]
   pull_request:
     branches: [main]
 
@@ -12,7 +12,8 @@ jobs:
   # ---------------------------------------------------------------------------
   python:
     name: Python (lint + typecheck + pytest)
-    runs-on: ubuntu-latest
+    # Pin OS for reproducibility (ADR-007 §8 reproducibility envelope).
+    runs-on: ubuntu-22.04
 
     steps:
       - uses: actions/checkout@v4
@@ -21,6 +22,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+          cache: pip
 
       - name: Install dependencies
         run: pip install -e ".[dev]"
@@ -31,8 +33,10 @@ jobs:
       - name: Type-check (mypy)
         run: mypy codeograph/
 
-      - name: Test (pytest)
-        run: pytest tests/ -v --tb=short
+      - name: Test (pytest — unit only)
+        # Exclude integration tests: those require a live JVM + parser.jar
+        # and run in the separate 'java' job below.
+        run: pytest -m "not integration" --tb=short
 
   # ---------------------------------------------------------------------------
   # Java — compile and test the parser JAR
