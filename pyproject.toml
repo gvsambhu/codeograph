@@ -72,3 +72,14 @@ addopts = "-v --tb=short"
 markers = [
     "integration: marks tests that require JVM subprocess or real JAR (deselect with -m 'not integration')",
 ]
+
+# ---------------------------------------------------------------------------
+# External version pins (non-Python deps, per ADR-006 canonical-form clause)
+# Bumping any entry here is an explicit upgrade event that triggers a goldens
+# refresh (pytest --update-goldens) before the commit can land.
+# ---------------------------------------------------------------------------
+[tool.codeograph.versions]
+# JavaParser — Java AST library used by codeograph/parser/java (ADR-003).
+# Source of truth: codeograph/parser/java/pom.xml <javaparser.version>.
+# Bundled as: codeograph/parser/lib/parser.jar (shaded fat JAR).
+javaparser = "3.26.2"
