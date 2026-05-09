@@ -6,6 +6,13 @@ on:
   pull_request:
     branches: [main]
 
+# Reproducibility envelope (ADR-007 §8): deterministic timezone, locale, and
+# hash seed so golden-graph byte comparisons are stable across runs and machines.
+env:
+  TZ: UTC
+  LC_ALL: C.UTF-8
+  PYTHONHASHSEED: "0"
+
 jobs:
   # ---------------------------------------------------------------------------
   # Python — lint, type-check, test
@@ -43,7 +50,7 @@ jobs:
   # ---------------------------------------------------------------------------
   java:
     name: Java (mvn test)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
 
     steps:
       - uses: actions/checkout@v4
