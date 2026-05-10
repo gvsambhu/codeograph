@@ -19,6 +19,7 @@ import java.io.File;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -697,9 +698,9 @@ public class JavaParserRunner {
         JSONArray methods = new JSONArray();
         String simpleName = decl.getNameAsString();
 
-        // Collect declared field simple-names once — used to populate accessed_fields on
-        // each method below. computeLcom4 reads accessed_fields from the finished methodsArr
-        // so it never has to re-visit the AST (Option B design decision).
+        // Collect declared field simple-names once — used to detect which fields each
+        // method accesses (populated as accessed_fields on every method and constructor
+        // below). computeLcom4 reads these arrays from the finished methodsArr.
         Set<String> declaredFieldNames = new HashSet<>();
         for (FieldDeclaration fd : decl.getFields()) {
             for (VariableDeclarator vd : fd.getVariables()) {
@@ -765,15 +766,27 @@ public class JavaParserRunner {
             mObj.put("calls", calls);
 
             // accessed_fields: names of fields declared in this class that this method
-            // reads or writes. computeLcom4 reads this to build the shared-field edge
-            // without re-visiting the AST (Option B).
-            // TODO (learner): walk the method body for field accesses and collect unique
-            //   hits against declaredFieldNames. Two node types to check:
-            //     method.findAll(NameExpr.class)        — bare name reads: balance, order
-            //     method.findAll(FieldAccessExpr.class) — explicit this.balance writes
-            //   For each found name: if (declaredFieldNames.contains(name)) add to set,
-            //   then convert the set to a JSONArray and assign to accessedFields.
+            // reads or writes. Walks the method body for NameExpr (bare field reads:
+            // `balance`) and FieldAccessExpr (explicit `this.balance` writes). Unique
+            // hits against declaredFieldNames are collected into a set to deduplicate,
+            // then emitted as a JSONArray. computeLcom4 reads this key to build shared-
+            // field edges without re-visiting the AST (Option B).
             JSONArray accessedFields = new JSONArray();
+            Set<String> accessedFieldSet = new HashSet<>();
+
+            for (NameExpr ne : method.findAll(NameExpr.class)) {
+                String name = ne.getNameAsString();
+                if (declaredFieldNames.contains(name))
+                    accessedFieldSet.add(name);
+            }
+            for (FieldAccessExpr fae : method.findAll(FieldAccessExpr.class)) {
+                String name = fae.getNameAsString();
+                if (declaredFieldNames.contains(name))
+                    accessedFieldSet.add(name);
+            }
+            for (String name : accessedFieldSet) {
+                accessedFields.put(name);
+            }
             mObj.put("accessed_fields", accessedFields);
 
             methods.put(mObj);
@@ -814,11 +827,24 @@ public class JavaParserRunner {
             ctor.findAll(MethodCallExpr.class).forEach(call -> calls.put(call.toString()));
             mObj.put("calls", calls);
 
-            // Same accessed_fields logic as regular methods above — constructors
-            // participate in LCOM4 per ADR-004 §3.5.
-            // TODO (learner): same field-access walk as the regular method block above,
-            //   but use ctor.findAll(...) instead of method.findAll(...).
+            // accessed_fields: same field-access walk as regular methods above.
+            // Constructors participate in LCOM4 per ADR-004 §3.5.
             JSONArray accessedFields = new JSONArray();
+            Set<String> accessedFieldSet = new HashSet<>();
+
+            for (NameExpr ne : ctor.findAll(NameExpr.class)) {
+                String name = ne.getNameAsString();
+                if (declaredFieldNames.contains(name))
+                    accessedFieldSet.add(name);
+            }
+            for (FieldAccessExpr fae : ctor.findAll(FieldAccessExpr.class)) {
+                String name = fae.getNameAsString();
+                if (declaredFieldNames.contains(name))
+                    accessedFieldSet.add(name);
+            }
+            for (String name : accessedFieldSet) {
+                accessedFields.put(name);
+            }
             mObj.put("accessed_fields", accessedFields);
 
             methods.put(mObj);
@@ -1218,41 +1244,129 @@ public class JavaParserRunner {
         int n = methods.size();
         if (n <= 1) return 1; // 0 or 1 methods → trivially one component
 
-        // --- Step 2: build adjacency matrix ---
-        // graph[i][j] == true means method i and method j share an edge.
-        boolean[][] graph = new boolean[n][n];
+        // --- Step 2: build adjacency list ---
+        // adj.get(i) holds the set of node indices directly connected to i.
+        // Using Set<Integer> per node avoids duplicate edges from the pair loop.
+        List<Set<Integer>> adj = new ArrayList<>(n);
+        for (int i = 0; i < n; i++) adj.add(new HashSet<>());
 
         for (int i = 0; i < n; i++) {
             JSONArray fieldsI = methods.get(i).optJSONArray("accessed_fields");
             JSONArray callsI  = methods.get(i).optJSONArray("calls");
             String    nameI   = methods.get(i).optString("name");
 
+            Set<String> fieldsISet = new HashSet<>();
+            for (int j = 0; j < fieldsI.length(); j++) {
+                fieldsISet.add(fieldsI.getString(j));
+            }
+
+            Set<String> calleesI = new HashSet<>();
+            for (int j = 0; j < callsI.length(); j++) {
+                calleesI.add(extractCalleeName(callsI.getString(j)));
+            }
+
             for (int j = i + 1; j < n; j++) {
                 JSONArray fieldsJ = methods.get(j).optJSONArray("accessed_fields");
                 JSONArray callsJ  = methods.get(j).optJSONArray("calls");
                 String    nameJ   = methods.get(j).optString("name");
 
+                Set<String> calleesJ = new HashSet<>();
+                for (int k = 0; k < callsJ.length(); k++) {
+                    calleesJ.add(extractCalleeName(callsJ.getString(k)));
+                }
+
                 // (a) Shared-field edge
-                // TODO (learner): determine whether fieldsI and fieldsJ share at least
-                //   one common name. If yes, set graph[i][j] = graph[j][i] = true.
-                //   Hint: load fieldsI into a Set<String>, then iterate fieldsJ checking
-                //   sharedFieldNames.contains(name).
+                boolean found = false;
+                for (int k = 0; k < fieldsJ.length(); k++) {
+                    if (fieldsISet.contains(fieldsJ.getString(k))) {
+                        adj.get(i).add(j);
+                        adj.get(j).add(i);
+                        found = true;
+                        break;
+                    }
+                }
 
                 // (b) Direct-call edge
-                // TODO (learner): determine whether callsI contains an unscoped call to
-                //   nameJ, OR callsJ contains an unscoped call to nameI.
-                //   If yes, set graph[i][j] = graph[j][i] = true.
-                //   Hint: an unscoped call for name "foo" starts with "foo(" or "this.foo(".
-                //   Use a helper like: callsContain(callsI, nameJ) || callsContain(callsJ, nameI)
+                if (!found && (calleesI.contains(nameJ) || calleesJ.contains(nameI))) {
+                    adj.get(i).add(j);
+                    adj.get(j).add(i);
+                }
             }
         }
 
         // --- Step 3: count connected components ---
-        // TODO (learner): implement a connected-components algorithm on graph[n][n].
-        //   Return the number of components. Every unvisited node starts a new component.
-        //   Choose your approach — BFS, DFS, or union-find — and implement it here.
-        //   Contract: return value >= 1 (the n <= 1 early-return above handles n == 0 and n == 1).
-        return 0; // placeholder — replace with connected-components result once implemented
+        return countComponents(adj, n);
+    }
+
+    /**
+     * Count weakly connected components using union-by-size on an adjacency list.
+     *
+     * <p>Each node starts in its own component set. For every edge (i, j), the
+     * smaller component is merged into the larger one (union by size); all nodes
+     * in the absorbed set have their map entry updated to the surviving set.
+     * Total merge work is O(n log n); traversal is O(n + E).
+     *
+     * <p>Contract: returns &gt;= 1. Caller guarantees {@code n >= 2}.
+     *
+     * @param adj adjacency list — {@code adj.get(i)} is the set of neighbors of i
+     * @param n   number of nodes
+     * @return number of connected components (LCOM4 value)
+     */
+    static int countComponents(List<Set<Integer>> adj, int n) {
+        // Each node starts in its own component: nodeToComponent[i] = Set{i}.
+        // All sets for nodes in the same component point to the same Set object,
+        // so a single map lookup is enough to find a node's current component.
+        @SuppressWarnings("unchecked")
+        Set<Integer>[] nodeToComponent = new Set[n];
+        for (int i = 0; i < n; i++) {
+            Set<Integer> s = new HashSet<>();
+            s.add(i);
+            nodeToComponent[i] = s;
+        }
+
+        for (int i = 0; i < n; i++) {
+            for (int j : adj.get(i)) {
+                Set<Integer> ci = nodeToComponent[i];
+                Set<Integer> cj = nodeToComponent[j];
+                if (ci == cj) continue; // already in the same component
+
+                // Union by size: absorb smaller into larger.
+                Set<Integer> bigger  = ci.size() >= cj.size() ? ci : cj;
+                Set<Integer> smaller = ci.size() >= cj.size() ? cj : ci;
+
+                bigger.addAll(smaller);
+                for (int node : smaller) {
+                    nodeToComponent[node] = bigger;
+                }
+            }
+        }
+
+        // Unique Set object references remaining = number of components.
+        return (int) java.util.Arrays.stream(nodeToComponent).distinct().count();
+    }
+
+    /**
+     * Extract the simple callee name from a raw {@link MethodCallExpr#toString()} string.
+     *
+     * <p>Strips everything before (and including) the last dot, and everything
+     * from the first opening parenthesis onward:
+     * <pre>
+     *   "clean()"                  → "clean"
+     *   "validate(owner)"          → "validate"
+     *   "this.save(user)"          → "save"
+     *   "ownerRepo.findById(id)"   → "findById"
+     *   "System.out.println(x)"    → "println"
+     * </pre>
+     *
+     * <p>Note: cross-object calls (e.g. {@code repo.save()}) yield only the method
+     * name, so a false-positive edge is possible when the class declares a method
+     * with the same name. Acceptable for v1 name-based LCOM4 without a symbol solver.
+     */
+    static String extractCalleeName(String call) {
+        int parenIdx = call.indexOf('(');
+        if (parenIdx < 0) return call;                  // malformed — return as-is
+        int dotIdx = call.lastIndexOf('.', parenIdx);
+        return call.substring(dotIdx + 1, parenIdx);
     }
 
     /** Strip generic type parameters: "List&lt;User&gt;" → "List", "Map&lt;String,Long&gt;" → "Map". */

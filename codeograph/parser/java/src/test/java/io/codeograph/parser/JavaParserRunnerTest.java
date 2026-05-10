@@ -599,7 +599,7 @@ class JavaParserRunnerTest {
             ClassOrInterfaceDeclaration decl =
                     cu.findFirst(ClassOrInterfaceDeclaration.class).orElseThrow();
             JSONArray methods = JavaParserRunner.buildMethods(decl, "com.example.BankAccount");
-            // TODO (learner): assertEquals(1, JavaParserRunner.computeLcom4(methods));
+            assertEquals(1, JavaParserRunner.computeLcom4(methods));
         }
 
         @Test
@@ -608,7 +608,7 @@ class JavaParserRunnerTest {
             ClassOrInterfaceDeclaration decl =
                     cu.findFirst(ClassOrInterfaceDeclaration.class).orElseThrow();
             JSONArray methods = JavaParserRunner.buildMethods(decl, "com.example.MixedService");
-            // TODO (learner): assertEquals(2, JavaParserRunner.computeLcom4(methods));
+            assertEquals(2, JavaParserRunner.computeLcom4(methods));
         }
 
         @Test
@@ -617,7 +617,7 @@ class JavaParserRunnerTest {
             ClassOrInterfaceDeclaration decl =
                     cu.findFirst(ClassOrInterfaceDeclaration.class).orElseThrow();
             JSONArray methods = JavaParserRunner.buildMethods(decl, "com.example.ApplicationFacade");
-            // TODO (learner): assertTrue(JavaParserRunner.computeLcom4(methods) >= 3);
+            assertTrue(JavaParserRunner.computeLcom4(methods) >= 3);
         }
     }
 
