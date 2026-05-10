@@ -287,9 +287,9 @@ public class JavaParserRunner {
         // Reference: Chidamber & Kemerer (1994), IEEE TSE 20(6), 476–493.
         obj.put("cbo", computeCbo(decl));
 
-        // LCOM4 (Lack of Cohesion of Methods 4) — deferred to v1.1;
-        // requires method–field access graph which needs symbol resolution.
-        obj.put("lcom4", JSONObject.NULL);
+        // LCOM4 (Lack of Cohesion of Methods 4) — Hitz & Montazeri (1995).
+        // Reads accessed_fields + calls from the finished methodsArr (Option B).
+        obj.put("lcom4", computeLcom4(methodsArr));
 
         return obj;
     }
@@ -697,6 +697,16 @@ public class JavaParserRunner {
         JSONArray methods = new JSONArray();
         String simpleName = decl.getNameAsString();
 
+        // Collect declared field simple-names once — used to populate accessed_fields on
+        // each method below. computeLcom4 reads accessed_fields from the finished methodsArr
+        // so it never has to re-visit the AST (Option B design decision).
+        Set<String> declaredFieldNames = new HashSet<>();
+        for (FieldDeclaration fd : decl.getFields()) {
+            for (VariableDeclarator vd : fd.getVariables()) {
+                declaredFieldNames.add(vd.getNameAsString());
+            }
+        }
+
         // --- Regular methods ---
         for (MethodDeclaration method : decl.getMethods()) {
             JSONObject mObj = new JSONObject();
@@ -754,6 +764,18 @@ public class JavaParserRunner {
             method.findAll(MethodCallExpr.class).forEach(call -> calls.put(call.toString()));
             mObj.put("calls", calls);
 
+            // accessed_fields: names of fields declared in this class that this method
+            // reads or writes. computeLcom4 reads this to build the shared-field edge
+            // without re-visiting the AST (Option B).
+            // TODO (learner): walk the method body for field accesses and collect unique
+            //   hits against declaredFieldNames. Two node types to check:
+            //     method.findAll(NameExpr.class)        — bare name reads: balance, order
+            //     method.findAll(FieldAccessExpr.class) — explicit this.balance writes
+            //   For each found name: if (declaredFieldNames.contains(name)) add to set,
+            //   then convert the set to a JSONArray and assign to accessedFields.
+            JSONArray accessedFields = new JSONArray();
+            mObj.put("accessed_fields", accessedFields);
+
             methods.put(mObj);
         }
 
@@ -791,6 +813,13 @@ public class JavaParserRunner {
             JSONArray calls = new JSONArray();
             ctor.findAll(MethodCallExpr.class).forEach(call -> calls.put(call.toString()));
             mObj.put("calls", calls);
+
+            // Same accessed_fields logic as regular methods above — constructors
+            // participate in LCOM4 per ADR-004 §3.5.
+            // TODO (learner): same field-access walk as the regular method block above,
+            //   but use ctor.findAll(...) instead of method.findAll(...).
+            JSONArray accessedFields = new JSONArray();
+            mObj.put("accessed_fields", accessedFields);
 
             methods.put(mObj);
         }
@@ -1144,6 +1173,86 @@ public class JavaParserRunner {
 
         types.removeIf(t -> t.isBlank() || CBO_EXCLUDED_TYPES.contains(t));
         return types.size();
+    }
+
+    /**
+     * LCOM4 (Lack of Cohesion of Methods 4).
+     *
+     * <p>Graph definition (Hitz &amp; Montazeri 1995):
+     * <ul>
+     *   <li>Nodes  = all non-static methods and constructors in the class.</li>
+     *   <li>Edges  = an edge between M_i and M_j when:
+     *     <ul>
+     *       <li>(a) they share at least one accessed field, OR</li>
+     *       <li>(b) one directly calls the other (unscoped or this. call).</li>
+     *     </ul>
+     *   </li>
+     *   <li>LCOM4  = number of weakly connected components. 1 = fully cohesive.</li>
+     * </ul>
+     *
+     * <p>Reads from the already-built {@code methodsArr} — each entry carries
+     * {@code accessed_fields} (field-access walk, populated in buildMethods),
+     * {@code calls} (raw call expressions), {@code modifiers}, and {@code name}.
+     * No AST re-visit required (Option B).
+     *
+     * <p>Reference: Hitz, M. &amp; Montazeri, B. (1995). "Measuring Coupling and
+     * Cohesion In Object-Oriented Systems." Proc. Int. Symp. Applied Corporate Computing.
+     */
+    static int computeLcom4(JSONArray methodsArr) {
+
+        // --- Step 1: collect non-static methods ---
+        // Static methods are excluded: they don't participate in instance cohesion.
+        List<JSONObject> methods = new ArrayList<>();
+        for (int i = 0; i < methodsArr.length(); i++) {
+            JSONObject m = methodsArr.getJSONObject(i);
+            JSONArray mods = m.optJSONArray("modifiers");
+            boolean isStatic = false;
+            if (mods != null) {
+                for (int k = 0; k < mods.length(); k++) {
+                    if ("static".equals(mods.getString(k))) { isStatic = true; break; }
+                }
+            }
+            if (!isStatic) methods.add(m);
+        }
+
+        int n = methods.size();
+        if (n <= 1) return 1; // 0 or 1 methods → trivially one component
+
+        // --- Step 2: build adjacency matrix ---
+        // graph[i][j] == true means method i and method j share an edge.
+        boolean[][] graph = new boolean[n][n];
+
+        for (int i = 0; i < n; i++) {
+            JSONArray fieldsI = methods.get(i).optJSONArray("accessed_fields");
+            JSONArray callsI  = methods.get(i).optJSONArray("calls");
+            String    nameI   = methods.get(i).optString("name");
+
+            for (int j = i + 1; j < n; j++) {
+                JSONArray fieldsJ = methods.get(j).optJSONArray("accessed_fields");
+                JSONArray callsJ  = methods.get(j).optJSONArray("calls");
+                String    nameJ   = methods.get(j).optString("name");
+
+                // (a) Shared-field edge
+                // TODO (learner): determine whether fieldsI and fieldsJ share at least
+                //   one common name. If yes, set graph[i][j] = graph[j][i] = true.
+                //   Hint: load fieldsI into a Set<String>, then iterate fieldsJ checking
+                //   sharedFieldNames.contains(name).
+
+                // (b) Direct-call edge
+                // TODO (learner): determine whether callsI contains an unscoped call to
+                //   nameJ, OR callsJ contains an unscoped call to nameI.
+                //   If yes, set graph[i][j] = graph[j][i] = true.
+                //   Hint: an unscoped call for name "foo" starts with "foo(" or "this.foo(".
+                //   Use a helper like: callsContain(callsI, nameJ) || callsContain(callsJ, nameI)
+            }
+        }
+
+        // --- Step 3: count connected components ---
+        // TODO (learner): implement a connected-components algorithm on graph[n][n].
+        //   Return the number of components. Every unvisited node starts a new component.
+        //   Choose your approach — BFS, DFS, or union-find — and implement it here.
+        //   Contract: return value >= 1 (the n <= 1 early-return above handles n == 0 and n == 1).
+        return 0; // placeholder — replace with connected-components result once implemented
     }
 
     /** Strip generic type parameters: "List&lt;User&gt;" → "List", "Map&lt;String,Long&gt;" → "Map". */
