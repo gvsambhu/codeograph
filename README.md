@@ -17,7 +17,15 @@ pip install -e ".[dev]"
 codeograph run /path/to/java/project --out ./out
 ```
 
-Outputs `out/graph.json` (canonical knowledge graph) and `out/manifest.json` (schema versions + SHA-256). Input can also be a git URL or a `.zip` archive.
+Output (three files — always start from `manifest.json`):
+
+| File | Description |
+|---|---|
+| `out/manifest.json` | Entry point: schema versions + SHA-256 of each artefact |
+| `out/graph.json` | Deterministic AST graph — nodes, edges, complexity metrics |
+| `out/llm-annotations.json` | LLM semantic enrichment (DC2+; `sha256: null` in DC1 `--ast-only` output) |
+
+Input can be a local directory path, a git URL, or a `.zip` archive.
 
 ## Running tests
 
@@ -51,6 +59,12 @@ tests/
   goldens/tier1/               stored golden graphs (byte-equal regression)
   ...                          unit tests mirror codeograph/ layout
 ```
+
+## Limitations (v1)
+
+- **Maven-only classpath resolution.** Gradle projects are detected and source files are parsed, but classpath resolution falls back to source-only mode. Method-call resolution is lower fidelity for Gradle inputs until v1.1.
+- **No LLM enrichment.** `--ast-only` is the only supported mode in DC1. Semantic annotations and domain decomposition land in DC2.
+- **No rendering.** TypeScript/NestJS and Go renderers are planned for later deliveries.
 
 ## Documentation
 
