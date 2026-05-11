@@ -25,7 +25,7 @@
         <orgjson.version>20240303</orgjson.version>
         <junit.version>5.10.2</junit.version>
         <spotless.version>2.43.0</spotless.version>
-        <google-java-format.version>1.22.0</google-java-format.version>
+        <eclipse-jdt-formatter.version>4.33</eclipse-jdt-formatter.version>
     </properties>
 
     <dependencies>
@@ -92,9 +92,10 @@
                     </execution>
                 </executions>
             </plugin>
-            <!-- Spotless — enforces google-java-format (AOSP/4-space style).
+            <!-- Spotless — enforces Eclipse JDT formatter (same engine VS Code Red Hat Java uses).
+                 Works on any JDK including JDK 25+ (no javac internal API dependency).
                  Not bound to any lifecycle; invoked explicitly via CI and Makefile.
-                 Apply locally:  mvn spotless:apply  (run once on first setup)
+                 Apply locally:  mvn spotless:apply
                  Check (CI):     mvn spotless:check -->
             <plugin>
                 <groupId>com.diffplug.spotless</groupId>
@@ -102,10 +103,9 @@
                 <version>${spotless.version}</version>
                 <configuration>
                     <java>
-                        <googleJavaFormat>
-                            <version>${google-java-format.version}</version>
-                            <style>AOSP</style>
-                        </googleJavaFormat>
+                        <eclipse>
+                            <version>${eclipse-jdt-formatter.version}</version>
+                        </eclipse>
                         <removeUnusedImports/>
                         <trimTrailingWhitespace/>
                         <endWithNewline/>

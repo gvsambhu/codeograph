@@ -34,14 +34,14 @@
     // ---------------------------------------------------------------------------
     // Editor — keep Java and Python formatting consistent with project style
     // ---------------------------------------------------------------------------
-    // Java format-on-save disabled — Spotless (google-java-format AOSP) is the
-    // formatter of record. Run 'make format-java' or 'mvn spotless:apply' instead.
-    // VS Code's built-in Eclipse formatter diverges from google-java-format; keeping
-    // them separate prevents CI (spotless:check) from seeing drift after editor saves.
+    // Java format-on-save enabled — VS Code Red Hat Java and Spotless both use the
+    // Eclipse JDT formatter engine, so editor saves and 'mvn spotless:check' in CI
+    // are consistent. No separate apply step needed.
     "[java]": {
         "editor.tabSize": 4,
         "editor.insertSpaces": true,
-        "editor.formatOnSave": false
+        "editor.defaultFormatter": "redhat.java",
+        "editor.formatOnSave": true
     },
     "[python]": {
         "editor.defaultFormatter": "charliermarsh.ruff",
