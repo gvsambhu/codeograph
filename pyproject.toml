@@ -45,7 +45,7 @@ dev = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["codeograph"]
-# JavaParser JAR bundled at codeograph/parser/lib/javaparser-core-<version>.jar
+# parser.jar (shaded fat JAR) bundled at codeograph/parser/lib/parser.jar
 # Included automatically via the packages glob above.
 
 [tool.ruff]
