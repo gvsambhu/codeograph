@@ -50,11 +50,16 @@ packages = ["codeograph"]
 
 [tool.ruff]
 target-version = "py312"
-line-length = 100
+line-length = 120
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP"]
 ignore = []
+
+[tool.ruff.lint.per-file-ignores]
+# Schema model files use long Pydantic Field(description=...) strings that are
+# intentional documentation — wrapping them harms readability.
+"codeograph/graph/models/*.py" = ["E501"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["codeograph"]

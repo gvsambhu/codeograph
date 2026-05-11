@@ -21,7 +21,6 @@ Tier 2 (PetClinic) and Tier 3 (JHipster scale) are deferred to v1.1.
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import pytest

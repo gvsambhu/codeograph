@@ -19,13 +19,10 @@ Coverage plan:
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import MagicMock, call
-
-import pytest
+from unittest.mock import MagicMock
 
 from codeograph.analyzer.corpus_analyzer import CorpusAnalyzer
 from codeograph.input.models import AcquisitionSource, BuildTool, CorpusSpec, ModuleSpec
-
 
 # ---------------------------------------------------------------------------
 # Helpers

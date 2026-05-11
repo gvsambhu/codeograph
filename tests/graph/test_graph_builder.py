@@ -5,7 +5,6 @@ All tests go through the public build() method — no private method calls.
 Each test verifies one behaviour; assertions are on the returned
 CodeographKnowledgeGraph (node types, edge types, field values).
 """
-import pytest
 
 from codeograph.graph.graph_builder import GraphBuilder
 from codeograph.graph.models.graph_schema import (
@@ -19,9 +18,8 @@ from codeograph.graph.models.graph_schema import (
     ExtractionMode,
     FieldNode,
     Generation,
-    HttpMetadata,
-    InterfaceNode,
     InjectionType,
+    InterfaceNode,
     MethodNode,
     Modifier,
     RecordNode,

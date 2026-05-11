@@ -21,8 +21,8 @@ import logging
 import os
 import shutil
 import subprocess
-from typing import cast
 from pathlib import Path
+from typing import cast
 
 from codeograph.parser.models import ParsedFile
 
@@ -132,6 +132,6 @@ class JavaFileParser:
         if found:
             return found
 
-        raise EnvironmentError(
+        raise OSError(
             "java not found — set JAVA_HOME or add java to PATH"
         )
