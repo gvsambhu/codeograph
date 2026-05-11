@@ -26,7 +26,6 @@ import pytest
 from codeograph.parser.file_parser_dispatcher import FileParserDispatcher
 from codeograph.parser.java_file_parser import JavaParseError
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

@@ -26,7 +26,6 @@ kind-specific fields safely. See ADR-003 for the full field catalogue.
 
 from typing import TypedDict
 
-
 # ---------------------------------------------------------------------------
 # Leaf types (no nested TypedDicts)
 # ---------------------------------------------------------------------------

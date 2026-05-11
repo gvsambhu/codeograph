@@ -26,13 +26,12 @@ from pathlib import Path
 import pytest
 
 from codeograph.graph.graph_writer import (
+    _SORTABLE_NODE_ARRAYS,
     GRAPH_FILENAME,
     MANIFEST_FILENAME,
     GraphWriter,
-    _SORTABLE_NODE_ARRAYS,
 )
 from codeograph.graph.models.graph_schema import CodeographKnowledgeGraph
-
 
 # ---------------------------------------------------------------------------
 # Helpers — minimal graph fixtures

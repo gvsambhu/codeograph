@@ -32,10 +32,10 @@ from pathlib import Path
 from codeograph.graph.graph_assembler import GraphAssembler
 from codeograph.graph.graph_builder import GraphBuilder
 from codeograph.graph.graph_writer import GraphWriter
+from codeograph.graph.models.graph_schema import CodeographKnowledgeGraph
 from codeograph.input.models import CorpusSpec
 from codeograph.parser.file_parser_dispatcher import FileParserDispatcher
 from codeograph.parser.models import ParsedFile
-from codeograph.graph.models.graph_schema import CodeographKnowledgeGraph
 
 logger = logging.getLogger(__name__)
 

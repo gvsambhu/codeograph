@@ -22,7 +22,6 @@ from typing import Any
 
 from codeograph.graph.models.graph_schema import (
     CallsResolvedEdge,
-    CallsUnresolvedEdge,
     Cardinality,
     CodeographKnowledgeGraph,
     DependsOnEdge,

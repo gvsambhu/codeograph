@@ -5,7 +5,6 @@ Static helpers (_parse_call_expr, _strip_collection_wrapper) are tested
 directly. Index builders and edge-addition methods are tested through the
 public assemble() method using minimal two-file corpora.
 """
-import pytest
 
 from codeograph.graph.graph_assembler import GraphAssembler
 from codeograph.graph.graph_builder import GraphBuilder
@@ -13,16 +12,8 @@ from codeograph.graph.models.graph_schema import (
     CallsResolvedEdge,
     CallsUnresolvedEdge,
     Cardinality,
-    CodeographKnowledgeGraph,
     DependsOnEdge,
-    Edge,
-    Node,
     RelationEdge,
-    ClassNode,
-    ContainsEdge,
-    ExtractionMode,
-    FieldNode,
-    MethodNode,
 )
 
 # ---------------------------------------------------------------------------

@@ -10,8 +10,8 @@ from __future__ import annotations
 from pathlib import Path
 
 from codeograph.input.acquirers.base_acquirer import AcquisitionError, BaseAcquirer
-from codeograph.input.source_discoverer import SourceDiscoverer
 from codeograph.input.models import AcquisitionSource, CorpusSpec
+from codeograph.input.source_discoverer import SourceDiscoverer
 
 
 class LocalAcquirer(BaseAcquirer):
