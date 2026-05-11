@@ -1,4 +1,4 @@
-.PHONY: help schema-models lint typecheck test golden-update clean
+.PHONY: help schema-models lint typecheck test golden-update format format-java clean
 
 PYTHON ?= python
 
@@ -9,6 +9,8 @@ help:
 	@echo "  typecheck       Run mypy"
 	@echo "  test            Run full test suite"
 	@echo "  golden-update   Refresh golden graph files"
+	@echo "  format          Format Python (ruff) + Java (spotless)"
+	@echo "  format-java     Apply google-java-format via Spotless (run once on first setup)"
 	@echo "  clean           Remove generated artefacts"
 
 # Regenerate Pydantic models from JSON Schema files into codeograph/graph/models/.
@@ -34,6 +36,14 @@ typecheck:
 
 test:
 	pytest tests/ -x
+
+format:
+	ruff format .
+	ruff check --fix .
+	$(MAKE) format-java
+
+format-java:
+	cd codeograph/parser/java && mvn spotless:apply --batch-mode --no-transfer-progress
 
 # Refresh golden graph files for all corpora.
 # Tier 1 + Tier 2 only; Tier 3 (JHipster) is nightly-only.

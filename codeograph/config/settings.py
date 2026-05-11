@@ -9,7 +9,7 @@ from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, Settings
 from codeograph.config.yaml_source import YamlConfigSource
 
 _DEFAULT_JAR = (
-    Path(__file__).parent.parent / "parser" / "lib" / "javaparser-core-3.26.2.jar"
+    Path(__file__).parent.parent / "parser" / "lib" / "parser.jar"
 )
 
 
