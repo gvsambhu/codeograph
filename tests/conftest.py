@@ -1,5 +1,5 @@
 """
-Root pytest configuration — applies to all test sessions.
+Test-suite pytest configuration (tests/conftest.py).
 
 Registers:
   --update-goldens  CLI flag (consumed by tests/test_golden.py)
