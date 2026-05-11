@@ -48,9 +48,9 @@ class LombokSynthesizerTest {
                     private double price;
                 }
                 """);
-        // TODO: assertTrue(methodNames(env).contains("getName"));
-        // TODO: assertTrue(methodNames(env).contains("getPrice"));
-        // TODO: assertTrue(findMethod(env, "getName").getBoolean("is_synthesised"));
+        assertTrue(methodNames(env).contains("getName"));
+        assertTrue(methodNames(env).contains("getPrice"));
+        assertTrue(findMethod(env, "getName").getBoolean("is_synthesised"));
     }
 
     // -------------------------------------------------------------------------
@@ -68,9 +68,9 @@ class LombokSynthesizerTest {
                     private final double price = 0.0;
                 }
                 """);
-        // TODO: assertTrue(methodNames(env).contains("setName"));
-        // TODO: assertFalse(methodNames(env).contains("setPrice"));  // final field excluded
-        // TODO: assertTrue(findMethod(env, "setName").getBoolean("is_synthesised"));
+        assertTrue(methodNames(env).contains("setName"));
+        assertFalse(methodNames(env).contains("setPrice")); // final field excluded
+        assertTrue(findMethod(env, "setName").getBoolean("is_synthesised"));
     }
 
     // -------------------------------------------------------------------------
@@ -87,11 +87,10 @@ class LombokSynthesizerTest {
                     private String name;
                 }
                 """);
-        // TODO: long ctors = countConstructors(env);
-        // TODO: assertEquals(1, ctors);
-        // TODO: JSONObject ctor = findConstructor(env);
-        // TODO: assertEquals(0, ctor.getJSONArray("parameters").length());
-        // TODO: assertTrue(ctor.getBoolean("is_synthesised"));
+        assertEquals(1, countConstructors(env));
+        JSONObject ctor = findConstructor(env);
+        assertEquals(0, ctor.getJSONArray("parameters").length());
+        assertTrue(ctor.getBoolean("is_synthesised"));
     }
 
     // -------------------------------------------------------------------------
@@ -109,9 +108,9 @@ class LombokSynthesizerTest {
                     private double price;
                 }
                 """);
-        // TODO: JSONObject ctor = findConstructor(env);
-        // TODO: assertEquals(2, ctor.getJSONArray("parameters").length());
-        // TODO: assertTrue(ctor.getBoolean("is_synthesised"));
+        JSONObject ctor = findConstructor(env);
+        assertEquals(2, ctor.getJSONArray("parameters").length());
+        assertTrue(ctor.getBoolean("is_synthesised"));
     }
 
     // -------------------------------------------------------------------------
@@ -131,9 +130,9 @@ class LombokSynthesizerTest {
                     private double price;
                 }
                 """);
-        // TODO: JSONObject ctor = findConstructor(env);
-        // TODO: assertEquals(2, ctor.getJSONArray("parameters").length());  // name + category only
-        // TODO: assertTrue(ctor.getBoolean("is_synthesised"));
+        JSONObject ctor = findConstructor(env);
+        assertEquals(2, ctor.getJSONArray("parameters").length()); // name + category only
+        assertTrue(ctor.getBoolean("is_synthesised"));
     }
 
     // -------------------------------------------------------------------------
@@ -151,12 +150,12 @@ class LombokSynthesizerTest {
                     private double price;
                 }
                 """);
-        // TODO: assertTrue(methodNames(env).contains("getName"));
-        // TODO: assertTrue(methodNames(env).contains("getPrice"));
-        // TODO: assertTrue(methodNames(env).contains("setPrice"));   // non-final
-        // TODO: assertFalse(methodNames(env).contains("setName"));   // final — excluded
-        // TODO: JSONObject ctor = findConstructor(env);
-        // TODO: assertEquals(1, ctor.getJSONArray("parameters").length());  // only 'name'
+        assertTrue(methodNames(env).contains("getName"));
+        assertTrue(methodNames(env).contains("getPrice"));
+        assertTrue(methodNames(env).contains("setPrice"));  // non-final
+        assertFalse(methodNames(env).contains("setName")); // final — excluded
+        JSONObject ctor = findConstructor(env);
+        assertEquals(1, ctor.getJSONArray("parameters").length()); // only 'name'
     }
 
     // -------------------------------------------------------------------------
@@ -174,11 +173,11 @@ class LombokSynthesizerTest {
                     double price;
                 }
                 """);
-        // TODO: assertTrue(methodNames(env).contains("getName"));
-        // TODO: assertTrue(methodNames(env).contains("getPrice"));
-        // TODO: assertFalse(methodNames(env).stream().anyMatch(n -> n.startsWith("set")));
-        // TODO: JSONObject ctor = findConstructor(env);
-        // TODO: assertEquals(2, ctor.getJSONArray("parameters").length());
+        assertTrue(methodNames(env).contains("getName"));
+        assertTrue(methodNames(env).contains("getPrice"));
+        assertFalse(methodNames(env).stream().anyMatch(n -> n.startsWith("set")));
+        JSONObject ctor = findConstructor(env);
+        assertEquals(2, ctor.getJSONArray("parameters").length());
     }
 
     // -------------------------------------------------------------------------
@@ -196,10 +195,10 @@ class LombokSynthesizerTest {
                     private double price;
                 }
                 """);
-        // TODO: assertTrue(methodNames(env).contains("builder"));
-        // TODO: JSONObject builderMethod = findMethod(env, "builder");
-        // TODO: assertTrue(toList(builderMethod.getJSONArray("modifiers")).contains("static"));
-        // TODO: assertTrue(builderMethod.getBoolean("is_synthesised"));
+        assertTrue(methodNames(env).contains("builder"));
+        JSONObject builderMethod = findMethod(env, "builder");
+        assertTrue(toList(builderMethod.getJSONArray("modifiers")).contains("static"));
+        assertTrue(builderMethod.getBoolean("is_synthesised"));
     }
 
     // -------------------------------------------------------------------------
