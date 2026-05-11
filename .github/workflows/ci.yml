@@ -45,6 +45,12 @@ jobs:
         # and run in the separate 'java' job below.
         run: pytest -m "not integration" --tb=short
 
+      - name: Golden tests (Tier 1)
+        # Surgical fixture — regex-fallback mode (no JVM needed here).
+        # Fails only when _assert_golden is implemented (Issue #6 M11 TODO).
+        # Run after unit tests so a unit failure surfaces first.
+        run: pytest -m "tier1" --tb=short
+
   # ---------------------------------------------------------------------------
   # Java — compile and test the parser JAR
   # ---------------------------------------------------------------------------

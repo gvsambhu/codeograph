@@ -71,6 +71,9 @@ addopts = "-v --tb=short"
 # Use --update-goldens to refresh golden files in tests/test_golden.py
 markers = [
     "integration: marks tests that require JVM subprocess or real JAR (deselect with -m 'not integration')",
+    "tier1: Tier 1 golden tests — surgical fixture, run on every CI push",
+    "tier2: Tier 2 golden tests — PetClinic real-world corpus, run on every CI push",
+    "tier3: Tier 3 golden tests — scale corpus, nightly only (deselect with -m 'not tier3')",
 ]
 
 # ---------------------------------------------------------------------------
