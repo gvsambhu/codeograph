@@ -18,8 +18,11 @@
     "python.testing.pytestArgs": ["tests"],
 
     // ---------------------------------------------------------------------------
-    // Java — test runner
+    // Java — SDK + build tool paths
     // ---------------------------------------------------------------------------
+    "java.home": "C:\\alldev\\Java\\jdk-25.0.1",
+    "maven.executable.path": "C:\\alldev\\maven_root\\apache-maven-3.8.6\\bin\\mvn.cmd",
+
     // vscode-java-test (part of vscode-java-pack) discovers JUnit 5 via pom.xml.
     // Pointing java.test.config at the Maven subproject makes "Run All Tests" in
     // the Testing panel pick up JavaParserRunnerTest alongside the Python tests.
