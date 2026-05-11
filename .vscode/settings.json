@@ -1,0 +1,56 @@
+{
+    // ---------------------------------------------------------------------------
+    // Python — interpreter + test discovery
+    // ---------------------------------------------------------------------------
+    // Explicit path avoids "pytest not found" when pytest isn't on the system PATH.
+    // The Testing panel (beaker icon) and tasks both resolve pytest via this Python.
+    "python.defaultInterpreterPath": "C:\\alldev\\Python\\Python314\\python.exe",
+
+    // ---------------------------------------------------------------------------
+    // Python — test discovery
+    // ---------------------------------------------------------------------------
+    // Point pytest at the tests/ folder; pyproject.toml carries the rest of the
+    // pytest config (addopts, tb=short, etc.).  The Testing panel (beaker icon)
+    // discovers test_*.py files automatically once pytestEnabled is true.
+    "python.testing.pytestEnabled": true,
+    "python.testing.unittestEnabled": false,
+    "python.testing.cwd": "${workspaceFolder}",
+    "python.testing.pytestArgs": ["tests"],
+
+    // ---------------------------------------------------------------------------
+    // Java — SDK + build tool paths
+    // ---------------------------------------------------------------------------
+    "java.home": "C:\\alldev\\Java\\jdk-25.0.1",
+    "maven.executable.path": "C:\\alldev\\maven_root\\apache-maven-3.8.6\\bin\\mvn.cmd",
+
+    // vscode-java-test (part of vscode-java-pack) discovers JUnit 5 via pom.xml.
+    // Pointing java.test.config at the Maven subproject makes "Run All Tests" in
+    // the Testing panel pick up JavaParserRunnerTest alongside the Python tests.
+    "java.test.config": {
+        "workingDirectory": "${workspaceFolder}/codeograph/parser/java"
+    },
+
+    // Silence the "build tool conflicts" warning — we use Maven, not Gradle.
+    "java.import.gradle.enabled": false,
+    "java.import.maven.enabled": true,
+
+    // ---------------------------------------------------------------------------
+    // Editor — keep Java and Python formatting consistent with project style
+    // ---------------------------------------------------------------------------
+    // Java format-on-save enabled — VS Code Red Hat Java and Spotless both use the
+    // Eclipse JDT formatter engine, so editor saves and 'mvn spotless:check' in CI
+    // are consistent. No separate apply step needed.
+    "[java]": {
+        "editor.tabSize": 4,
+        "editor.insertSpaces": true,
+        "editor.defaultFormatter": "redhat.java",
+        "editor.formatOnSave": true
+    },
+    "[python]": {
+        "editor.defaultFormatter": "charliermarsh.ruff",
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": "explicit"
+        }
+    }
+}

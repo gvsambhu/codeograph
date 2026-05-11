@@ -36,9 +36,13 @@ htmlcov/
 .coverage
 coverage.xml
 
-# IDE
+# IDE — personal files excluded; project-specific config tracked below
 .idea/
 .vscode/
+# Track project formatter + test runner settings so all contributors use the same config
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/tasks.json
 *.iml
 *.ipr
 *.iws
