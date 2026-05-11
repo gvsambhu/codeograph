@@ -24,6 +24,8 @@
         <javaparser.version>3.26.2</javaparser.version>
         <orgjson.version>20240303</orgjson.version>
         <junit.version>5.10.2</junit.version>
+        <spotless.version>2.43.0</spotless.version>
+        <google-java-format.version>1.22.0</google-java-format.version>
     </properties>
 
     <dependencies>
@@ -89,6 +91,26 @@
                         </configuration>
                     </execution>
                 </executions>
+            </plugin>
+            <!-- Spotless — enforces google-java-format (AOSP/4-space style).
+                 Not bound to any lifecycle; invoked explicitly via CI and Makefile.
+                 Apply locally:  mvn spotless:apply  (run once on first setup)
+                 Check (CI):     mvn spotless:check -->
+            <plugin>
+                <groupId>com.diffplug.spotless</groupId>
+                <artifactId>spotless-maven-plugin</artifactId>
+                <version>${spotless.version}</version>
+                <configuration>
+                    <java>
+                        <googleJavaFormat>
+                            <version>${google-java-format.version}</version>
+                            <style>AOSP</style>
+                        </googleJavaFormat>
+                        <removeUnusedImports/>
+                        <trimTrailingWhitespace/>
+                        <endWithNewline/>
+                    </java>
+                </configuration>
             </plugin>
             <!-- Surefire 3.x — required for JUnit 5 test discovery.
                  Surefire 2.x (Maven default) only discovers JUnit 4 / 3 tests. -->
