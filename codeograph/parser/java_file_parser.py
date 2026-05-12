@@ -91,17 +91,13 @@ class JavaFileParser:
 
         if result.returncode != 0:
             stderr = (result.stderr or "").strip()
-            raise JavaParseError(
-                f"Java parser failed (exit {result.returncode}): {stderr}"
-            )
+            raise JavaParseError(f"Java parser failed (exit {result.returncode}): {stderr}")
 
         stdout = result.stdout or ""
         try:
             result_dict = json.loads(stdout)
         except json.JSONDecodeError as e:
-            raise JavaParseError(
-                f"Java parser produced invalid JSON: {e}. Raw stdout:\n{stdout}"
-            ) from e
+            raise JavaParseError(f"Java parser produced invalid JSON: {e}. Raw stdout:\n{stdout}") from e
 
         return cast(ParsedFile, result_dict)
 
@@ -132,6 +128,4 @@ class JavaFileParser:
         if found:
             return found
 
-        raise OSError(
-            "java not found — set JAVA_HOME or add java to PATH"
-        )
+        raise OSError("java not found — set JAVA_HOME or add java to PATH")

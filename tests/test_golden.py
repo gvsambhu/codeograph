@@ -38,22 +38,23 @@ from codeograph.parser.regex_fallback import RegexFallback
 # Paths
 # ---------------------------------------------------------------------------
 
-_TESTS_DIR   = Path(__file__).parent
+_TESTS_DIR = Path(__file__).parent
 _FIXTURE_DIR = _TESTS_DIR / "fixtures" / "codeograph-corpus"
 _GOLDENS_DIR = _TESTS_DIR / "goldens" / "tier1"
 
 _CORE_SRC = _FIXTURE_DIR / "module-core" / "src" / "main" / "java"
-_WEB_SRC  = _FIXTURE_DIR / "module-web"  / "src" / "main" / "java"
+_WEB_SRC = _FIXTURE_DIR / "module-web" / "src" / "main" / "java"
 
 
 # ---------------------------------------------------------------------------
 # Corpus construction
 # ---------------------------------------------------------------------------
 
+
 def _build_corpus() -> CorpusSpec:
     """Construct CorpusSpec explicitly — surgical, no SourceDiscoverer."""
     core_pkg = _CORE_SRC / "io" / "codeograph" / "corpus" / "core"
-    web_pkg  = _WEB_SRC  / "io" / "codeograph" / "corpus" / "web"
+    web_pkg = _WEB_SRC / "io" / "codeograph" / "corpus" / "web"
 
     core_module = ModuleSpec(
         module_id="mod:module-core",
@@ -98,6 +99,7 @@ def _build_corpus() -> CorpusSpec:
 # Golden assertion helper
 # ---------------------------------------------------------------------------
 
+
 def _assert_golden(actual_bytes: bytes, golden_path: Path, *, update: bool) -> None:
     """
     Compare actual_bytes against the stored golden at golden_path.
@@ -119,9 +121,7 @@ def _assert_golden(actual_bytes: bytes, golden_path: Path, *, update: bool) -> N
         pass
     else:
         if not golden_path.exists():
-            pytest.skip(
-                f"No golden at {golden_path} — run 'make golden-update' to capture it."
-            )
+            pytest.skip(f"No golden at {golden_path} — run 'make golden-update' to capture it.")
         # TODO: read golden_path, compare to actual_bytes, fail with a diff on mismatch
         pass
 
@@ -129,6 +129,7 @@ def _assert_golden(actual_bytes: bytes, golden_path: Path, *, update: bool) -> N
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.tier1
 def test_tier1_golden(update_goldens: bool, tmp_path: Path) -> None:

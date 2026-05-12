@@ -28,17 +28,18 @@ from codeograph.input.models import AcquisitionSource, BuildTool, CorpusSpec, Mo
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _mock_collaborators() -> tuple[MagicMock, MagicMock, MagicMock, MagicMock]:
     """Return (dispatcher, builder, assembler, writer) mocks with safe defaults."""
     dispatcher = MagicMock()
-    builder    = MagicMock()
-    assembler  = MagicMock()
-    writer     = MagicMock()
+    builder = MagicMock()
+    assembler = MagicMock()
+    writer = MagicMock()
 
     # dispatcher.parse() returns a distinct object per call so assertions can
     # verify the right ParsedFile was passed to builder.
     dispatcher.parse.side_effect = lambda java_file, corpus_root: {
-        "id":   str(java_file),
+        "id": str(java_file),
         "kind": "class",
         "name": java_file.stem,
         "extraction_mode": "ast",
@@ -98,8 +99,8 @@ def _make_analyzer(*mocks: MagicMock) -> CorpusAnalyzer:
 # TestReturnValue
 # ---------------------------------------------------------------------------
 
-class TestReturnValue:
 
+class TestReturnValue:
     def test_returns_manifest_path_from_writer(self, tmp_path: Path) -> None:
         mocks = _mock_collaborators()
         analyzer = _make_analyzer(*mocks)
@@ -116,8 +117,8 @@ class TestReturnValue:
 # TestDispatcherCalls
 # ---------------------------------------------------------------------------
 
-class TestDispatcherCalls:
 
+class TestDispatcherCalls:
     def test_parse_called_once_per_file(self, tmp_path: Path) -> None:
         mocks = _mock_collaborators()
         analyzer = _make_analyzer(*mocks)
@@ -150,8 +151,7 @@ class TestDispatcherCalls:
         dispatcher = mocks[0]
 
         mod_a = _make_module("mod:a", [tmp_path / "A.java"], root_path=tmp_path / "a")
-        mod_b = _make_module("mod:b", [tmp_path / "B.java", tmp_path / "C.java"],
-                             root_path=tmp_path / "b")
+        mod_b = _make_module("mod:b", [tmp_path / "B.java", tmp_path / "C.java"], root_path=tmp_path / "b")
         corpus = _make_corpus([mod_a, mod_b], corpus_root=tmp_path)
 
         analyzer.analyze(corpus, tmp_path / "out")
@@ -163,8 +163,8 @@ class TestDispatcherCalls:
 # TestBuilderCalls
 # ---------------------------------------------------------------------------
 
-class TestBuilderCalls:
 
+class TestBuilderCalls:
     def test_build_called_once_per_file(self, tmp_path: Path) -> None:
         mocks = _mock_collaborators()
         analyzer = _make_analyzer(*mocks)
@@ -204,8 +204,7 @@ class TestBuilderCalls:
 
         # side_effect takes precedence over return_value — clear it first so
         # the sentinel object is actually returned.
-        dispatched_pf = {"id": "com.example.Foo", "kind": "class", "name": "Foo",
-                         "extraction_mode": "ast"}
+        dispatched_pf = {"id": "com.example.Foo", "kind": "class", "name": "Foo", "extraction_mode": "ast"}
         dispatcher.parse.side_effect = None
         dispatcher.parse.return_value = dispatched_pf
 
@@ -240,8 +239,8 @@ class TestBuilderCalls:
 # TestAssemblerCalls
 # ---------------------------------------------------------------------------
 
-class TestAssemblerCalls:
 
+class TestAssemblerCalls:
     def test_assemble_called_once(self, tmp_path: Path) -> None:
         mocks = _mock_collaborators()
         analyzer = _make_analyzer(*mocks)
@@ -268,9 +267,7 @@ class TestAssemblerCalls:
         fragments_arg = assembler.assemble.call_args[0][0]
         assert len(fragments_arg) == 2
 
-    def test_assemble_receives_tuples_of_parsed_file_and_graph(
-        self, tmp_path: Path
-    ) -> None:
+    def test_assemble_receives_tuples_of_parsed_file_and_graph(self, tmp_path: Path) -> None:
         mocks = _mock_collaborators()
         analyzer = _make_analyzer(*mocks)
         dispatcher, builder, assembler = mocks[0], mocks[1], mocks[2]
@@ -279,11 +276,11 @@ class TestAssemblerCalls:
         module = _make_module("mod:core", [java_file], root_path=tmp_path)
         corpus = _make_corpus([module], corpus_root=tmp_path)
 
-        sentinel_pf    = {"id": "x", "kind": "class", "name": "x", "extraction_mode": "ast"}
+        sentinel_pf = {"id": "x", "kind": "class", "name": "x", "extraction_mode": "ast"}
         sentinel_graph = MagicMock(name="frag")
-        dispatcher.parse.side_effect = None      # clear lambda; return_value takes over
+        dispatcher.parse.side_effect = None  # clear lambda; return_value takes over
         dispatcher.parse.return_value = sentinel_pf
-        builder.build.return_value    = sentinel_graph
+        builder.build.return_value = sentinel_graph
 
         analyzer.analyze(corpus, tmp_path / "out")
 
@@ -296,8 +293,7 @@ class TestAssemblerCalls:
         assembler = mocks[2]
 
         mod_a = _make_module("mod:a", [tmp_path / "A.java"], root_path=tmp_path / "a")
-        mod_b = _make_module("mod:b", [tmp_path / "B.java", tmp_path / "C.java"],
-                             root_path=tmp_path / "b")
+        mod_b = _make_module("mod:b", [tmp_path / "B.java", tmp_path / "C.java"], root_path=tmp_path / "b")
         corpus = _make_corpus([mod_a, mod_b], corpus_root=tmp_path)
 
         analyzer.analyze(corpus, tmp_path / "out")
@@ -310,8 +306,8 @@ class TestAssemblerCalls:
 # TestWriterCalls
 # ---------------------------------------------------------------------------
 
-class TestWriterCalls:
 
+class TestWriterCalls:
     def test_writer_called_with_assembled_graph(self, tmp_path: Path) -> None:
         mocks = _mock_collaborators()
         analyzer = _make_analyzer(*mocks)
@@ -343,8 +339,8 @@ class TestWriterCalls:
 # TestEdgeCases
 # ---------------------------------------------------------------------------
 
-class TestEdgeCases:
 
+class TestEdgeCases:
     def test_empty_corpus_still_calls_assembler_and_writer(self, tmp_path: Path) -> None:
         mocks = _mock_collaborators()
         analyzer = _make_analyzer(*mocks)
@@ -377,9 +373,8 @@ class TestEdgeCases:
         analyzer = _make_analyzer(*mocks)
         dispatcher = mocks[0]
 
-        empty_module   = _make_module("mod:empty", [], root_path=tmp_path / "empty")
-        nonempty_module = _make_module("mod:core", [tmp_path / "A.java"],
-                                       root_path=tmp_path / "core")
+        empty_module = _make_module("mod:empty", [], root_path=tmp_path / "empty")
+        nonempty_module = _make_module("mod:core", [tmp_path / "A.java"], root_path=tmp_path / "core")
         corpus = _make_corpus([empty_module, nonempty_module], corpus_root=tmp_path)
 
         analyzer.analyze(corpus, tmp_path / "out")

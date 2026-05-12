@@ -37,6 +37,7 @@ from codeograph.graph.models.graph_schema import CodeographKnowledgeGraph
 # Helpers — minimal graph fixtures
 # ---------------------------------------------------------------------------
 
+
 def _empty_graph() -> CodeographKnowledgeGraph:
     """Graph with no nodes and no edges."""
     return CodeographKnowledgeGraph(nodes=[], edges=[])
@@ -102,6 +103,7 @@ def _graph_with_class_node(
 # ---------------------------------------------------------------------------
 # TestCanonicalBytes
 # ---------------------------------------------------------------------------
+
 
 class TestCanonicalBytes:
     """Unit tests for GraphWriter._canonical_bytes."""
@@ -218,6 +220,7 @@ class TestCanonicalBytes:
 # TestWrite
 # ---------------------------------------------------------------------------
 
+
 class TestWrite:
     """Unit tests for GraphWriter.write()."""
 
@@ -278,6 +281,7 @@ class TestWrite:
 # TestToolVersion
 # ---------------------------------------------------------------------------
 
+
 class TestToolVersion:
     """Unit tests for GraphWriter._tool_version()."""
 
@@ -293,8 +297,6 @@ class TestToolVersion:
         def _raise(_: str) -> str:
             raise PackageNotFoundError("codeograph")
 
-        monkeypatch.setattr(
-            "codeograph.graph.graph_writer.version", _raise
-        )
+        monkeypatch.setattr("codeograph.graph.graph_writer.version", _raise)
         result = GraphWriter._tool_version()
         assert result == "0.1.0-dev"

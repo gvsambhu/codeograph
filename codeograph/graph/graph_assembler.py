@@ -39,9 +39,9 @@ logger = logging.getLogger(__name__)
 
 # JPA relation annotation simple name → Cardinality enum value
 _JPA_CARDINALITY: dict[str, Cardinality] = {
-    "OneToOne":   Cardinality.ONE_TO_ONE,
-    "OneToMany":  Cardinality.ONE_TO_MANY,
-    "ManyToOne":  Cardinality.MANY_TO_ONE,
+    "OneToOne": Cardinality.ONE_TO_ONE,
+    "OneToMany": Cardinality.ONE_TO_MANY,
+    "ManyToOne": Cardinality.MANY_TO_ONE,
     "ManyToMany": Cardinality.MANY_TO_MANY,
 }
 
@@ -52,6 +52,7 @@ _COLLECTION_WRAPPERS = ("List<", "Set<", "Collection<", "Optional<")
 # ---------------------------------------------------------------------------
 # Assembler
 # ---------------------------------------------------------------------------
+
 
 class GraphAssembler:
     """
@@ -81,34 +82,48 @@ class GraphAssembler:
         all_nodes, all_edges = self._merge_fragments(corpus)
         logger.debug(
             "GraphAssembler: merged %d nodes, %d edges from %d files",
-            len(all_nodes), len(all_edges), len(corpus),
+            len(all_nodes),
+            len(all_edges),
+            len(corpus),
         )
 
         # Step 2 — build corpus-wide lookup structures (single pass over nodes)
-        node_id_set  = self._build_node_id_set(all_nodes)
+        node_id_set = self._build_node_id_set(all_nodes)
         method_index = self._build_method_index(all_nodes)
-        field_index  = self._build_field_index(all_nodes)
-        param_index  = self._build_param_index(all_nodes)
-        import_maps  = self._build_import_maps(corpus)
+        field_index = self._build_field_index(all_nodes)
+        param_index = self._build_param_index(all_nodes)
+        import_maps = self._build_import_maps(corpus)
 
         # Step 3 — per-file cross-file edge addition
         # Dedup sets track emitted pairs so multiple sources don't repeat edges.
-        dep_pairs: set[tuple[str, str]]       = set()
-        rel_pairs: set[tuple[str, str, str]]  = set()
+        dep_pairs: set[tuple[str, str]] = set()
+        rel_pairs: set[tuple[str, str, str]] = set()
 
         for parsed_file, _ in corpus:
             import_map = import_maps.get(parsed_file["id"], {})
             self._add_dep_edges(
-                parsed_file, import_map, node_id_set, all_edges, dep_pairs,
+                parsed_file,
+                import_map,
+                node_id_set,
+                all_edges,
+                dep_pairs,
             )
             if parsed_file["kind"] == "class":
                 self._add_relation_edges(
-                    parsed_file, import_map, node_id_set, all_edges, rel_pairs,
+                    parsed_file,
+                    import_map,
+                    node_id_set,
+                    all_edges,
+                    rel_pairs,
                 )
 
         # Step 4 — promote CallsUnresolvedEdge → CallsResolvedEdge where possible
         self._convert_unresolved_to_resolved(
-            all_edges, field_index, param_index, method_index, import_maps,
+            all_edges,
+            field_index,
+            param_index,
+            method_index,
+            import_maps,
         )
 
         # Step 5 — safety dedup and return
@@ -150,7 +165,8 @@ class GraphAssembler:
         return {node.root.id for node in nodes}  # type: ignore[union-attr]
 
     def _build_method_index(
-        self, nodes: list[Node],
+        self,
+        nodes: list[Node],
     ) -> dict[str, dict[str, list[str]]]:
         """
         class_fqcn → method_simple_name → [method_id, ...]
@@ -163,9 +179,9 @@ class GraphAssembler:
         index: dict[str, dict[str, list[str]]] = defaultdict(lambda: defaultdict(list))
         for node in nodes:
             if node.root.kind == "method":  # type: ignore[union-attr]
-                method_id   = node.root.id          # type: ignore[union-attr]
-                class_fqcn  = method_id.split("#")[0]
-                method_name = node.root.name        # type: ignore[union-attr]
+                method_id = node.root.id  # type: ignore[union-attr]
+                class_fqcn = method_id.split("#")[0]
+                method_name = node.root.name  # type: ignore[union-attr]
                 index[class_fqcn][method_name].append(method_id)
         return index
 
@@ -179,11 +195,11 @@ class GraphAssembler:
         """
         index: dict[str, list[Any]] = defaultdict(list)
         for node in nodes:
-            if node.root.kind == "field":       # type: ignore[union-attr]
-                field_node = node.root          # type: ignore[union-attr]
-                field_id   = field_node.id
+            if node.root.kind == "field":  # type: ignore[union-attr]
+                field_node = node.root  # type: ignore[union-attr]
+                field_id = field_node.id
                 field_name = field_node.name
-                class_fqcn = field_id[:-(len(field_name) + 1)]
+                class_fqcn = field_id[: -(len(field_name) + 1)]
                 index[class_fqcn].append(field_node)
         return index
 
@@ -197,8 +213,8 @@ class GraphAssembler:
         """
         index: dict[str, list[Any]] = {}
         for node in nodes:
-            if node.root.kind == "method":          # type: ignore[union-attr]
-                index[node.root.id] = node.root.parameters or []   # type: ignore[union-attr]
+            if node.root.kind == "method":  # type: ignore[union-attr]
+                index[node.root.id] = node.root.parameters or []  # type: ignore[union-attr]
         return index
 
     def _build_import_maps(
@@ -219,10 +235,7 @@ class GraphAssembler:
         """
         maps: dict[str, dict[str, str]] = {}
         for parsed_file, _ in corpus:
-            maps[parsed_file["id"]] = {
-                fqcn.split(".")[-1]: fqcn
-                for fqcn in parsed_file.get("imports", [])
-            }
+            maps[parsed_file["id"]] = {fqcn.split(".")[-1]: fqcn for fqcn in parsed_file.get("imports", [])}
         return maps
 
     # ------------------------------------------------------------------
@@ -266,9 +279,15 @@ class GraphAssembler:
             if pair in emitted:
                 return
             emitted.add(pair)
-            all_edges.append(Edge(root=DependsOnEdge(
-                source=source, target=target, kind="depends_on",
-            )))
+            all_edges.append(
+                Edge(
+                    root=DependsOnEdge(
+                        source=source,
+                        target=target,
+                        kind="depends_on",
+                    )
+                )
+            )
 
         # Source 1 — imports (FQCNs directly)
         for fqcn in parsed_file.get("imports", []):
@@ -328,14 +347,15 @@ class GraphAssembler:
             if cardinality is None:
                 continue
 
-            raw_type    = self._strip_collection_wrapper(field["type"])
+            raw_type = self._strip_collection_wrapper(field["type"])
             target_fqcn = import_map.get(raw_type)
 
             if not target_fqcn or target_fqcn not in node_id_set:
                 logger.debug(
-                    "GraphAssembler: RelationEdge skipped — %s.%s target type %r"
-                    " not in corpus",
-                    source, field["name"], raw_type,
+                    "GraphAssembler: RelationEdge skipped — %s.%s target type %r not in corpus",
+                    source,
+                    field["name"],
+                    raw_type,
                 )
                 continue
 
@@ -344,13 +364,17 @@ class GraphAssembler:
                 continue
             emitted.add(triple)
 
-            all_edges.append(Edge(root=RelationEdge(
-                source=source,
-                target=target_fqcn,
-                kind="relation",
-                cardinality=cardinality,
-                join_column=None,
-            )))
+            all_edges.append(
+                Edge(
+                    root=RelationEdge(
+                        source=source,
+                        target=target_fqcn,
+                        kind="relation",
+                        cardinality=cardinality,
+                        join_column=None,
+                    )
+                )
+            )
 
     # ------------------------------------------------------------------
     # Step 4 — CallsUnresolvedEdge → CallsResolvedEdge promotion
@@ -382,18 +406,18 @@ class GraphAssembler:
         Local variable callees (case not covered by 1–4) remain unresolved.
         """
         to_remove: list[int] = []
-        to_add:    list[Edge] = []
+        to_add: list[Edge] = []
 
         for idx, edge in enumerate(all_edges):
-            if edge.root.kind != "calls_unresolved":    # type: ignore[union-attr]
+            if edge.root.kind != "calls_unresolved":  # type: ignore[union-attr]
                 continue
 
-            source     = edge.root.source               # type: ignore[union-attr]
-            raw_expr   = (                              # type: ignore[union-attr]
+            source = edge.root.source  # type: ignore[union-attr]
+            raw_expr = (  # type: ignore[union-attr]
                 edge.root.raw_call_expr or edge.root.target
             )
 
-            class_a    = source.split("#")[0]
+            class_a = source.split("#")[0]
             import_map = import_maps.get(class_a, {})
             callee_var, method_name = self._parse_call_expr(raw_expr)
 
@@ -427,7 +451,9 @@ class GraphAssembler:
             if not class_b:
                 logger.debug(
                     "GraphAssembler: %r from %s — callee %r type not resolvable",
-                    raw_expr, source, callee_var,
+                    raw_expr,
+                    source,
+                    callee_var,
                 )
                 continue
 
@@ -435,17 +461,24 @@ class GraphAssembler:
             if not candidates:
                 logger.debug(
                     "GraphAssembler: %r from %s — method %r not found on %s",
-                    raw_expr, source, method_name, class_b,
+                    raw_expr,
+                    source,
+                    method_name,
+                    class_b,
                 )
                 continue
 
             to_remove.append(idx)
             for target_id in candidates:
-                to_add.append(Edge(root=CallsResolvedEdge(
-                    source=source,
-                    target=target_id,
-                    kind="calls_resolved",
-                )))
+                to_add.append(
+                    Edge(
+                        root=CallsResolvedEdge(
+                            source=source,
+                            target=target_id,
+                            kind="calls_resolved",
+                        )
+                    )
+                )
 
         # Remove promoted edges in reverse order to preserve list indices
         for idx in reversed(to_remove):
@@ -462,7 +495,7 @@ class GraphAssembler:
         Duplicates should not occur (node IDs are globally unique by design);
         this guard makes the merge step robust against malformed input.
         """
-        seen:   set[str]   = set()
+        seen: set[str] = set()
         result: list[Node] = []
         for node in nodes:
             nid = node.root.id  # type: ignore[union-attr]
@@ -477,13 +510,13 @@ class GraphAssembler:
         DependsOnEdge and RelationEdge are already guarded by emitted-pair sets
         during construction; this is a final safety net covering all edge types.
         """
-        seen:   set[tuple[str, str, str]] = set()
-        result: list[Edge]                = []
+        seen: set[tuple[str, str, str]] = set()
+        result: list[Edge] = []
         for edge in edges:
             key = (
-                edge.root.kind,     # type: ignore[union-attr]
-                edge.root.source,   # type: ignore[union-attr]
-                edge.root.target,   # type: ignore[union-attr]
+                edge.root.kind,  # type: ignore[union-attr]
+                edge.root.source,  # type: ignore[union-attr]
+                edge.root.target,  # type: ignore[union-attr]
             )
             if key not in seen:
                 seen.add(key)
@@ -533,5 +566,5 @@ class GraphAssembler:
         """
         for wrapper in _COLLECTION_WRAPPERS:
             if type_str.startswith(wrapper) and type_str.endswith(">"):
-                return type_str[len(wrapper):-1]
+                return type_str[len(wrapper) : -1]
         return type_str

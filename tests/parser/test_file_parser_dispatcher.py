@@ -30,6 +30,7 @@ from codeograph.parser.java_file_parser import JavaParseError
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _ast_pf(fqcn: str = "com.example.Foo") -> dict:
     return {"id": fqcn, "kind": "class", "name": "Foo", "extraction_mode": "ast"}
 
@@ -69,6 +70,7 @@ def _make_dispatcher(
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def java_file(tmp_path: Path) -> Path:
     f = tmp_path / "Foo.java"
@@ -85,8 +87,8 @@ def corpus_root(tmp_path: Path) -> Path:
 # TestAstSuccessPath
 # ---------------------------------------------------------------------------
 
-class TestAstSuccessPath:
 
+class TestAstSuccessPath:
     def test_returns_ast_parsed_file(self, java_file: Path, corpus_root: Path) -> None:
         pf = _ast_pf()
         dispatcher, _, _ = _make_dispatcher(ast_result=pf)
@@ -105,9 +107,7 @@ class TestAstSuccessPath:
         dispatcher.parse(java_file, corpus_root)
         mock_fallback.parse.assert_not_called()
 
-    def test_java_parser_called_with_correct_args(
-        self, java_file: Path, corpus_root: Path
-    ) -> None:
+    def test_java_parser_called_with_correct_args(self, java_file: Path, corpus_root: Path) -> None:
         pf = _ast_pf()
         dispatcher, mock_java, _ = _make_dispatcher(ast_result=pf)
         dispatcher.parse(java_file, corpus_root)
@@ -118,11 +118,9 @@ class TestAstSuccessPath:
 # TestFallbackPath
 # ---------------------------------------------------------------------------
 
-class TestFallbackPath:
 
-    def test_returns_regex_parsed_file_on_java_parse_error(
-        self, java_file: Path, corpus_root: Path
-    ) -> None:
+class TestFallbackPath:
+    def test_returns_regex_parsed_file_on_java_parse_error(self, java_file: Path, corpus_root: Path) -> None:
         regex_pf = _regex_pf()
         dispatcher, _, _ = _make_dispatcher(
             ast_result=JavaParseError("JAR failed"),
@@ -131,9 +129,7 @@ class TestFallbackPath:
         result = dispatcher.parse(java_file, corpus_root)
         assert result is regex_pf
 
-    def test_extraction_mode_regex_on_fallback(
-        self, java_file: Path, corpus_root: Path
-    ) -> None:
+    def test_extraction_mode_regex_on_fallback(self, java_file: Path, corpus_root: Path) -> None:
         regex_pf = _regex_pf()
         dispatcher, _, _ = _make_dispatcher(
             ast_result=JavaParseError("JAR failed"),
@@ -162,19 +158,16 @@ class TestFallbackPath:
         with caplog.at_level(logging.WARNING, logger="codeograph.parser.file_parser_dispatcher"):
             dispatcher.parse(java_file, corpus_root)
 
-        assert any("regex" in rec.message.lower() or "fallback" in rec.message.lower()
-                   for rec in caplog.records)
+        assert any("regex" in rec.message.lower() or "fallback" in rec.message.lower() for rec in caplog.records)
 
 
 # ---------------------------------------------------------------------------
 # TestExceptionPropagation
 # ---------------------------------------------------------------------------
 
-class TestExceptionPropagation:
 
-    def test_non_java_parse_error_propagates(
-        self, java_file: Path, corpus_root: Path
-    ) -> None:
+class TestExceptionPropagation:
+    def test_non_java_parse_error_propagates(self, java_file: Path, corpus_root: Path) -> None:
         """
         If java_parser.parse() raises something other than JavaParseError
         (e.g. PermissionError, AttributeError), the dispatcher must NOT catch it.
@@ -185,9 +178,7 @@ class TestExceptionPropagation:
         with pytest.raises(RuntimeError, match="unexpected crash"):
             dispatcher.parse(java_file, corpus_root)
 
-    def test_non_java_parse_error_fallback_not_called(
-        self, java_file: Path, corpus_root: Path
-    ) -> None:
+    def test_non_java_parse_error_fallback_not_called(self, java_file: Path, corpus_root: Path) -> None:
         dispatcher, _, mock_fallback = _make_dispatcher(
             ast_result=RuntimeError("crash"),
         )
@@ -205,8 +196,8 @@ class TestExceptionPropagation:
 # TestConstructor
 # ---------------------------------------------------------------------------
 
-class TestConstructor:
 
+class TestConstructor:
     def test_constructor_stores_java_parser(self) -> None:
         mock_java = MagicMock()
         mock_fallback = MagicMock()

@@ -42,9 +42,7 @@ class Artefacts(BaseModel):
     )
     graph: Annotated[
         ArtefactMeta,
-        Field(
-            description="Deterministic AST-derived knowledge graph (out/graph.json)."
-        ),
+        Field(description="Deterministic AST-derived knowledge graph (out/graph.json)."),
     ]
     llm_annotations: Annotated[
         ArtefactMeta,

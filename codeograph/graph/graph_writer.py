@@ -49,29 +49,32 @@ logger = logging.getLogger(__name__)
 # Constants
 # ---------------------------------------------------------------------------
 
-GRAPH_SCHEMA_VERSION    = "1.0.0"
+GRAPH_SCHEMA_VERSION = "1.0.0"
 MANIFEST_SCHEMA_VERSION = "1.0.0"
 
-GRAPH_FILENAME          = "graph.json"
-MANIFEST_FILENAME       = "manifest.json"
+GRAPH_FILENAME = "graph.json"
+MANIFEST_FILENAME = "manifest.json"
 LLM_ANNOTATIONS_FILENAME = "llm-annotations.json"
 
 # Node list properties that are semantically unordered and must be sorted
 # for canonical form. Positional lists (parameters, components, elements)
 # are intentionally excluded — their order carries meaning.
-_SORTABLE_NODE_ARRAYS = frozenset({
-    "modifiers",
-    "annotations",
-    "implements",
-    "extends_interfaces",
-    "constants",
-    "constraints",
-})
+_SORTABLE_NODE_ARRAYS = frozenset(
+    {
+        "modifiers",
+        "annotations",
+        "implements",
+        "extends_interfaces",
+        "constants",
+        "constraints",
+    }
+)
 
 
 # ---------------------------------------------------------------------------
 # Writer
 # ---------------------------------------------------------------------------
+
 
 class GraphWriter:
     """
@@ -115,7 +118,9 @@ class GraphWriter:
         graph_path.write_bytes(graph_bytes)
         logger.info(
             "GraphWriter: wrote %s (%d bytes, sha256=%s…)",
-            graph_path, len(graph_bytes), graph_sha256[:12],
+            graph_path,
+            len(graph_bytes),
+            graph_sha256[:12],
         )
 
         # Write manifest.json
@@ -149,9 +154,7 @@ class GraphWriter:
         for node in data["nodes"]:
             for field in _SORTABLE_NODE_ARRAYS:
                 if field in node and isinstance(node[field], list):
-                    node[field] = sorted(
-                        v for v in node[field] if v is not None
-                    )
+                    node[field] = sorted(v for v in node[field] if v is not None)
 
         # Sort edges by (kind, source, target)
         data["edges"] = sorted(
@@ -210,7 +213,7 @@ class GraphWriter:
             data,
             sort_keys=True,
             separators=(",", ":"),
-            indent=2,       # manifest is human-readable; indent differs from graph
+            indent=2,  # manifest is human-readable; indent differs from graph
             ensure_ascii=False,
         )
         return (serialized + "\n").encode("utf-8")

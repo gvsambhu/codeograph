@@ -31,6 +31,7 @@ from codeograph.parser.java_file_parser import JavaFileParser, JavaParseError
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def java_file(tmp_path: Path) -> Path:
     f = tmp_path / "Foo.java"
@@ -63,11 +64,9 @@ def _make_completed(returncode: int = 0, stdout: str = "", stderr: str = "") -> 
 # TestParseSuccess
 # ---------------------------------------------------------------------------
 
-class TestParseSuccess:
 
-    def test_returns_parsed_file_on_success(
-        self, java_file: Path, corpus_root: Path, fake_jar: Path
-    ) -> None:
+class TestParseSuccess:
+    def test_returns_parsed_file_on_success(self, java_file: Path, corpus_root: Path, fake_jar: Path) -> None:
         payload = {"id": "com.example.Foo", "kind": "class", "name": "Foo"}
         mock_result = _make_completed(returncode=0, stdout=json.dumps(payload))
 
@@ -78,9 +77,7 @@ class TestParseSuccess:
         assert pf["id"] == "com.example.Foo"
         assert pf["kind"] == "class"
 
-    def test_extra_fields_in_json_passed_through(
-        self, java_file: Path, corpus_root: Path, fake_jar: Path
-    ) -> None:
+    def test_extra_fields_in_json_passed_through(self, java_file: Path, corpus_root: Path, fake_jar: Path) -> None:
         payload = {
             "id": "a.b.C",
             "kind": "class",
@@ -100,38 +97,30 @@ class TestParseSuccess:
 # TestParseFailures
 # ---------------------------------------------------------------------------
 
-class TestParseFailures:
 
-    def test_nonzero_exit_raises_java_parse_error(
-        self, java_file: Path, corpus_root: Path, fake_jar: Path
-    ) -> None:
+class TestParseFailures:
+    def test_nonzero_exit_raises_java_parse_error(self, java_file: Path, corpus_root: Path, fake_jar: Path) -> None:
         mock_result = _make_completed(returncode=1, stderr="Syntax error")
         with patch("subprocess.run", return_value=mock_result):
             parser = JavaFileParser(jar_path=fake_jar, java_bin="java")
             with pytest.raises(JavaParseError, match="exit 1"):
                 parser.parse(java_file, corpus_root)
 
-    def test_nonzero_exit_message_includes_stderr(
-        self, java_file: Path, corpus_root: Path, fake_jar: Path
-    ) -> None:
+    def test_nonzero_exit_message_includes_stderr(self, java_file: Path, corpus_root: Path, fake_jar: Path) -> None:
         mock_result = _make_completed(returncode=2, stderr="OutOfMemoryError")
         with patch("subprocess.run", return_value=mock_result):
             parser = JavaFileParser(jar_path=fake_jar, java_bin="java")
             with pytest.raises(JavaParseError, match="OutOfMemoryError"):
                 parser.parse(java_file, corpus_root)
 
-    def test_invalid_json_raises_java_parse_error(
-        self, java_file: Path, corpus_root: Path, fake_jar: Path
-    ) -> None:
+    def test_invalid_json_raises_java_parse_error(self, java_file: Path, corpus_root: Path, fake_jar: Path) -> None:
         mock_result = _make_completed(returncode=0, stdout="not-valid-json{{")
         with patch("subprocess.run", return_value=mock_result):
             parser = JavaFileParser(jar_path=fake_jar, java_bin="java")
             with pytest.raises(JavaParseError, match="invalid JSON"):
                 parser.parse(java_file, corpus_root)
 
-    def test_empty_stdout_raises_java_parse_error(
-        self, java_file: Path, corpus_root: Path, fake_jar: Path
-    ) -> None:
+    def test_empty_stdout_raises_java_parse_error(self, java_file: Path, corpus_root: Path, fake_jar: Path) -> None:
         mock_result = _make_completed(returncode=0, stdout="")
         with patch("subprocess.run", return_value=mock_result):
             parser = JavaFileParser(jar_path=fake_jar, java_bin="java")
@@ -143,11 +132,9 @@ class TestParseFailures:
 # TestCommandConstruction
 # ---------------------------------------------------------------------------
 
-class TestCommandConstruction:
 
-    def test_command_contains_java_bin(
-        self, java_file: Path, corpus_root: Path, fake_jar: Path
-    ) -> None:
+class TestCommandConstruction:
+    def test_command_contains_java_bin(self, java_file: Path, corpus_root: Path, fake_jar: Path) -> None:
         payload = {"id": "x.Y", "kind": "class", "name": "Y"}
         with patch("subprocess.run", return_value=_make_completed(stdout=json.dumps(payload))) as mock_run:
             parser = JavaFileParser(jar_path=fake_jar, java_bin="/usr/bin/java")
@@ -156,9 +143,7 @@ class TestCommandConstruction:
         cmd = mock_run.call_args[0][0]
         assert cmd[0] == "/usr/bin/java"
 
-    def test_command_contains_jar_flag(
-        self, java_file: Path, corpus_root: Path, fake_jar: Path
-    ) -> None:
+    def test_command_contains_jar_flag(self, java_file: Path, corpus_root: Path, fake_jar: Path) -> None:
         payload = {"id": "x.Y", "kind": "class", "name": "Y"}
         with patch("subprocess.run", return_value=_make_completed(stdout=json.dumps(payload))) as mock_run:
             parser = JavaFileParser(jar_path=fake_jar, java_bin="java")
@@ -167,9 +152,7 @@ class TestCommandConstruction:
         cmd = mock_run.call_args[0][0]
         assert "-jar" in cmd
 
-    def test_command_contains_jar_path(
-        self, java_file: Path, corpus_root: Path, fake_jar: Path
-    ) -> None:
+    def test_command_contains_jar_path(self, java_file: Path, corpus_root: Path, fake_jar: Path) -> None:
         payload = {"id": "x.Y", "kind": "class", "name": "Y"}
         with patch("subprocess.run", return_value=_make_completed(stdout=json.dumps(payload))) as mock_run:
             parser = JavaFileParser(jar_path=fake_jar, java_bin="java")
@@ -208,11 +191,9 @@ class TestCommandConstruction:
 # TestResolveJava
 # ---------------------------------------------------------------------------
 
-class TestResolveJava:
 
-    def test_java_home_takes_priority(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-    ) -> None:
+class TestResolveJava:
+    def test_java_home_takes_priority(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
         java_home = tmp_path / "jdk"
         (java_home / "bin").mkdir(parents=True)
         (java_home / "bin" / "java").write_text("stub")
@@ -229,9 +210,7 @@ class TestResolveJava:
 
         assert "jdk" in result
 
-    def test_falls_back_to_path_when_no_java_home(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_falls_back_to_path_when_no_java_home(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv("JAVA_HOME", raising=False)
 
         with patch("shutil.which", return_value="/usr/bin/java") as mock_which:
@@ -240,9 +219,7 @@ class TestResolveJava:
         assert result == "/usr/bin/java"
         mock_which.assert_called_with("java")
 
-    def test_raises_environment_error_when_java_not_found(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_raises_environment_error_when_java_not_found(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv("JAVA_HOME", raising=False)
 
         with patch("shutil.which", return_value=None):
@@ -254,8 +231,8 @@ class TestResolveJava:
 # TestConstructorArgs
 # ---------------------------------------------------------------------------
 
-class TestConstructorArgs:
 
+class TestConstructorArgs:
     def test_custom_java_bin_stored(self, fake_jar: Path) -> None:
         parser = JavaFileParser(jar_path=fake_jar, java_bin="/opt/java/bin/java")
         assert parser._java == "/opt/java/bin/java"
@@ -268,6 +245,7 @@ class TestConstructorArgs:
 # ---------------------------------------------------------------------------
 # Integration-only tests (require real JVM and parser.jar)
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.integration
 class TestParseRealJar:
@@ -285,12 +263,7 @@ class TestParseRealJar:
         Write a minimal valid .java file and parse it with the real JAR.
         Asserts the output carries id, kind, and extraction_mode="ast".
         """
-        src = (
-            "package com.example;\n"
-            "public class Hello {\n"
-            "    public String greet() { return \"hello\"; }\n"
-            "}\n"
-        )
+        src = 'package com.example;\npublic class Hello {\n    public String greet() { return "hello"; }\n}\n'
         java_file = tmp_path / "Hello.java"
         java_file.write_text(src, encoding="utf-8")
 

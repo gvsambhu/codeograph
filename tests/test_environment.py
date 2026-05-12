@@ -29,25 +29,20 @@ _POM_NS = "http://maven.apache.org/POM/4.0.0"
 
 @_CI_ONLY
 def test_tz_is_utc() -> None:
-    assert os.environ.get("TZ") == "UTC", (
-        "TZ must be UTC in CI (ADR-007 §8). "
-        "Add 'TZ: UTC' to the workflow env block."
-    )
+    assert os.environ.get("TZ") == "UTC", "TZ must be UTC in CI (ADR-007 §8). Add 'TZ: UTC' to the workflow env block."
 
 
 @_CI_ONLY
 def test_lc_all_is_c_utf8() -> None:
     assert os.environ.get("LC_ALL") == "C.UTF-8", (
-        "LC_ALL must be C.UTF-8 in CI (ADR-007 §8). "
-        "Add 'LC_ALL: C.UTF-8' to the workflow env block."
+        "LC_ALL must be C.UTF-8 in CI (ADR-007 §8). Add 'LC_ALL: C.UTF-8' to the workflow env block."
     )
 
 
 @_CI_ONLY
 def test_pythonhashseed_is_zero() -> None:
     assert os.environ.get("PYTHONHASHSEED") == "0", (
-        "PYTHONHASHSEED must be '0' in CI (ADR-007 §8). "
-        "Add 'PYTHONHASHSEED: \"0\"' to the workflow env block."
+        "PYTHONHASHSEED must be '0' in CI (ADR-007 §8). Add 'PYTHONHASHSEED: \"0\"' to the workflow env block."
     )
 
 
@@ -57,9 +52,7 @@ def test_pythonhashseed_is_zero() -> None:
 
 
 def test_python_version_at_least_312() -> None:
-    assert sys.version_info >= (3, 12), (
-        f"Python ≥ 3.12 required (ADR-007); got {sys.version}"
-    )
+    assert sys.version_info >= (3, 12), f"Python ≥ 3.12 required (ADR-007); got {sys.version}"
 
 
 # ---------------------------------------------------------------------------
@@ -72,9 +65,7 @@ def test_javaparser_version_consistent() -> None:
     with open(_REPO_ROOT / "pyproject.toml", "rb") as fh:
         toml_version: str = tomllib.load(fh)["tool"]["codeograph"]["versions"]["javaparser"]
 
-    pom_root = ET.parse(
-        _REPO_ROOT / "codeograph" / "parser" / "java" / "pom.xml"
-    ).getroot()
+    pom_root = ET.parse(_REPO_ROOT / "codeograph" / "parser" / "java" / "pom.xml").getroot()
     props = pom_root.find(f"{{{_POM_NS}}}properties")
     assert props is not None, "pom.xml has no <properties> block"
     pom_elem = props.find(f"{{{_POM_NS}}}javaparser.version")

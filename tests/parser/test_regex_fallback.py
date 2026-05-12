@@ -31,6 +31,7 @@ from codeograph.parser.regex_fallback import RegexFallback
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def fb() -> RegexFallback:
     return RegexFallback()
@@ -39,6 +40,7 @@ def fb() -> RegexFallback:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _write(tmp_path: Path, filename: str, source: str) -> tuple[Path, Path]:
     """Write source to tmp_path/filename. Returns (file_path, corpus_root)."""
@@ -51,8 +53,8 @@ def _write(tmp_path: Path, filename: str, source: str) -> tuple[Path, Path]:
 # TestPackageAndId
 # ---------------------------------------------------------------------------
 
-class TestPackageAndId:
 
+class TestPackageAndId:
     def test_package_builds_fqcn(self, fb: RegexFallback, tmp_path: Path) -> None:
         src = "package com.example.service;\npublic class OrderService {}\n"
         f, root = _write(tmp_path, "OrderService.java", src)
@@ -87,33 +89,22 @@ class TestPackageAndId:
 # TestAnnotationsAndStereotype
 # ---------------------------------------------------------------------------
 
-class TestAnnotationsAndStereotype:
 
+class TestAnnotationsAndStereotype:
     def test_annotations_before_class_decl(self, fb: RegexFallback, tmp_path: Path) -> None:
-        src = (
-            "package com.example;\n"
-            "@RestController\n"
-            "@RequestMapping(\"/api\")\n"
-            "public class ApiCtrl {}\n"
-        )
+        src = 'package com.example;\n@RestController\n@RequestMapping("/api")\npublic class ApiCtrl {}\n'
         f, root = _write(tmp_path, "ApiCtrl.java", src)
         pf = fb.parse(f, root)
         assert "RestController" in pf["annotations"]
         assert "RequestMapping" in pf["annotations"]
 
     def test_stereotype_detected_for_service(self, fb: RegexFallback, tmp_path: Path) -> None:
-        src = (
-            "package com.example;\n"
-            "@Service\n"
-            "public class OrderService {}\n"
-        )
+        src = "package com.example;\n@Service\npublic class OrderService {}\n"
         f, root = _write(tmp_path, "OrderService.java", src)
         pf = fb.parse(f, root)
         assert pf["stereotype"] == "Service"
 
-    def test_stereotype_none_when_no_matching_annotation(
-        self, fb: RegexFallback, tmp_path: Path
-    ) -> None:
+    def test_stereotype_none_when_no_matching_annotation(self, fb: RegexFallback, tmp_path: Path) -> None:
         src = "package com.example;\n@SomeCustomAnnotation\npublic class Foo {}\n"
         f, root = _write(tmp_path, "Foo.java", src)
         pf = fb.parse(f, root)
@@ -121,25 +112,13 @@ class TestAnnotationsAndStereotype:
 
     def test_annotations_inside_body_not_included(self, fb: RegexFallback, tmp_path: Path) -> None:
         """Annotations on fields / methods must not leak into class-level annotations."""
-        src = (
-            "package com.example;\n"
-            "public class Repo {\n"
-            "    @Autowired\n"
-            "    private OrderService svc;\n"
-            "}\n"
-        )
+        src = "package com.example;\npublic class Repo {\n    @Autowired\n    private OrderService svc;\n}\n"
         f, root = _write(tmp_path, "Repo.java", src)
         pf = fb.parse(f, root)
         assert "Autowired" not in pf["annotations"]
 
-    def test_entry_point_true_for_spring_boot_application(
-        self, fb: RegexFallback, tmp_path: Path
-    ) -> None:
-        src = (
-            "package com.example;\n"
-            "@SpringBootApplication\n"
-            "public class App {}\n"
-        )
+    def test_entry_point_true_for_spring_boot_application(self, fb: RegexFallback, tmp_path: Path) -> None:
+        src = "package com.example;\n@SpringBootApplication\npublic class App {}\n"
         f, root = _write(tmp_path, "App.java", src)
         pf = fb.parse(f, root)
         assert pf["entry_point"] is True
@@ -155,36 +134,23 @@ class TestAnnotationsAndStereotype:
 # TestImports
 # ---------------------------------------------------------------------------
 
-class TestImports:
 
+class TestImports:
     def test_regular_imports(self, fb: RegexFallback, tmp_path: Path) -> None:
-        src = (
-            "package com.example;\n"
-            "import java.util.List;\n"
-            "import java.util.Map;\n"
-            "public class Foo {}\n"
-        )
+        src = "package com.example;\nimport java.util.List;\nimport java.util.Map;\npublic class Foo {}\n"
         f, root = _write(tmp_path, "Foo.java", src)
         pf = fb.parse(f, root)
         assert "java.util.List" in pf["imports"]
         assert "java.util.Map" in pf["imports"]
 
     def test_static_import(self, fb: RegexFallback, tmp_path: Path) -> None:
-        src = (
-            "package com.example;\n"
-            "import static org.junit.Assert.assertEquals;\n"
-            "public class Foo {}\n"
-        )
+        src = "package com.example;\nimport static org.junit.Assert.assertEquals;\npublic class Foo {}\n"
         f, root = _write(tmp_path, "Foo.java", src)
         pf = fb.parse(f, root)
         assert "org.junit.Assert.assertEquals" in pf["imports"]
 
     def test_wildcard_import(self, fb: RegexFallback, tmp_path: Path) -> None:
-        src = (
-            "package com.example;\n"
-            "import java.util.*;\n"
-            "public class Foo {}\n"
-        )
+        src = "package com.example;\nimport java.util.*;\npublic class Foo {}\n"
         f, root = _write(tmp_path, "Foo.java", src)
         pf = fb.parse(f, root)
         assert "java.util.*" in pf["imports"]
@@ -200,8 +166,8 @@ class TestImports:
 # TestFields
 # ---------------------------------------------------------------------------
 
-class TestFields:
 
+class TestFields:
     def _field_names(self, pf: dict) -> list[str]:
         return [ff["name"] for ff in pf["fields"]]
 
@@ -209,46 +175,26 @@ class TestFields:
         return {ff["name"]: ff["type"] for ff in pf["fields"]}
 
     def test_private_field_extracted(self, fb: RegexFallback, tmp_path: Path) -> None:
-        src = (
-            "package com.example;\n"
-            "public class Svc {\n"
-            "    private OrderRepository orderRepo;\n"
-            "}\n"
-        )
+        src = "package com.example;\npublic class Svc {\n    private OrderRepository orderRepo;\n}\n"
         f, root = _write(tmp_path, "Svc.java", src)
         pf = fb.parse(f, root)
         assert "orderRepo" in self._field_names(pf)
 
     def test_field_type_captured(self, fb: RegexFallback, tmp_path: Path) -> None:
-        src = (
-            "package com.example;\n"
-            "public class Svc {\n"
-            "    private OrderRepository orderRepo;\n"
-            "}\n"
-        )
+        src = "package com.example;\npublic class Svc {\n    private OrderRepository orderRepo;\n}\n"
         f, root = _write(tmp_path, "Svc.java", src)
         pf = fb.parse(f, root)
         types = self._field_types(pf)
         assert types["orderRepo"] == "OrderRepository"
 
     def test_private_final_field(self, fb: RegexFallback, tmp_path: Path) -> None:
-        src = (
-            "package com.example;\n"
-            "public class Svc {\n"
-            "    private final String name;\n"
-            "}\n"
-        )
+        src = "package com.example;\npublic class Svc {\n    private final String name;\n}\n"
         f, root = _write(tmp_path, "Svc.java", src)
         pf = fb.parse(f, root)
         assert "name" in self._field_names(pf)
 
     def test_field_id_is_fqcn_dot_name(self, fb: RegexFallback, tmp_path: Path) -> None:
-        src = (
-            "package com.example;\n"
-            "public class Svc {\n"
-            "    private String label;\n"
-            "}\n"
-        )
+        src = "package com.example;\npublic class Svc {\n    private String label;\n}\n"
         f, root = _write(tmp_path, "Svc.java", src)
         pf = fb.parse(f, root)
         ids = [ff["id"] for ff in pf["fields"]]
@@ -256,12 +202,7 @@ class TestFields:
 
     def test_field_metadata_defaults(self, fb: RegexFallback, tmp_path: Path) -> None:
         """Regex path cannot recover injection metadata — defaults must be safe."""
-        src = (
-            "package com.example;\n"
-            "public class Svc {\n"
-            "    private OrderRepository repo;\n"
-            "}\n"
-        )
+        src = "package com.example;\npublic class Svc {\n    private OrderRepository repo;\n}\n"
         f, root = _write(tmp_path, "Svc.java", src)
         pf = fb.parse(f, root)
         field = pf["fields"][0]
@@ -281,8 +222,8 @@ class TestFields:
 # TestMethods
 # ---------------------------------------------------------------------------
 
-class TestMethods:
 
+class TestMethods:
     def _method_names(self, pf: dict) -> list[str]:
         return [m["name"] for m in pf["methods"]]
 
@@ -300,12 +241,7 @@ class TestMethods:
         assert "findById" in self._method_names(pf)
 
     def test_method_return_type_captured(self, fb: RegexFallback, tmp_path: Path) -> None:
-        src = (
-            "package com.example;\n"
-            "public class Svc {\n"
-            "    public Order findById(Long id) { return null; }\n"
-            "}\n"
-        )
+        src = "package com.example;\npublic class Svc {\n    public Order findById(Long id) { return null; }\n}\n"
         f, root = _write(tmp_path, "Svc.java", src)
         pf = fb.parse(f, root)
         m = next(m for m in pf["methods"] if m["name"] == "findById")
@@ -313,12 +249,7 @@ class TestMethods:
 
     def test_method_id_uses_empty_parens(self, fb: RegexFallback, tmp_path: Path) -> None:
         """Regex cannot recover param types — id must use () without param types."""
-        src = (
-            "package com.example;\n"
-            "public class Svc {\n"
-            "    public void doWork(String s, int n) {}\n"
-            "}\n"
-        )
+        src = "package com.example;\npublic class Svc {\n    public void doWork(String s, int n) {}\n}\n"
         f, root = _write(tmp_path, "Svc.java", src)
         pf = fb.parse(f, root)
         m = next(m for m in pf["methods"] if m["name"] == "doWork")
@@ -343,12 +274,7 @@ class TestMethods:
         assert "realMethod" in names
 
     def test_method_metadata_defaults(self, fb: RegexFallback, tmp_path: Path) -> None:
-        src = (
-            "package com.example;\n"
-            "public class Svc {\n"
-            "    public void process() {}\n"
-            "}\n"
-        )
+        src = "package com.example;\npublic class Svc {\n    public void process() {}\n}\n"
         f, root = _write(tmp_path, "Svc.java", src)
         pf = fb.parse(f, root)
         m = pf["methods"][0]
@@ -369,8 +295,8 @@ class TestMethods:
 # TestKindMapping
 # ---------------------------------------------------------------------------
 
-class TestKindMapping:
 
+class TestKindMapping:
     def test_class_kind(self, fb: RegexFallback, tmp_path: Path) -> None:
         src = "package com.example;\npublic class Foo {}\n"
         f, root = _write(tmp_path, "Foo.java", src)
@@ -404,11 +330,9 @@ class TestKindMapping:
 # TestErrorPaths
 # ---------------------------------------------------------------------------
 
-class TestErrorPaths:
 
-    def test_unreadable_file_returns_envelope_no_exception(
-        self, fb: RegexFallback, tmp_path: Path
-    ) -> None:
+class TestErrorPaths:
+    def test_unreadable_file_returns_envelope_no_exception(self, fb: RegexFallback, tmp_path: Path) -> None:
         """RegexFallback must never raise — simulate OSError via a non-existent path."""
         # Pass a non-existent file; read_text will raise OSError internally.
         missing = tmp_path / "Ghost.java"

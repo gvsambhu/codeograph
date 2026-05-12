@@ -61,10 +61,10 @@ _RE_ANNOTATION = re.compile(r"@(\w+)(?:\([^)]*\))?")
 # Handles: class, interface, enum, record, @interface
 # Lifted and extended from legacy code_reader._CLASS_DECL_RE.
 _RE_TYPE_DECL = re.compile(
-    r"(?:^|(?<=\s))"                       # start of line or preceded by whitespace
+    r"(?:^|(?<=\s))"  # start of line or preceded by whitespace
     r"(?:(?:public|protected|private|abstract|final|static|sealed)\s+)*"
     r"(@?interface|class|enum|record)\s+"  # kind keyword (@interface is one token here)
-    r"(\w+)",                              # simple type name
+    r"(\w+)",  # simple type name
     re.MULTILINE,
 )
 
@@ -73,35 +73,58 @@ _RE_TYPE_DECL = re.compile(
 # Intentionally conservative — misses complex generics, prefers no false positives.
 # Refactored from legacy dependency_extractor._FIELD_RE (which only matched private final).
 _RE_FIELD = re.compile(
-    r"^\s{4,}"                                                    # indented ≥4 spaces
+    r"^\s{4,}"  # indented ≥4 spaces
     r"(?:(?:private|public|protected|static|final|volatile|transient)\s+)+"
-    r"([\w][\w<>\[\]]*)\s+"                                       # type (simple, no nested generics)
-    r"(\w+)\s*(?:[=;,]|//)",                                      # name then = ; , or inline comment
+    r"([\w][\w<>\[\]]*)\s+"  # type (simple, no nested generics)
+    r"(\w+)\s*(?:[=;,]|//)",  # name then = ; , or inline comment
     re.MULTILINE,
 )
 
 # Method signature: modifiers + return-type + name + opening paren.
 # Excludes constructors (they have no return type) by requiring a return-type word.
 _RE_METHOD = re.compile(
-    r"^\s{4,}"                                                    # indented ≥4 spaces
+    r"^\s{4,}"  # indented ≥4 spaces
     r"(?:(?:public|protected|private|static|final|abstract|synchronized|native|default)\s+)*"
-    r"([\w][\w<>\[\]]*)\s+"                                       # return type
-    r"(\w+)\s*\(",                                                 # method name + (
+    r"([\w][\w<>\[\]]*)\s+"  # return type
+    r"(\w+)\s*\(",  # method name + (
     re.MULTILINE,
 )
 
 # Known Spring stereotype annotation names — mirrors JavaParserRunner.STEREOTYPES.
-_STEREOTYPES: frozenset[str] = frozenset({
-    "Component", "Service", "Repository", "Controller", "RestController",
-    "Configuration", "ControllerAdvice", "Entity", "SpringBootApplication",
-})
+_STEREOTYPES: frozenset[str] = frozenset(
+    {
+        "Component",
+        "Service",
+        "Repository",
+        "Controller",
+        "RestController",
+        "Configuration",
+        "ControllerAdvice",
+        "Entity",
+        "SpringBootApplication",
+    }
+)
 
 # Method names that are almost certainly not real methods (noise from regex).
 # `if`, `while`, `for`, `switch`, etc. can appear as "return type + name" false positives.
-_METHOD_KEYWORD_NOISE: frozenset[str] = frozenset({
-    "if", "while", "for", "switch", "catch", "return", "new",
-    "else", "try", "throw", "assert", "do", "case", "default",
-})
+_METHOD_KEYWORD_NOISE: frozenset[str] = frozenset(
+    {
+        "if",
+        "while",
+        "for",
+        "switch",
+        "catch",
+        "return",
+        "new",
+        "else",
+        "try",
+        "throw",
+        "assert",
+        "do",
+        "case",
+        "default",
+    }
+)
 
 
 class RegexFallback:
@@ -140,43 +163,43 @@ class RegexFallback:
 
     def _extract(self, source: str, source_file: str) -> ParsedFile:
         """Run all regex patterns against the source text and assemble a ParsedFile."""
-        package   = self._extract_package(source)
-        imports   = self._extract_imports(source)
+        package = self._extract_package(source)
+        imports = self._extract_imports(source)
         kind, simple_name = self._extract_type_decl(source)
 
         if simple_name is None:
             logger.warning("RegexFallback: no type declaration found in %s", source_file)
             return _empty_envelope(source_file)
 
-        fqcn        = f"{package}.{simple_name}" if package else simple_name
+        fqcn = f"{package}.{simple_name}" if package else simple_name
         annotations = self._extract_annotations(source)
-        stereotype  = next((a for a in annotations if a in _STEREOTYPES), None)
-        fields      = self._extract_fields(source, fqcn)
-        methods     = self._extract_methods(source, fqcn)
+        stereotype = next((a for a in annotations if a in _STEREOTYPES), None)
+        fields = self._extract_fields(source, fqcn)
+        methods = self._extract_methods(source, fqcn)
 
         result: ParsedFile = {
             # --- required base ---
-            "kind":            kind,
-            "id":              fqcn,
-            "name":            simple_name,
-            "source_file":     source_file,
+            "kind": kind,
+            "id": fqcn,
+            "name": simple_name,
+            "source_file": source_file,
             "extraction_mode": "regex",
-            "annotations":     annotations,
-            "imports":         imports,
+            "annotations": annotations,
+            "imports": imports,
             # --- kind-specific: class fields (safe to include for all kinds in
             #     fallback — graph builder checks `kind` anyway) ---
-            "modifiers":       [],
-            "stereotype":      stereotype,
-            "superclass":      None,
-            "implements":      [],
-            "is_inner_class":  False,
-            "table_name":      None,
-            "entry_point":     "SpringBootApplication" in annotations,
-            "fields":          fields,
-            "methods":         methods,
-            "wmc":             None,
-            "cbo":             None,
-            "lcom4":           None,
+            "modifiers": [],
+            "stereotype": stereotype,
+            "superclass": None,
+            "implements": [],
+            "is_inner_class": False,
+            "table_name": None,
+            "entry_point": "SpringBootApplication" in annotations,
+            "fields": fields,
+            "methods": methods,
+            "wmc": None,
+            "cbo": None,
+            "lcom4": None,
         }
 
         # Interface uses extends_interfaces rather than implements
@@ -215,10 +238,10 @@ class RegexFallback:
 
         kind_map = {
             "@interface": "annotation_type",
-            "interface":  "interface",
-            "enum":       "enum",
-            "record":     "record",
-            "class":      "class",
+            "interface": "interface",
+            "enum": "enum",
+            "record": "record",
+            "class": "class",
         }
         return kind_map.get(raw_kind, "class"), simple_name
 
@@ -266,18 +289,18 @@ class RegexFallback:
                 continue
 
             fact: FieldFact = {
-                "id":             f"{fqcn}.{field_name}",
-                "name":           field_name,
-                "type":           field_type,
-                "modifiers":      [],
-                "annotations":    [],
-                "is_autowired":   False,
-                "is_id":          False,
+                "id": f"{fqcn}.{field_name}",
+                "name": field_name,
+                "type": field_type,
+                "modifiers": [],
+                "annotations": [],
+                "is_autowired": False,
+                "is_id": False,
                 "injection_type": None,
-                "qualifier":      None,
-                "generation":     None,
-                "column":         None,
-                "constraints":    [],
+                "qualifier": None,
+                "generation": None,
+                "column": None,
+                "constraints": [],
             }
             facts.append(fact)
         return facts
@@ -295,31 +318,31 @@ class RegexFallback:
         """
         facts: list[MethodFact] = []
         for match in _RE_METHOD.finditer(source):
-            return_type  = match.group(1).strip()
-            method_name  = match.group(2).strip()
+            return_type = match.group(1).strip()
+            method_name = match.group(2).strip()
 
             # Filter Java control-flow keywords that the pattern can mistake for methods
             if return_type in _METHOD_KEYWORD_NOISE or method_name in _METHOD_KEYWORD_NOISE:
                 continue
 
             fact: MethodFact = {
-                "id":                     f"{fqcn}#{method_name}()",
-                "name":                   method_name,
-                "return_type":            return_type,
-                "modifiers":              [],
-                "annotations":            [],
-                "is_constructor":         False,
-                "line_range":             [0, 0],
-                "parameters":             [],
-                "is_bean_factory":        False,
-                "exception_handler":      False,
-                "response_body":          False,
-                "response_status":        None,
-                "http_metadata":          None,
-                "cyclomatic_complexity":  None,
-                "cognitive_complexity":   None,
-                "method_loc":             None,
-                "calls":                  [],
+                "id": f"{fqcn}#{method_name}()",
+                "name": method_name,
+                "return_type": return_type,
+                "modifiers": [],
+                "annotations": [],
+                "is_constructor": False,
+                "line_range": [0, 0],
+                "parameters": [],
+                "is_bean_factory": False,
+                "exception_handler": False,
+                "response_body": False,
+                "response_status": None,
+                "http_metadata": None,
+                "cyclomatic_complexity": None,
+                "cognitive_complexity": None,
+                "method_loc": None,
+                "calls": [],
             }
             facts.append(fact)
         return facts
@@ -329,6 +352,7 @@ class RegexFallback:
 # Module-level helper
 # ---------------------------------------------------------------------------
 
+
 def _empty_envelope(source_file: str) -> ParsedFile:
     """
     Minimal ParsedFile for a file that could not be read or parsed at all.
@@ -336,11 +360,11 @@ def _empty_envelope(source_file: str) -> ParsedFile:
     """
     stem = source_file.rsplit("/", 1)[-1].removesuffix(".java")
     return {
-        "kind":            "class",
-        "id":              source_file.replace("/", ".").removesuffix(".java"),
-        "name":            stem,
-        "source_file":     source_file,
+        "kind": "class",
+        "id": source_file.replace("/", ".").removesuffix(".java"),
+        "name": stem,
+        "source_file": source_file,
         "extraction_mode": "regex",
-        "annotations":     [],
-        "imports":         [],
+        "annotations": [],
+        "imports": [],
     }

@@ -54,10 +54,10 @@ class FileParserDispatcher:
     def __init__(
         self,
         java_parser: JavaFileParser,
-        fallback:    RegexFallback,
+        fallback: RegexFallback,
     ) -> None:
         self._java_parser = java_parser
-        self._fallback    = fallback
+        self._fallback = fallback
 
     def parse(self, java_file: Path, corpus_root: Path) -> ParsedFile:
         """
