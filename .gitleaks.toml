@@ -1,0 +1,18 @@
+title = "Codeograph gitleaks configuration"
+
+# Allowlist entries suppress known-safe patterns that the default ruleset
+# flags as false positives.  Each entry requires a comment explaining why
+# it is safe.  Do NOT add entries to suppress real secrets — rotate the
+# secret and remove the allowlist entry instead.
+#
+# Format: https://github.com/gitleaks/gitleaks?tab=readme-ov-file#configuration
+
+[allowlist]
+  description = "Known-safe patterns"
+  # No entries yet — add here if gitleaks flags false positives.
+  # Example:
+  #   regexes = ['''some-safe-pattern''']
+  paths = [
+    # Test fixtures and example files that intentionally contain fake keys
+    # for testing the scanner itself.  Add paths here, not regexes.
+  ]

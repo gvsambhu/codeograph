@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/gvsambhu/codeograph/schemas/manifest.schema.json",
+  "title": "Codeograph Run Manifest",
+  "description": "Entry point for all Codeograph output. Always read manifest.json first — it carries schema versions and sha256 digests for every artefact. Consumers must reject artefacts whose digest does not match.",
+  "type": "object",
+  "required": ["schema_version", "codeograph_version", "artefacts"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "description": "Semver of the manifest schema itself (this file). Bump when manifest structure changes.",
+      "examples": ["1.0.0"]
+    },
+    "codeograph_version": {
+      "type": "string",
+      "description": "Version of the codeograph tool that produced this manifest.",
+      "examples": ["0.1.0"]
+    },
+    "artefacts": {
+      "type": "object",
+      "description": "Per-artefact metadata keyed by artefact name. Both graph and llm_annotations are always present; llm_annotations sha256 is null when --ast-only was used.",
+      "required": ["graph", "llm_annotations"],
+      "additionalProperties": false,
+      "properties": {
+        "graph": {
+          "$ref": "#/$defs/ArtefactMeta",
+          "description": "Deterministic AST-derived knowledge graph (out/graph.json)."
+        },
+        "llm_annotations": {
+          "$ref": "#/$defs/ArtefactMeta",
+          "description": "Non-deterministic LLM enrichment layer (out/llm-annotations.json). sha256 is null when produced with --ast-only."
+        }
+      }
+    }
+  },
+  "$defs": {
+    "ArtefactMeta": {
+      "type": "object",
+      "required": ["path", "schema_version", "sha256"],
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Relative path from the output directory root.",
+          "examples": ["graph.json", "llm-annotations.json"]
+        },
+        "schema_version": {
+          "type": "string",
+          "description": "Semver of this artefact's own schema at time of production.",
+          "examples": ["1.0.0"]
+        },
+        "sha256": {
+          "type": ["string", "null"],
+          "description": "SHA-256 hex digest of the artefact's canonical bytes. Null only for llm_annotations when --ast-only was used.",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    }
+  }
+}

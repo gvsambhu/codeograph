@@ -1,0 +1,27 @@
+name: Nightly
+
+# Tier 3 golden tests (JHipster corpus) — deferred to v1.1.
+# ADR-007 Fork 7 (hybrid): this workflow exists now so the scheduler slot is
+# reserved and the CI surface is visible; the actual test job lands when the
+# JHipster fixture is ready.
+
+on:
+  schedule:
+    # 02:00 UTC daily
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+
+env:
+  TZ: UTC
+  LC_ALL: C.UTF-8
+  PYTHONHASHSEED: "0"
+
+jobs:
+  tier3:
+    name: Tier 3 golden tests (stub — v1.1)
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Placeholder
+        run: |
+          echo "Tier 3 (JHipster corpus) deferred to v1.1."
+          echo "This job will be populated when the JHipster fixture lands."
