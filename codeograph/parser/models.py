@@ -201,7 +201,7 @@ class ParsedFile(_ParsedFileBase, total=False):
     entry_point: bool
     wmc: int | None  # Weighted Methods per Class; M7
     cbo: int | None  # Coupling Between Objects; M7
-    lcom4: float | None  # Lack of Cohesion of Methods 4; M7
+    lcom4: int | None  # Lack of Cohesion of Methods 4; M7
 
     # --- interface-only ---
     extends_interfaces: list[str]

@@ -162,7 +162,7 @@ class GraphAssembler:
         Used as a corpus-membership filter — if a resolved FQCN is not in
         this set, it is an external library type and should be skipped.
         """
-        return {node.root.id for node in nodes}  # type: ignore[union-attr]
+        return {node.root.id for node in nodes}
 
     def _build_method_index(
         self,
@@ -178,10 +178,10 @@ class GraphAssembler:
         """
         index: dict[str, dict[str, list[str]]] = defaultdict(lambda: defaultdict(list))
         for node in nodes:
-            if node.root.kind == "method":  # type: ignore[union-attr]
-                method_id = node.root.id  # type: ignore[union-attr]
+            if node.root.kind == "method":
+                method_id = node.root.id
                 class_fqcn = method_id.split("#")[0]
-                method_name = node.root.name  # type: ignore[union-attr]
+                method_name = node.root.name
                 index[class_fqcn][method_name].append(method_id)
         return index
 
@@ -195,8 +195,8 @@ class GraphAssembler:
         """
         index: dict[str, list[Any]] = defaultdict(list)
         for node in nodes:
-            if node.root.kind == "field":  # type: ignore[union-attr]
-                field_node = node.root  # type: ignore[union-attr]
+            if node.root.kind == "field":
+                field_node = node.root
                 field_id = field_node.id
                 field_name = field_node.name
                 class_fqcn = field_id[: -(len(field_name) + 1)]
@@ -213,8 +213,8 @@ class GraphAssembler:
         """
         index: dict[str, list[Any]] = {}
         for node in nodes:
-            if node.root.kind == "method":  # type: ignore[union-attr]
-                index[node.root.id] = node.root.parameters or []  # type: ignore[union-attr]
+            if node.root.kind == "method":
+                index[node.root.id] = node.root.parameters or []
         return index
 
     def _build_import_maps(
@@ -409,13 +409,11 @@ class GraphAssembler:
         to_add: list[Edge] = []
 
         for idx, edge in enumerate(all_edges):
-            if edge.root.kind != "calls_unresolved":  # type: ignore[union-attr]
+            if edge.root.kind != "calls_unresolved":
                 continue
 
-            source = edge.root.source  # type: ignore[union-attr]
-            raw_expr = (  # type: ignore[union-attr]
-                edge.root.raw_call_expr or edge.root.target
-            )
+            source = edge.root.source
+            raw_expr = edge.root.raw_call_expr or edge.root.target
 
             class_a = source.split("#")[0]
             import_map = import_maps.get(class_a, {})
@@ -498,7 +496,7 @@ class GraphAssembler:
         seen: set[str] = set()
         result: list[Node] = []
         for node in nodes:
-            nid = node.root.id  # type: ignore[union-attr]
+            nid = node.root.id
             if nid not in seen:
                 seen.add(nid)
                 result.append(node)
@@ -514,9 +512,9 @@ class GraphAssembler:
         result: list[Edge] = []
         for edge in edges:
             key = (
-                edge.root.kind,  # type: ignore[union-attr]
-                edge.root.source,  # type: ignore[union-attr]
-                edge.root.target,  # type: ignore[union-attr]
+                edge.root.kind,
+                edge.root.source,
+                edge.root.target,
             )
             if key not in seen:
                 seen.add(key)
