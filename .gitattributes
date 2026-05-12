@@ -1,0 +1,28 @@
+# Default: auto-detect text vs binary
+* text=auto
+
+# Source and config — normalise to LF
+*.py    text eol=lf
+*.toml  text eol=lf
+*.yaml  text eol=lf
+*.yml   text eol=lf
+*.md    text eol=lf
+*.txt   text eol=lf
+*.sh    text eol=lf
+Makefile text eol=lf
+
+# JSON — LF enforced; required by ADR-006 canonical-form sha256 contract.
+# The canonical serializer emits LF-terminated bytes; git must not convert them.
+*.json  text eol=lf
+
+# Binary artefacts — never mangle
+*.jar   binary
+*.class binary
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.zip   binary
+*.gz    binary
+*.tar   binary

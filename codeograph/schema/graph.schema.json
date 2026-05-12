@@ -1,0 +1,615 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/gvsambhu/codeograph/schemas/graph.schema.json",
+  "title": "Codeograph Knowledge Graph",
+  "description": "Deterministic property-graph produced by the AST pass. Contains nodes[] and edges[]. Canonical-form serialised (sorted keys, sorted arrays, LF endings, no timestamps/run-IDs) so sha256 is byte-stable across identical runs.",
+  "type": "object",
+  "required": ["nodes", "edges"],
+  "additionalProperties": false,
+  "properties": {
+    "nodes": {
+      "type": "array",
+      "description": "All graph nodes. Discriminated by the 'kind' property.",
+      "items": { "$ref": "#/$defs/Node" }
+    },
+    "edges": {
+      "type": "array",
+      "description": "All graph edges. Discriminated by the 'kind' property.",
+      "items": { "$ref": "#/$defs/Edge" }
+    }
+  },
+
+  "$defs": {
+
+    "Node": {
+      "oneOf": [
+        { "$ref": "#/$defs/ModuleNode" },
+        { "$ref": "#/$defs/ClassNode" },
+        { "$ref": "#/$defs/InterfaceNode" },
+        { "$ref": "#/$defs/EnumNode" },
+        { "$ref": "#/$defs/RecordNode" },
+        { "$ref": "#/$defs/AnnotationTypeNode" },
+        { "$ref": "#/$defs/MethodNode" },
+        { "$ref": "#/$defs/FieldNode" }
+      ]
+    },
+
+    "ModuleNode": {
+      "type": "object",
+      "required": ["id", "kind", "name", "build_tool", "source_roots"],
+      "additionalProperties": false,
+      "properties": {
+        "id":   { "type": "string", "pattern": "^mod:.+", "description": "Format: mod:<module-name>. e.g. mod:module-core" },
+        "kind": { "type": "string", "const": "module" },
+        "name": {
+          "type": "string",
+          "description": "Maven artifactId of this module."
+        },
+        "build_tool": {
+          "type": "string",
+          "enum": ["maven", "gradle"],
+          "description": "Build system detected for this module (ADR-002)."
+        },
+        "source_roots": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Source root paths relative to the repository root. e.g. ['module-core/src/main/java']. Same convention as source_file on class/interface/etc. nodes (DECISION-2 resolved)."
+        },
+        "pom_path": {
+          "type": ["string", "null"],
+          "description": "Path to pom.xml relative to repository root. Null for Gradle modules in v1."
+        }
+      }
+    },
+
+    "ClassNode": {
+      "$comment": "DECISION-1 resolved: stereotype uses short names, no @ prefix. 9 values, first-found wins when multiple present (rare). DECISION-2 resolved: source_file is relative to the repository root (e.g. 'module-core/src/main/java/com/example/UserService.java'). Must never be absolute — absolute paths break sha256 reproducibility across machines. DECISION-3 resolved: extraction_mode lives on ClassNode (not MethodNode) because the fallback applies to an entire class body, not individual methods.",
+      "type": "object",
+      "required": ["id", "kind", "name", "modifiers", "source_file", "line_range", "extraction_mode"],
+      "additionalProperties": false,
+      "properties": {
+        "id":   { "type": "string", "description": "Fully-qualified class name. e.g. com.example.UserService" },
+        "kind": { "type": "string", "const": "class" },
+        "name": { "type": "string", "description": "Simple class name. e.g. UserService" },
+        "modifiers": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["public", "protected", "private", "abstract", "final", "static"] },
+          "description": "Java access and non-access modifiers declared on this class."
+        },
+        "stereotype": {
+          "type": ["string", "null"],
+          "enum": ["Component", "Service", "Repository", "Controller", "RestController", "Configuration", "ControllerAdvice", "Entity", "SpringBootApplication", null],
+          "description": "Primary Spring stereotype (ADR-003 §9, DECISION-1 resolved). Short name, no @ prefix. Null if no stereotype annotation is present."
+        },
+        "annotations": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "ALL annotation simple names present on this class, including those not in the interpreted list. e.g. [\"Service\", \"Transactional\", \"Validated\"]. Superset of stereotype."
+        },
+        "superclass": {
+          "type": ["string", "null"],
+          "description": "FQCN of the superclass, or null if extends Object implicitly."
+        },
+        "implements": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "FQCNs of implemented interfaces."
+        },
+        "is_inner_class": {
+          "type": "boolean",
+          "description": "True if this class is declared inside another class."
+        },
+        "source_file": {
+          "type": "string",
+          "description": "Path to the .java source file, relative to the repository root. e.g. 'module-core/src/main/java/com/example/UserService.java'. Never absolute — absolute paths break sha256 reproducibility across machines (DECISION-2 resolved)."
+        },
+        "line_range": {
+          "type": "array",
+          "items": { "type": "integer" },
+          "minItems": 2,
+          "maxItems": 2,
+          "description": "[start_line, end_line] of the class declaration."
+        },
+        "extraction_mode": {
+          "type": "string",
+          "enum": ["ast", "signatures_only", "regex_fallback"],
+          "description": "How this class's body was parsed. 'ast': full JavaParser AST (complexity metrics available). 'signatures_only': oversized-input fallback per ADR-005 (complexity metrics null). 'regex_fallback': JavaParser failed; per-file regex used (ADR-003). Applies to all methods in this class."
+        },
+        "table_name": {
+          "type": ["string", "null"],
+          "description": "Database table name from @Table(name=...) or @Entity default (simple class name lowercased). Null if class is not an @Entity."
+        },
+        "entry_point": {
+          "type": "boolean",
+          "description": "True if this class carries @SpringBootApplication — marks the application bootstrap entry point."
+        },
+        "wmc": {
+          "type": ["integer", "null"],
+          "description": "Weighted Method Count — sum of cyclomatic complexities of all methods (ADR-004, Chidamber & Kemerer 1994). Null when extraction_mode is 'signatures_only' or 'regex_fallback'."
+        },
+        "cbo": {
+          "type": ["integer", "null"],
+          "description": "Coupling Between Objects — count of distinct classes this class depends on (ADR-004, Chidamber & Kemerer 1994). Null when extraction_mode is 'signatures_only' or 'regex_fallback'."
+        },
+        "lcom4": {
+          "type": ["integer", "null"],
+          "description": "Lack of Cohesion of Methods 4 — number of connected components in the method-field usage graph (ADR-004, Hitz & Montazeri 1995). Null when extraction_mode is 'signatures_only' or 'regex_fallback'."
+        }
+      }
+    },
+
+    "InterfaceNode": {
+      "type": "object",
+      "required": ["id", "kind", "name", "modifiers", "source_file", "line_range"],
+      "additionalProperties": false,
+      "properties": {
+        "id":   { "type": "string", "description": "Fully-qualified interface name." },
+        "kind": { "type": "string", "const": "interface" },
+        "name": { "type": "string" },
+        "modifiers": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["public", "protected", "private", "abstract", "static"] }
+        },
+        "annotations": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Annotation simple names on this interface."
+        },
+        "extends_interfaces": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "FQCNs of extended interfaces."
+        },
+        "source_file": { "type": "string", "description": "Path relative to the repository root (DECISION-2 resolved)." },
+        "line_range": {
+          "type": "array",
+          "items": { "type": "integer" },
+          "minItems": 2,
+          "maxItems": 2
+        }
+      }
+    },
+
+    "EnumNode": {
+      "type": "object",
+      "required": ["id", "kind", "name", "modifiers", "constants", "source_file", "line_range"],
+      "additionalProperties": false,
+      "properties": {
+        "id":   { "type": "string", "description": "Fully-qualified enum name." },
+        "kind": { "type": "string", "const": "enum" },
+        "name": { "type": "string" },
+        "modifiers": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["public", "protected", "private"] }
+        },
+        "constants": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Enum constant names in declaration order."
+        },
+        "annotations": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Annotation simple names on this enum."
+        },
+        "implements": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "FQCNs of implemented interfaces."
+        },
+        "source_file": { "type": "string", "description": "Path relative to the repository root (DECISION-2 resolved)." },
+        "line_range": {
+          "type": "array",
+          "items": { "type": "integer" },
+          "minItems": 2,
+          "maxItems": 2
+        }
+      }
+    },
+
+    "RecordNode": {
+      "type": "object",
+      "required": ["id", "kind", "name", "components", "source_file", "line_range"],
+      "additionalProperties": false,
+      "properties": {
+        "id":   { "type": "string", "description": "Fully-qualified record name." },
+        "kind": { "type": "string", "const": "record" },
+        "name": { "type": "string" },
+        "components": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/NameTypePair" },
+          "description": "Record components in declaration order."
+        },
+        "annotations": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Annotation simple names on this record."
+        },
+        "implements": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "FQCNs of implemented interfaces."
+        },
+        "source_file": { "type": "string", "description": "Path relative to the repository root (DECISION-2 resolved)." },
+        "line_range": {
+          "type": "array",
+          "items": { "type": "integer" },
+          "minItems": 2,
+          "maxItems": 2
+        }
+      }
+    },
+
+    "AnnotationTypeNode": {
+      "type": "object",
+      "required": ["id", "kind", "name", "modifiers", "source_file", "line_range"],
+      "additionalProperties": false,
+      "properties": {
+        "id":   { "type": "string", "description": "Fully-qualified annotation type name." },
+        "kind": { "type": "string", "const": "annotation_type" },
+        "name": { "type": "string" },
+        "modifiers": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["public", "protected", "private"] }
+        },
+        "elements": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/AnnotationElement" },
+          "description": "Annotation element declarations."
+        },
+        "source_file": { "type": "string", "description": "Path relative to the repository root (DECISION-2 resolved)." },
+        "line_range": {
+          "type": "array",
+          "items": { "type": "integer" },
+          "minItems": 2,
+          "maxItems": 2
+        }
+      }
+    },
+
+    "MethodNode": {
+      "$comment": "extraction_mode is on ClassNode (not here) — it applies to all methods in a class uniformly. complexity metrics are null when ClassNode.extraction_mode != 'ast'. parameters uses ParameterFact (richer than NameTypePair) to capture Spring binding annotations per ADR-003 §9.",
+      "type": "object",
+      "required": ["id", "kind", "name", "return_type", "parameters", "modifiers", "is_constructor", "line_range"],
+      "additionalProperties": false,
+      "properties": {
+        "id":   { "type": "string", "description": "Format: <fqcn>#<method>(<param-types>). e.g. com.example.UserService#findById(Long)" },
+        "kind": { "type": "string", "const": "method" },
+        "name": { "type": "string", "description": "Method name. For constructors, matches the class simple name." },
+        "return_type": {
+          "type": "string",
+          "description": "Return type as a string. 'void' for void methods. Constructor return_type is the class FQCN."
+        },
+        "parameters": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ParameterFact" },
+          "description": "Method parameters with optional Spring binding metadata (ADR-003 §9 — HTTP arg binding category)."
+        },
+        "modifiers": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["public", "protected", "private", "abstract", "final", "static", "synchronized", "native"] }
+        },
+        "annotations": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "ALL annotation simple names on this method. e.g. [\"GetMapping\", \"ResponseBody\", \"Override\"]."
+        },
+        "is_constructor": { "type": "boolean" },
+        "line_range": {
+          "type": "array",
+          "items": { "type": "integer" },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "cyclomatic_complexity": {
+          "type": ["integer", "null"],
+          "description": "McCabe cyclomatic complexity (ADR-004). Null if ClassNode.extraction_mode != 'ast'."
+        },
+        "cognitive_complexity": {
+          "type": ["integer", "null"],
+          "description": "SonarSource cognitive complexity (ADR-004, Campbell 2018). Null if ClassNode.extraction_mode != 'ast'."
+        },
+        "method_loc": {
+          "type": ["integer", "null"],
+          "description": "Method lines of code excluding blank lines and comments (ADR-004). Null if ClassNode.extraction_mode != 'ast'."
+        },
+        "http_metadata": {
+          "$ref": "#/$defs/HttpMetadata",
+          "description": "HTTP mapping details if this method carries a mapping annotation (@GetMapping etc.). Null/absent if not a request handler."
+        },
+        "exception_handler": {
+          "type": "boolean",
+          "description": "True if this method carries @ExceptionHandler (ADR-003 §9 — REST exception flow category)."
+        },
+        "response_status": {
+          "type": ["integer", "null"],
+          "description": "HTTP status code from @ResponseStatus(value=...) or @ResponseStatus(code=...), or null if not present."
+        },
+        "response_body": {
+          "type": "boolean",
+          "description": "True if this method is annotated with @ResponseBody (or is on a @RestController class, which implies it)."
+        },
+        "is_bean_factory": {
+          "type": "boolean",
+          "description": "True if this method carries @Bean (ADR-003 §9 — Boot bootstrap category). Triggers a BeanFactoryEdge from this method to the return type."
+        }
+      }
+    },
+
+    "FieldNode": {
+      "$comment": "DECISION-4 resolved: is_autowired is included as a convenience bool — makes it easy to query all injected fields without edge traversal; small redundancy with AutowiresEdge is acceptable. JPA fields: is_id, generation, column, constraints capture interpreted annotations from ADR-003 §9 (JPA core category).",
+      "type": "object",
+      "required": ["id", "kind", "name", "type", "modifiers"],
+      "additionalProperties": false,
+      "properties": {
+        "id":   { "type": "string", "description": "Format: <fqcn>.<field-name>. e.g. com.example.UserService.userRepository" },
+        "kind": { "type": "string", "const": "field" },
+        "name": { "type": "string" },
+        "type": { "type": "string", "description": "Declared field type as a string. e.g. UserRepository, List<Order>, String." },
+        "modifiers": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["public", "protected", "private", "final", "static", "transient", "volatile"] }
+        },
+        "annotations": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "ALL annotation simple names on this field. e.g. [\"Autowired\", \"NotNull\", \"Column\"]."
+        },
+        "is_autowired": {
+          "type": "boolean",
+          "description": "True if this field carries @Autowired, @Inject, or equivalent (DECISION-4 resolved: include). Redundant with the AutowiresEdge but simplifies renderer queries without edge traversal."
+        },
+        "is_id": {
+          "type": "boolean",
+          "description": "True if this field carries @Id (ADR-003 §9 — JPA core category). Primary key field."
+        },
+        "generation": {
+          "type": ["string", "null"],
+          "enum": ["AUTO", "IDENTITY", "SEQUENCE", "TABLE", "UUID", null],
+          "description": "GenerationType from @GeneratedValue(strategy=...), or null if @GeneratedValue is absent or field is not @Id."
+        },
+        "column": {
+          "$ref": "#/$defs/ColumnMetadata",
+          "description": "Column mapping from @Column, if present. Null/absent if no @Column annotation."
+        },
+        "constraints": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Bean Validation constraint annotation simple names on this field (ADR-003 §9 — basic validation category). e.g. [\"NotNull\", \"Size\", \"Email\"]. Does not include JPA or Spring annotations — those have dedicated fields."
+        }
+      }
+    },
+
+    "Edge": {
+      "oneOf": [
+        { "$ref": "#/$defs/ContainsEdge" },
+        { "$ref": "#/$defs/CallsResolvedEdge" },
+        { "$ref": "#/$defs/CallsUnresolvedEdge" },
+        { "$ref": "#/$defs/DependsOnEdge" },
+        { "$ref": "#/$defs/AutowiresEdge" },
+        { "$ref": "#/$defs/RelationEdge" },
+        { "$ref": "#/$defs/BeanFactoryEdge" }
+      ]
+    },
+
+    "ContainsEdge": {
+      "type": "object",
+      "required": ["source", "target", "kind"],
+      "additionalProperties": false,
+      "properties": {
+        "source": { "type": "string", "description": "ID of the containing node (module, class, interface, etc.)." },
+        "target": { "type": "string", "description": "ID of the contained node." },
+        "kind":   { "type": "string", "const": "contains" }
+      }
+    },
+
+    "CallsResolvedEdge": {
+      "type": "object",
+      "required": ["source", "target", "kind"],
+      "additionalProperties": false,
+      "properties": {
+        "source":     { "type": "string", "description": "Calling method ID." },
+        "target":     { "type": "string", "description": "Called method ID — resolved to a known node in this graph." },
+        "kind":       { "type": "string", "const": "calls_resolved" },
+        "call_count": {
+          "type": "integer",
+          "description": "How many times this method calls the target within its body."
+        }
+      }
+    },
+
+    "CallsUnresolvedEdge": {
+      "type": "object",
+      "required": ["source", "target", "kind"],
+      "additionalProperties": false,
+      "properties": {
+        "source":        { "type": "string", "description": "Calling method ID." },
+        "target":        { "type": "string", "description": "Best-effort callee name. May not match any node ID — could be an external library or JDK method." },
+        "kind":          { "type": "string", "const": "calls_unresolved" },
+        "raw_call_expr": {
+          "type": "string",
+          "description": "The literal call expression from source, for debuggability. e.g. orderService.findByUser(userId)"
+        }
+      }
+    },
+
+    "DependsOnEdge": {
+      "type": "object",
+      "required": ["source", "target", "kind"],
+      "additionalProperties": false,
+      "properties": {
+        "source": { "type": "string", "description": "Depending class ID." },
+        "target": { "type": "string", "description": "Depended-upon class ID. Feeds CBO computation for the source class." },
+        "kind":   { "type": "string", "const": "depends_on" }
+      }
+    },
+
+    "AutowiresEdge": {
+      "$comment": "DECISION-5 resolved: injection_type fallback is 'field' — most legacy Spring code uses field injection, so this is the safe default when JavaParser cannot determine injection style. qualifier captures @Qualifier value when present.",
+      "type": "object",
+      "required": ["source", "target", "kind"],
+      "additionalProperties": false,
+      "properties": {
+        "source":         { "type": "string", "description": "Field ID carrying the injection annotation (e.g. com.example.UserService.userRepository)." },
+        "target":         { "type": "string", "description": "Injected class/interface FQCN." },
+        "kind":           { "type": "string", "const": "autowires" },
+        "injection_type": {
+          "type": "string",
+          "enum": ["field", "constructor", "setter"],
+          "description": "How the dependency is injected (DECISION-5 resolved: fallback is 'field'). Drives renderer output — Go has no field injection; NestJS prefers constructor. Emit 'field' when JavaParser cannot determine injection style."
+        },
+        "qualifier": {
+          "type": ["string", "null"],
+          "description": "Value from @Qualifier(value=...) on this injection point, or null if no qualifier. Needed when multiple beans of the same type exist."
+        }
+      }
+    },
+
+    "RelationEdge": {
+      "$comment": "JPA relationship edges (ADR-003 §9 — JPA relations category). Source and target are class IDs. Emitted for @OneToMany, @ManyToOne, @OneToOne, @ManyToMany annotations on fields.",
+      "type": "object",
+      "required": ["source", "target", "kind", "cardinality"],
+      "additionalProperties": false,
+      "properties": {
+        "source":      { "type": "string", "description": "Owning class ID (FQCN)." },
+        "target":      { "type": "string", "description": "Related class ID (FQCN). Extracted from the annotation's targetEntity or the field generic type." },
+        "kind":        { "type": "string", "const": "relation" },
+        "cardinality": {
+          "type": "string",
+          "enum": ["ONE_TO_ONE", "ONE_TO_MANY", "MANY_TO_ONE", "MANY_TO_MANY"],
+          "description": "JPA relationship cardinality from the annotation name."
+        },
+        "join_column": {
+          "type": ["string", "null"],
+          "description": "Column name from @JoinColumn(name=...), or null if not specified (JPA uses default naming)."
+        }
+      }
+    },
+
+    "BeanFactoryEdge": {
+      "$comment": "Emitted when a @Configuration class has a @Bean method. Source = the @Bean method ID; target = the return type FQCN (the bean being produced). Enables the renderer to wire beans produced via factory methods, not just @Autowired fields.",
+      "type": "object",
+      "required": ["source", "target", "kind"],
+      "additionalProperties": false,
+      "properties": {
+        "source": { "type": "string", "description": "Method ID of the @Bean factory method." },
+        "target": { "type": "string", "description": "FQCN of the produced bean (the method's return type)." },
+        "kind":   { "type": "string", "const": "bean_factory" }
+      }
+    },
+
+    "ParameterFact": {
+      "$comment": "Richer parameter descriptor used by MethodNode. Captures Spring HTTP binding annotations (ADR-003 §9 — HTTP arg binding category) in addition to name and type.",
+      "type": "object",
+      "required": ["name", "type"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "description": "Parameter name as declared in source." },
+        "type": { "type": "string", "description": "Parameter type as a string. e.g. Long, UserDTO, HttpServletRequest." },
+        "binding": {
+          "$ref": "#/$defs/ParameterBinding",
+          "description": "Spring binding metadata if a binding annotation is present (@PathVariable, @RequestParam, @RequestBody, @RequestHeader, @ModelAttribute). Absent if no binding annotation."
+        },
+        "validate": {
+          "type": "boolean",
+          "description": "True if @Valid or @Validated is present on this parameter."
+        },
+        "constraints": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Bean Validation constraint annotation simple names applied directly to this parameter. e.g. [\"NotNull\", \"Size\"]."
+        }
+      }
+    },
+
+    "HttpMetadata": {
+      "$comment": "HTTP mapping details extracted from @GetMapping, @PostMapping, @PutMapping, @DeleteMapping, @PatchMapping, @RequestMapping on a method (ADR-003 §9 — HTTP mapping category).",
+      "type": "object",
+      "required": ["method", "path"],
+      "additionalProperties": false,
+      "properties": {
+        "method": {
+          "type": "string",
+          "enum": ["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"],
+          "description": "HTTP method. Inferred from annotation name (@GetMapping → GET) or from RequestMethod enum in @RequestMapping."
+        },
+        "path": {
+          "type": "string",
+          "description": "URL path template. Combines class-level and method-level mappings. e.g. '/users/{id}'. Empty string if no path is specified."
+        }
+      }
+    },
+
+    "ParameterBinding": {
+      "$comment": "Spring MVC / REST binding annotation metadata for a single method parameter (ADR-003 §9 — HTTP arg binding category).",
+      "type": "object",
+      "required": ["kind"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["path", "query", "body", "header", "request_param", "model_attribute"],
+          "description": "Binding source. 'path' = @PathVariable, 'query'/'request_param' = @RequestParam, 'body' = @RequestBody, 'header' = @RequestHeader, 'model_attribute' = @ModelAttribute."
+        },
+        "name": {
+          "type": ["string", "null"],
+          "description": "Explicit binding name from annotation value attribute, or null if not specified (uses parameter name)."
+        },
+        "required": {
+          "type": "boolean",
+          "description": "True if the binding is required (annotation's required attribute, defaults to true for most Spring annotations)."
+        },
+        "default_value": {
+          "type": ["string", "null"],
+          "description": "defaultValue from @RequestParam or @RequestHeader, or null if not specified."
+        }
+      }
+    },
+
+    "ColumnMetadata": {
+      "$comment": "Extracted from @Column on a JPA field (ADR-003 §9 — JPA core category). Only the attributes Codeograph reads in v1.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": ["string", "null"],
+          "description": "Column name from name attribute, or null if not specified (JPA uses field name by default)."
+        },
+        "nullable": {
+          "type": "boolean",
+          "description": "From nullable attribute. Defaults to true per JPA spec."
+        },
+        "length": {
+          "type": ["integer", "null"],
+          "description": "From length attribute. Applies to VARCHAR columns. Null if not specified (JPA default is 255)."
+        }
+      }
+    },
+
+    "NameTypePair": {
+      "$comment": "Lightweight name+type tuple. Used by RecordNode components and AnnotationTypeNode elements. MethodNode parameters use the richer ParameterFact instead.",
+      "type": "object",
+      "required": ["name", "type"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "type": { "type": "string", "description": "Type as a string. e.g. Long, List<Order>, UserRepository." }
+      }
+    },
+
+    "AnnotationElement": {
+      "type": "object",
+      "required": ["name", "type"],
+      "additionalProperties": false,
+      "properties": {
+        "name":          { "type": "string" },
+        "type":          { "type": "string" },
+        "default_value": {
+          "type": ["string", "null"],
+          "description": "String representation of the default value, or null if no default."
+        }
+      }
+    }
+
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/gvsambhu/codeograph/schemas/llm-annotations.schema.json",
+  "title": "Codeograph LLM Annotations",
+  "description": "Non-deterministic LLM enrichment layer produced by DC2 (Pass 1 + Pass 2). Keyed by node ID from graph.json. Intentionally separate from graph.json so the deterministic graph can be sha256-verified independently. Not produced when --ast-only is used.",
+  "$comment": "PLACEHOLDER — full schema defined in DC2 when LLM passes are implemented (ADR-005, ADR-013, ADR-014). The NodeAnnotation $def below shows suggested fields only; finalise during DC2.",
+  "type": "object",
+  "required": ["annotations"],
+  "additionalProperties": false,
+  "properties": {
+    "annotations": {
+      "type": "object",
+      "description": "Map of node ID → LLM-derived annotation object.",
+      "additionalProperties": { "$ref": "#/$defs/NodeAnnotation" }
+    }
+  },
+  "$defs": {
+    "NodeAnnotation": {
+      "$comment": "TODO (DC2 / learner): define LLM-derived fields. Suggested: intent_summary (string), domain_tag (string), migration_hint (string), confidence (number 0-1), model_version (string — exact model id per ADR-004 A4), prompt_version (string). Design question: one flat object per node, or separate pass1/pass2 sub-objects to track which pass produced which field?",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {}
+    }
+  }
+}

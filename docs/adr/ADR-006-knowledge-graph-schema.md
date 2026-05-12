@@ -487,4 +487,12 @@ Confirmation that this decision is implemented correctly will come from:
 
 ## Amendments
 
+**2026-05-09 — Hierarchy edges explicitly deferred to v1.1.**  Fork 4's hybrid table already records `extends` and `implements` as node properties. This amendment closes the open question of whether `ExtendsEdge` / `ImplementsEdge` edge types will be added in v1.
+
+Decision: they are **not** added in v1. Rationale: the v1 renderer (Spring → TypeScript/NestJS) reads `ClassNode.superclass` and `ClassNode.implements` as string fields for single-class output generation. It does not need to traverse the hierarchy graph. Reverse-traversal queries ("all classes that extend `BaseEntity`", "all implementors of `Auditable`") and full inheritance-chain resolution are not required by any v1 renderer or eval check.
+
+`ExtendsEdge` / `ImplementsEdge` are deferred to v1.1. The trigger is: any renderer or analysis feature that needs corpus-wide hierarchy traversal (reverse lookup, chain resolution, circular inheritance detection). When that trigger is met, the addition is a schema version bump (Fork 7 pure-semver), a two-line builder change (emit the new edges), and the Neo4j materialisation script already noted in the Deferred items section. No v1 code needs to change structurally.
+
+Impact on the graph builder: the builder copies `superclass`, `implements`, and `extends_interfaces` as string fields onto the node. It does not emit any hierarchy edge. This is the correct and complete behaviour for v1.
+
 **2026-05-02 — Canonical-form clarification.** Fork 6's `sha256` contract clarified to be over canonical-form serialization rather than arbitrary bytes. Writer rules listed in Decision Outcome → Fork 6 (sorted keys, sorted node and edge arrays, LF endings, no leaked non-determinism, JavaParser version pinned). Adds CI double-write check as testable enforcement. Surfaced during ADR-007 golden-test design, where byte-equal goldens and the manifest sha256 contract were identified as the same constraint and benefit from explicit canonical-form rules. No reversal of any prior decision; clarification only.
