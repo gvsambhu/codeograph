@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from typing import Any
 
 import pathspec
 
@@ -209,7 +210,7 @@ class SourceDiscoverer:
             all_patterns.extend((corpus_root / ".gitignore").read_text(encoding="utf-8").splitlines())
         return list(dict.fromkeys(all_patterns))
 
-    def _build_module_filter(self, module_root: Path) -> pathspec.PathSpec:
+    def _build_module_filter(self, module_root: Path) -> pathspec.PathSpec[Any]:
         """
         Build a module-scoped pathspec filter from module_root/.gitignore only.
 
@@ -239,8 +240,8 @@ class SourceDiscoverer:
         source_root: Path,
         corpus_root: Path,
         module_root: Path,
-        corpus_filter: pathspec.PathSpec,
-        module_filter: pathspec.PathSpec,
+        corpus_filter: pathspec.PathSpec[Any],
+        module_filter: pathspec.PathSpec[Any],
     ) -> list[Path]:
         """
         Return all .java files under source_root that pass both scope filters.

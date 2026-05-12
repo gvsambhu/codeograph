@@ -12,7 +12,7 @@ Design decisions recorded in ADR-006.
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, cast
 
 from codeograph.graph.models.graph_schema import (
     AnnotationElement,
@@ -49,7 +49,7 @@ from codeograph.graph.models.graph_schema import (
 
 # Alias to distinguish from parser-layer ParameterFact (TypedDict)
 from codeograph.graph.models.graph_schema import ParameterFact as GraphParameterFact
-from codeograph.parser.models import FieldFact, MethodFact, ParsedFile
+from codeograph.parser.models import FieldFact, MethodFact, ParameterFact, ParsedFile
 
 logger = logging.getLogger(__name__)
 
@@ -97,7 +97,7 @@ def _parse_generation(raw: str | None) -> Generation | None:
     if raw is None:
         return None
     strategy = raw.split(".")[-1]
-    return _coerce_enum(Generation, strategy)
+    return cast("Generation | None", _coerce_enum(Generation, strategy))
 
 
 # ---------------------------------------------------------------------------
@@ -193,7 +193,7 @@ class GraphBuilder:
             entry_point=parsed_file.get("entry_point"),
             wmc=parsed_file.get("wmc"),
             cbo=parsed_file.get("cbo"),
-            lcom4=parsed_file.get("lcom4"),
+            lcom4=int(v) if (v := parsed_file.get("lcom4")) is not None else None,
         )
         self._nodes.append(class_node)
 
@@ -434,7 +434,7 @@ class GraphBuilder:
     # Level 2 — parameter embedding (not a graph node)
     # ------------------------------------------------------------------
 
-    def _embed_parameter(self, param: dict[str, Any]) -> GraphParameterFact:
+    def _embed_parameter(self, param: ParameterFact) -> GraphParameterFact:
         """
         Convert one parser ParameterFact dict into the schema ParameterFact.
         Not added to self._nodes — embedded directly in MethodNode.parameters.

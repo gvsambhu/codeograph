@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from pydantic.fields import FieldInfo
 from pydantic_settings import PydanticBaseSettingsSource
 
 _CONFIG_YAML = Path("config.yaml")
@@ -16,9 +17,8 @@ class YamlConfigSource(PydanticBaseSettingsSource):
     Never store secrets here.
     """
 
-    def get_field_value(self, field_name: str, field_info: Any) -> tuple[Any, str, bool]:
-        value = self._load().get(field_name)
-        return value, field_name, False
+    def get_field_value(self, field: FieldInfo, field_name: str) -> Any:
+        return self._load().get(field_name)
 
     def __call__(self) -> dict[str, Any]:
         return self._load()
