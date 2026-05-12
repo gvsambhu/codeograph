@@ -57,14 +57,14 @@ class CorpusAnalyzer:
     def __init__(
         self,
         dispatcher: FileParserDispatcher,
-        builder:    GraphBuilder,
-        assembler:  GraphAssembler,
-        writer:     GraphWriter,
+        builder: GraphBuilder,
+        assembler: GraphAssembler,
+        writer: GraphWriter,
     ) -> None:
         self._dispatcher = dispatcher
-        self._builder    = builder
-        self._assembler  = assembler
-        self._writer     = writer
+        self._builder = builder
+        self._assembler = assembler
+        self._writer = writer
 
     # ------------------------------------------------------------------
     # Public API

@@ -106,6 +106,7 @@ def _edges_of(graph, cls):
 # Static helper tests — no corpus needed
 # ---------------------------------------------------------------------------
 
+
 class TestParseCallExpr:
     def test_field_callee(self):
         callee, method = GraphAssembler._parse_call_expr("repo.save(entity)")
@@ -165,6 +166,7 @@ class TestStripCollectionWrapper:
 # DependsOnEdge tests
 # ---------------------------------------------------------------------------
 
+
 class TestAddDepEdges:
     def _two_class_corpus(self, a_imports=None, a_fields=None):
         """A depends on B; B is a separate class in the corpus."""
@@ -184,10 +186,7 @@ class TestAddDepEdges:
     def test_dep_edge_from_import(self):
         graph = self._two_class_corpus()
         dep_edges = _edges_of(graph, DependsOnEdge)
-        assert any(
-            e.source == "com.example.A" and e.target == "com.example.B"
-            for e in dep_edges
-        )
+        assert any(e.source == "com.example.A" and e.target == "com.example.B" for e in dep_edges)
 
     def test_external_import_skipped(self):
         pf_a = _class_pf(
@@ -213,10 +212,7 @@ class TestAddDepEdges:
         graph = GraphAssembler().assemble(corpus)
         dep_edges = _edges_of(graph, DependsOnEdge)
         # Both import and field type resolve to same target — only one edge emitted
-        assert sum(
-            1 for e in dep_edges
-            if e.source == "com.example.A" and e.target == "com.example.B"
-        ) == 1
+        assert sum(1 for e in dep_edges if e.source == "com.example.A" and e.target == "com.example.B") == 1
 
     def test_no_self_dep_edge(self):
         pf_a = _class_pf(id="com.example.A", imports=["com.example.A"])
@@ -236,10 +232,7 @@ class TestAddDepEdges:
         corpus = [(pf_a, _build_fragment(pf_a)), (pf_b, _build_fragment(pf_b))]
         graph = GraphAssembler().assemble(corpus)
         dep_edges = _edges_of(graph, DependsOnEdge)
-        assert any(
-            e.source == "com.example.Child" and e.target == "com.example.Base"
-            for e in dep_edges
-        )
+        assert any(e.source == "com.example.Child" and e.target == "com.example.Base" for e in dep_edges)
 
     def test_dep_from_implements(self):
         pf_a = _class_pf(
@@ -252,15 +245,13 @@ class TestAddDepEdges:
         corpus = [(pf_a, _build_fragment(pf_a)), (pf_b, _build_fragment(pf_b))]
         graph = GraphAssembler().assemble(corpus)
         dep_edges = _edges_of(graph, DependsOnEdge)
-        assert any(
-            e.source == "com.example.Impl" and e.target == "com.example.IFoo"
-            for e in dep_edges
-        )
+        assert any(e.source == "com.example.Impl" and e.target == "com.example.IFoo" for e in dep_edges)
 
 
 # ---------------------------------------------------------------------------
 # RelationEdge tests
 # ---------------------------------------------------------------------------
+
 
 class TestAddRelationEdges:
     def _corpus_with_relation(self, annotation, field_type):
@@ -316,7 +307,7 @@ class TestAddRelationEdges:
         pf_owner = _class_pf(
             id="com.example.Owner",
             name="Owner",
-            imports=[],           # ExternalEntity not imported → not resolvable
+            imports=[],  # ExternalEntity not imported → not resolvable
             fields=[field],
         )
         corpus = [(pf_owner, _build_fragment(pf_owner))]
@@ -328,6 +319,7 @@ class TestAddRelationEdges:
 # CallsResolvedEdge tests
 # ---------------------------------------------------------------------------
 
+
 class TestConvertUnresolvedToResolved:
     def _corpus(self, caller_calls=None, callee_field=None, callee_param=None):
         """
@@ -337,17 +329,18 @@ class TestConvertUnresolvedToResolved:
         """
         fields = []
         if callee_field:
-            fields = [_field(
-                id="com.example.A.b",
-                name="b",
-                type="B",
-                annotations=[],
-            )]
+            fields = [
+                _field(
+                    id="com.example.A.b",
+                    name="b",
+                    type="B",
+                    annotations=[],
+                )
+            ]
 
         params = []
         if callee_param:
-            params = [{"name": "b", "type": "B", "validate": False,
-                       "constraints": [], "binding": None}]
+            params = [{"name": "b", "type": "B", "validate": False, "constraints": [], "binding": None}]
 
         method_a = _method(
             id="com.example.A#doIt()",
@@ -384,11 +377,7 @@ class TestConvertUnresolvedToResolved:
             callee_field=True,
         )
         resolved = _edges_of(graph, CallsResolvedEdge)
-        assert any(
-            e.source == "com.example.A#doIt()"
-            and e.target == "com.example.B#process()"
-            for e in resolved
-        )
+        assert any(e.source == "com.example.A#doIt()" and e.target == "com.example.B#process()" for e in resolved)
 
     def test_field_callee_unresolved_edge_dropped(self):
         graph = self._corpus(
@@ -425,11 +414,7 @@ class TestConvertUnresolvedToResolved:
         corpus = [(pf_a, _build_fragment(pf_a))]
         graph = GraphAssembler().assemble(corpus)
         resolved = _edges_of(graph, CallsResolvedEdge)
-        assert any(
-            e.source == "com.example.A#outer()"
-            and e.target == "com.example.A#doIt()"
-            for e in resolved
-        )
+        assert any(e.source == "com.example.A#outer()" and e.target == "com.example.A#doIt()" for e in resolved)
 
     def test_local_variable_stays_unresolved(self):
         """Callee is a local variable — not in field or param index."""
@@ -463,6 +448,7 @@ class TestConvertUnresolvedToResolved:
 # ---------------------------------------------------------------------------
 # Full assemble() integration
 # ---------------------------------------------------------------------------
+
 
 class TestAssemble:
     def test_all_nodes_merged(self):

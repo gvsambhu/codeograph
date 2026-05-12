@@ -123,6 +123,7 @@ def _param(**kwargs):
 # Helpers that extract typed roots from the graph
 # ---------------------------------------------------------------------------
 
+
 def _nodes_of(graph, cls):
     return [n.root for n in graph.nodes if isinstance(n.root, cls)]
 
@@ -134,6 +135,7 @@ def _edges_of(graph, cls):
 # ---------------------------------------------------------------------------
 # Class builds
 # ---------------------------------------------------------------------------
+
 
 class TestBuildClass:
     def test_emits_one_class_node(self):
@@ -170,9 +172,7 @@ class TestBuildClass:
         assert node.stereotype == Stereotype.Service
 
     def test_unknown_modifier_filtered_out(self):
-        graph = GraphBuilder().build(
-            _class_pf(modifiers=["public", "package"]), MODULE_ID
-        )
+        graph = GraphBuilder().build(_class_pf(modifiers=["public", "package"]), MODULE_ID)
         node = _nodes_of(graph, ClassNode)[0]
         # "package" is not a valid Modifier value — should be dropped, not crash
         assert len(node.modifiers) == 1
@@ -192,6 +192,7 @@ class TestBuildClass:
 # ---------------------------------------------------------------------------
 # Interface / enum / record / annotation_type builds
 # ---------------------------------------------------------------------------
+
 
 class TestBuildInterface:
     def _pf(self, **kwargs):
@@ -305,9 +306,7 @@ class TestBuildAnnotationType:
             "imports": [],
             "line_range": [1, 5],
             "modifiers": ["public"],
-            "elements": [
-                {"name": "value", "type": "String", "default_value": None}
-            ],
+            "elements": [{"name": "value", "type": "String", "default_value": None}],
         }
         base.update(kwargs)
         return base
@@ -343,6 +342,7 @@ class TestUnknownKind:
 # Field builds
 # ---------------------------------------------------------------------------
 
+
 class TestBuildField:
     def test_field_node_emitted(self):
         graph = GraphBuilder().build(_class_pf(fields=[_field()]), MODULE_ID)
@@ -360,8 +360,7 @@ class TestBuildField:
     def test_class_contains_field_edge(self):
         graph = GraphBuilder().build(_class_pf(fields=[_field()]), MODULE_ID)
         contains = _edges_of(graph, ContainsEdge)
-        assert any(e.source == "com.example.Foo" and e.target == "com.example.Foo.bar"
-                   for e in contains)
+        assert any(e.source == "com.example.Foo" and e.target == "com.example.Foo.bar" for e in contains)
 
     def test_autowired_field_emits_autowires_edge(self):
         f = _field(
@@ -384,8 +383,12 @@ class TestBuildField:
 
     def test_autowired_with_qualifier(self):
         f = _field(
-            id="com.example.Foo.repo", name="repo", type="Repo",
-            is_autowired=True, injection_type="field", qualifier="primaryRepo",
+            id="com.example.Foo.repo",
+            name="repo",
+            type="Repo",
+            is_autowired=True,
+            injection_type="field",
+            qualifier="primaryRepo",
         )
         graph = GraphBuilder().build(_class_pf(fields=[f]), MODULE_ID)
         edge = _edges_of(graph, AutowiresEdge)[0]
@@ -411,6 +414,7 @@ class TestBuildField:
 # Method builds
 # ---------------------------------------------------------------------------
 
+
 class TestBuildMethod:
     def test_method_node_emitted(self):
         graph = GraphBuilder().build(_class_pf(methods=[_method()]), MODULE_ID)
@@ -426,10 +430,7 @@ class TestBuildMethod:
     def test_class_contains_method_edge(self):
         graph = GraphBuilder().build(_class_pf(methods=[_method()]), MODULE_ID)
         contains = _edges_of(graph, ContainsEdge)
-        assert any(
-            e.source == "com.example.Foo" and e.target == "com.example.Foo#doIt()"
-            for e in contains
-        )
+        assert any(e.source == "com.example.Foo" and e.target == "com.example.Foo#doIt()" for e in contains)
 
     def test_bean_factory_emits_edge(self):
         m = _method(
@@ -500,6 +501,7 @@ class TestBuildMethod:
 # Parameter embedding
 # ---------------------------------------------------------------------------
 
+
 class TestEmbedParameter:
     def test_parameter_without_binding(self):
         p = _param(name="id", type="Long", binding=None)
@@ -513,7 +515,8 @@ class TestEmbedParameter:
 
     def test_parameter_with_path_binding(self):
         p = _param(
-            name="id", type="Long",
+            name="id",
+            type="Long",
             binding={"kind": "path", "name": "id", "required": True, "default_value": None},
         )
         m = _method(parameters=[p])
@@ -526,7 +529,8 @@ class TestEmbedParameter:
 
     def test_parameter_with_body_binding(self):
         p = _param(
-            name="dto", type="OrderDTO",
+            name="dto",
+            type="OrderDTO",
             binding={"kind": "body", "name": None, "required": True, "default_value": None},
         )
         m = _method(parameters=[p])

@@ -7,9 +7,7 @@ from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, Settings
 
 from codeograph.config.yaml_source import YamlConfigSource
 
-_DEFAULT_JAR = (
-    Path(__file__).parent.parent / "parser" / "lib" / "parser.jar"
-)
+_DEFAULT_JAR = Path(__file__).parent.parent / "parser" / "lib" / "parser.jar"
 
 
 class Settings(BaseSettings):
@@ -50,10 +48,7 @@ class Settings(BaseSettings):
     )
     max_pass1_failure_ratio: float = Field(
         default=0.10,
-        description=(
-            "Fraction of Pass 1 calls allowed to fail before the run aborts (ADR-005). "
-            "Range: 0.0–1.0."
-        ),
+        description=("Fraction of Pass 1 calls allowed to fail before the run aborts (ADR-005). Range: 0.0–1.0."),
     )
 
     # -------------------------------------------------------------------------

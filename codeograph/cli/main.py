@@ -45,8 +45,7 @@ def run(input_path: str, out: str, ast_only: bool, force: bool) -> None:
     if out_dir.exists() and any(out_dir.iterdir()):
         if not force:
             raise click.UsageError(
-                f"Output directory '{out_dir}' already exists and is non-empty. "
-                "Use --force to overwrite."
+                f"Output directory '{out_dir}' already exists and is non-empty. Use --force to overwrite."
             )
 
     # Lazy imports keep startup fast and isolate heavy dependencies from the
@@ -72,9 +71,7 @@ def run(input_path: str, out: str, ast_only: bool, force: bool) -> None:
             raise click.ClickException(str(exc)) from exc
 
         total_files = sum(len(m.java_files) for m in corpus.modules)
-        click.echo(
-            f"Discovered {len(corpus.modules)} module(s), {total_files} Java file(s)."
-        )
+        click.echo(f"Discovered {len(corpus.modules)} module(s), {total_files} Java file(s).")
 
         analyzer = CorpusAnalyzer(
             dispatcher=FileParserDispatcher(

@@ -95,9 +95,7 @@ class SourceDiscoverer:
 
             module_filter = self._build_module_filter(root)
             for source_root in source_roots:
-                java_files.extend(
-                    self._list_java_files(source_root, corpus_root, root, corpus_filter, module_filter)
-                )
+                java_files.extend(self._list_java_files(source_root, corpus_root, root, corpus_filter, module_filter))
             specs.append(
                 ModuleSpec(
                     module_id=f"mod:{name}",
@@ -120,11 +118,7 @@ class SourceDiscoverer:
         """
         results: list[Path] = []
 
-        if (
-            (root / "pom.xml").exists()
-            or (root / "build.gradle").exists()
-            or (root / "build.gradle.kts").exists()
-        ):
+        if (root / "pom.xml").exists() or (root / "build.gradle").exists() or (root / "build.gradle.kts").exists():
             results.append(root)
 
         for child in root.iterdir():
@@ -212,9 +206,7 @@ class SourceDiscoverer:
         """
         all_patterns: list[str] = list(_FALLBACK_IGNORE_PATTERNS)
         if (corpus_root / ".gitignore").exists():
-            all_patterns.extend(
-                (corpus_root / ".gitignore").read_text(encoding="utf-8").splitlines()
-            )
+            all_patterns.extend((corpus_root / ".gitignore").read_text(encoding="utf-8").splitlines())
         return list(dict.fromkeys(all_patterns))
 
     def _build_module_filter(self, module_root: Path) -> pathspec.PathSpec:
@@ -279,9 +271,7 @@ class SourceDiscoverer:
         for file in source_root.rglob("*.java"):
             corpus_rel = file.relative_to(corpus_root)
             module_rel = file.relative_to(module_root)
-            if not corpus_filter.match_file(str(corpus_rel)) and not module_filter.match_file(
-                str(module_rel)
-            ):
+            if not corpus_filter.match_file(str(corpus_rel)) and not module_filter.match_file(str(module_rel)):
                 results.append(file)
         return sorted(results)
 

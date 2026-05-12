@@ -35,10 +35,7 @@ class LocalAcquirer(BaseAcquirer):
         if not resolved.exists():
             raise AcquisitionError(f"Path does not exist: {resolved}")
         if not resolved.is_dir():
-            raise AcquisitionError(
-                f"Path is not a directory: {resolved}. "
-                "Pass a directory, a .zip file, or a git URL."
-            )
+            raise AcquisitionError(f"Path is not a directory: {resolved}. Pass a directory, a .zip file, or a git URL.")
 
         modules = self._discoverer.discover(resolved)
         return CorpusSpec(

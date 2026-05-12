@@ -28,9 +28,7 @@ class ModuleNode(BaseModel):
     ]
     kind: Literal["module"]
     name: Annotated[str, Field(description="Maven artifactId of this module.")]
-    build_tool: Annotated[
-        BuildTool, Field(description="Build system detected for this module (ADR-002).")
-    ]
+    build_tool: Annotated[BuildTool, Field(description="Build system detected for this module (ADR-002).")]
     source_roots: Annotated[
         list[str],
         Field(
@@ -39,9 +37,7 @@ class ModuleNode(BaseModel):
     ]
     pom_path: Annotated[
         str | None,
-        Field(
-            description="Path to pom.xml relative to repository root. Null for Gradle modules in v1."
-        ),
+        Field(description="Path to pom.xml relative to repository root. Null for Gradle modules in v1."),
     ] = None
 
 
@@ -85,9 +81,7 @@ class ClassNode(BaseModel):
     name: Annotated[str, Field(description="Simple class name. e.g. UserService")]
     modifiers: Annotated[
         list[Modifier],
-        Field(
-            description="Java access and non-access modifiers declared on this class."
-        ),
+        Field(description="Java access and non-access modifiers declared on this class."),
     ]
     stereotype: Annotated[
         Stereotype | None,
@@ -103,13 +97,9 @@ class ClassNode(BaseModel):
     ] = None
     superclass: Annotated[
         str | None,
-        Field(
-            description="FQCN of the superclass, or null if extends Object implicitly."
-        ),
+        Field(description="FQCN of the superclass, or null if extends Object implicitly."),
     ] = None
-    implements: Annotated[
-        list[str] | None, Field(description="FQCNs of implemented interfaces.")
-    ] = None
+    implements: Annotated[list[str] | None, Field(description="FQCNs of implemented interfaces.")] = None
     is_inner_class: Annotated[
         bool | None,
         Field(description="True if this class is declared inside another class."),
@@ -186,14 +176,10 @@ class InterfaceNode(BaseModel):
         list[str] | None,
         Field(description="Annotation simple names on this interface."),
     ] = None
-    extends_interfaces: Annotated[
-        list[str] | None, Field(description="FQCNs of extended interfaces.")
-    ] = None
+    extends_interfaces: Annotated[list[str] | None, Field(description="FQCNs of extended interfaces.")] = None
     source_file: Annotated[
         str,
-        Field(
-            description="Path relative to the repository root (DECISION-2 resolved)."
-        ),
+        Field(description="Path relative to the repository root (DECISION-2 resolved)."),
     ]
     line_range: Annotated[list[int], Field(max_length=2, min_length=2)]
 
@@ -212,20 +198,12 @@ class EnumNode(BaseModel):
     kind: Literal["enum"]
     name: str
     modifiers: list[Modifier2]
-    constants: Annotated[
-        list[str], Field(description="Enum constant names in declaration order.")
-    ]
-    annotations: Annotated[
-        list[str] | None, Field(description="Annotation simple names on this enum.")
-    ] = None
-    implements: Annotated[
-        list[str] | None, Field(description="FQCNs of implemented interfaces.")
-    ] = None
+    constants: Annotated[list[str], Field(description="Enum constant names in declaration order.")]
+    annotations: Annotated[list[str] | None, Field(description="Annotation simple names on this enum.")] = None
+    implements: Annotated[list[str] | None, Field(description="FQCNs of implemented interfaces.")] = None
     source_file: Annotated[
         str,
-        Field(
-            description="Path relative to the repository root (DECISION-2 resolved)."
-        ),
+        Field(description="Path relative to the repository root (DECISION-2 resolved)."),
     ]
     line_range: Annotated[list[int], Field(max_length=2, min_length=2)]
 
@@ -266,9 +244,7 @@ class ContainsEdge(BaseModel):
     )
     source: Annotated[
         str,
-        Field(
-            description="ID of the containing node (module, class, interface, etc.)."
-        ),
+        Field(description="ID of the containing node (module, class, interface, etc.)."),
     ]
     target: Annotated[str, Field(description="ID of the contained node.")]
     kind: Literal["contains"]
@@ -286,9 +262,7 @@ class CallsResolvedEdge(BaseModel):
     kind: Literal["calls_resolved"]
     call_count: Annotated[
         int | None,
-        Field(
-            description="How many times this method calls the target within its body."
-        ),
+        Field(description="How many times this method calls the target within its body."),
     ] = None
 
 
@@ -319,9 +293,7 @@ class DependsOnEdge(BaseModel):
     source: Annotated[str, Field(description="Depending class ID.")]
     target: Annotated[
         str,
-        Field(
-            description="Depended-upon class ID. Feeds CBO computation for the source class."
-        ),
+        Field(description="Depended-upon class ID. Feeds CBO computation for the source class."),
     ]
     kind: Literal["depends_on"]
 
@@ -338,9 +310,7 @@ class AutowiresEdge(BaseModel):
     )
     source: Annotated[
         str,
-        Field(
-            description="Field ID carrying the injection annotation (e.g. com.example.UserService.userRepository)."
-        ),
+        Field(description="Field ID carrying the injection annotation (e.g. com.example.UserService.userRepository)."),
     ]
     target: Annotated[str, Field(description="Injected class/interface FQCN.")]
     kind: Literal["autowires"]
@@ -394,9 +364,7 @@ class BeanFactoryEdge(BaseModel):
         extra="forbid",
     )
     source: Annotated[str, Field(description="Method ID of the @Bean factory method.")]
-    target: Annotated[
-        str, Field(description="FQCN of the produced bean (the method's return type).")
-    ]
+    target: Annotated[str, Field(description="FQCN of the produced bean (the method's return type).")]
     kind: Literal["bean_factory"]
 
 
@@ -461,9 +429,7 @@ class ParameterBinding(BaseModel):
     ] = None
     default_value: Annotated[
         str | None,
-        Field(
-            description="defaultValue from @RequestParam or @RequestHeader, or null if not specified."
-        ),
+        Field(description="defaultValue from @RequestParam or @RequestHeader, or null if not specified."),
     ] = None
 
 
@@ -508,9 +474,7 @@ class AnnotationElement(BaseModel):
     type: str
     default_value: Annotated[
         str | None,
-        Field(
-            description="String representation of the default value, or null if no default."
-        ),
+        Field(description="String representation of the default value, or null if no default."),
     ] = None
 
 
@@ -521,20 +485,12 @@ class RecordNode(BaseModel):
     id: Annotated[str, Field(description="Fully-qualified record name.")]
     kind: Literal["record"]
     name: str
-    components: Annotated[
-        list[NameTypePair], Field(description="Record components in declaration order.")
-    ]
-    annotations: Annotated[
-        list[str] | None, Field(description="Annotation simple names on this record.")
-    ] = None
-    implements: Annotated[
-        list[str] | None, Field(description="FQCNs of implemented interfaces.")
-    ] = None
+    components: Annotated[list[NameTypePair], Field(description="Record components in declaration order.")]
+    annotations: Annotated[list[str] | None, Field(description="Annotation simple names on this record.")] = None
+    implements: Annotated[list[str] | None, Field(description="FQCNs of implemented interfaces.")] = None
     source_file: Annotated[
         str,
-        Field(
-            description="Path relative to the repository root (DECISION-2 resolved)."
-        ),
+        Field(description="Path relative to the repository root (DECISION-2 resolved)."),
     ]
     line_range: Annotated[list[int], Field(max_length=2, min_length=2)]
 
@@ -553,9 +509,7 @@ class AnnotationTypeNode(BaseModel):
     ] = None
     source_file: Annotated[
         str,
-        Field(
-            description="Path relative to the repository root (DECISION-2 resolved)."
-        ),
+        Field(description="Path relative to the repository root (DECISION-2 resolved)."),
     ]
     line_range: Annotated[list[int], Field(max_length=2, min_length=2)]
 
@@ -566,24 +520,18 @@ class FieldNode(BaseModel):
     )
     id: Annotated[
         str,
-        Field(
-            description="Format: <fqcn>.<field-name>. e.g. com.example.UserService.userRepository"
-        ),
+        Field(description="Format: <fqcn>.<field-name>. e.g. com.example.UserService.userRepository"),
     ]
     kind: Literal["field"]
     name: str
     type: Annotated[
         str,
-        Field(
-            description="Declared field type as a string. e.g. UserRepository, List<Order>, String."
-        ),
+        Field(description="Declared field type as a string. e.g. UserRepository, List<Order>, String."),
     ]
     modifiers: list[Modifier5]
     annotations: Annotated[
         list[str] | None,
-        Field(
-            description='ALL annotation simple names on this field. e.g. ["Autowired", "NotNull", "Column"].'
-        ),
+        Field(description='ALL annotation simple names on this field. e.g. ["Autowired", "NotNull", "Column"].'),
     ] = None
     is_autowired: Annotated[
         bool | None,
@@ -593,9 +541,7 @@ class FieldNode(BaseModel):
     ] = None
     is_id: Annotated[
         bool | None,
-        Field(
-            description="True if this field carries @Id (ADR-003 §9 — JPA core category). Primary key field."
-        ),
+        Field(description="True if this field carries @Id (ADR-003 §9 — JPA core category). Primary key field."),
     ] = None
     generation: Annotated[
         Generation | None,
@@ -605,9 +551,7 @@ class FieldNode(BaseModel):
     ] = None
     column: Annotated[
         ColumnMetadata | None,
-        Field(
-            description="Column mapping from @Column, if present. Null/absent if no @Column annotation."
-        ),
+        Field(description="Column mapping from @Column, if present. Null/absent if no @Column annotation."),
     ] = None
     constraints: Annotated[
         list[str] | None,
@@ -646,9 +590,7 @@ class ParameterFact(BaseModel):
     name: Annotated[str, Field(description="Parameter name as declared in source.")]
     type: Annotated[
         str,
-        Field(
-            description="Parameter type as a string. e.g. Long, UserDTO, HttpServletRequest."
-        ),
+        Field(description="Parameter type as a string. e.g. Long, UserDTO, HttpServletRequest."),
     ]
     binding: Annotated[
         ParameterBinding | None,
@@ -677,16 +619,12 @@ class MethodNode(BaseModel):
     )
     id: Annotated[
         str,
-        Field(
-            description="Format: <fqcn>#<method>(<param-types>). e.g. com.example.UserService#findById(Long)"
-        ),
+        Field(description="Format: <fqcn>#<method>(<param-types>). e.g. com.example.UserService#findById(Long)"),
     ]
     kind: Literal["method"]
     name: Annotated[
         str,
-        Field(
-            description="Method name. For constructors, matches the class simple name."
-        ),
+        Field(description="Method name. For constructors, matches the class simple name."),
     ]
     return_type: Annotated[
         str,
@@ -711,9 +649,7 @@ class MethodNode(BaseModel):
     line_range: Annotated[list[int], Field(max_length=2, min_length=2)]
     cyclomatic_complexity: Annotated[
         int | None,
-        Field(
-            description="McCabe cyclomatic complexity (ADR-004). Null if ClassNode.extraction_mode != 'ast'."
-        ),
+        Field(description="McCabe cyclomatic complexity (ADR-004). Null if ClassNode.extraction_mode != 'ast'."),
     ] = None
     cognitive_complexity: Annotated[
         int | None,
@@ -735,9 +671,7 @@ class MethodNode(BaseModel):
     ] = None
     exception_handler: Annotated[
         bool | None,
-        Field(
-            description="True if this method carries @ExceptionHandler (ADR-003 §9 — REST exception flow category)."
-        ),
+        Field(description="True if this method carries @ExceptionHandler (ADR-003 §9 — REST exception flow category)."),
     ] = None
     response_status: Annotated[
         int | None,
@@ -761,26 +695,10 @@ class MethodNode(BaseModel):
 
 class Node(
     RootModel[
-        ModuleNode
-        | ClassNode
-        | InterfaceNode
-        | EnumNode
-        | RecordNode
-        | AnnotationTypeNode
-        | MethodNode
-        | FieldNode
+        ModuleNode | ClassNode | InterfaceNode | EnumNode | RecordNode | AnnotationTypeNode | MethodNode | FieldNode
     ]
 ):
-    root: (
-        ModuleNode
-        | ClassNode
-        | InterfaceNode
-        | EnumNode
-        | RecordNode
-        | AnnotationTypeNode
-        | MethodNode
-        | FieldNode
-    )
+    root: ModuleNode | ClassNode | InterfaceNode | EnumNode | RecordNode | AnnotationTypeNode | MethodNode | FieldNode
 
 
 class CodeographKnowledgeGraph(BaseModel):

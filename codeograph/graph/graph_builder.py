@@ -61,8 +61,8 @@ logger = logging.getLogger(__name__)
 # "signatures_only" is an ADR-005 token utilisation path — not emitted by the
 # parser in v1, but mapped here for completeness.
 _EXTRACTION_MODE: dict[str, ExtractionMode] = {
-    "ast":             ExtractionMode.ast,
-    "regex":           ExtractionMode.regex_fallback,
+    "ast": ExtractionMode.ast,
+    "regex": ExtractionMode.regex_fallback,
     "signatures_only": ExtractionMode.signatures_only,
 }
 
@@ -70,6 +70,7 @@ _EXTRACTION_MODE: dict[str, ExtractionMode] = {
 # ---------------------------------------------------------------------------
 # Private helpers
 # ---------------------------------------------------------------------------
+
 
 def _coerce_enum(enum_cls: type, value: str) -> Any:
     """
@@ -81,9 +82,7 @@ def _coerce_enum(enum_cls: type, value: str) -> Any:
     try:
         return enum_cls(value)
     except ValueError:
-        logger.warning(
-            "GraphBuilder: unknown %s value %r — skipped", enum_cls.__name__, value
-        )
+        logger.warning("GraphBuilder: unknown %s value %r — skipped", enum_cls.__name__, value)
         return None
 
 
@@ -104,6 +103,7 @@ def _parse_generation(raw: str | None) -> Generation | None:
 # ---------------------------------------------------------------------------
 # Builder
 # ---------------------------------------------------------------------------
+
 
 class GraphBuilder:
     """
@@ -169,11 +169,7 @@ class GraphBuilder:
         # Translate modifiers: ["public"] → [Modifier.public]
         # _coerce_enum filters unknown values rather than crashing.
         modifiers = [
-            m for m in (
-                _coerce_enum(Modifier, raw)
-                for raw in parsed_file.get("modifiers", [])
-            )
-            if m is not None
+            m for m in (_coerce_enum(Modifier, raw) for raw in parsed_file.get("modifiers", [])) if m is not None
         ]
 
         # Stereotype: "Service" → Stereotype.Service; None stays None.
@@ -186,9 +182,7 @@ class GraphBuilder:
             name=parsed_file["name"],
             source_file=parsed_file["source_file"],
             line_range=parsed_file.get("line_range", [0, 0]),
-            extraction_mode=_EXTRACTION_MODE.get(
-                parsed_file["extraction_mode"], ExtractionMode.regex_fallback
-            ),
+            extraction_mode=_EXTRACTION_MODE.get(parsed_file["extraction_mode"], ExtractionMode.regex_fallback),
             modifiers=modifiers,
             annotations=parsed_file.get("annotations") or None,
             stereotype=stereotype,
@@ -203,9 +197,7 @@ class GraphBuilder:
         )
         self._nodes.append(class_node)
 
-        self._edges.append(
-            ContainsEdge(source=module_id, target=class_id, kind="contains")
-        )
+        self._edges.append(ContainsEdge(source=module_id, target=class_id, kind="contains"))
 
         for field in parsed_file.get("fields", []):
             self._build_field(field, class_id)
@@ -227,11 +219,7 @@ class GraphBuilder:
             source_file=parsed_file["source_file"],
             line_range=parsed_file.get("line_range", [0, 0]),
             modifiers=[
-                m for m in (
-                    _coerce_enum(Modifier1, raw)
-                    for raw in parsed_file.get("modifiers", [])
-                )
-                if m is not None
+                m for m in (_coerce_enum(Modifier1, raw) for raw in parsed_file.get("modifiers", [])) if m is not None
             ],
             annotations=parsed_file.get("annotations") or None,
             # extends_interfaces: hierarchy stored as strings; no edge emitted in v1
@@ -240,9 +228,7 @@ class GraphBuilder:
         )
         self._nodes.append(interface_node)
 
-        self._edges.append(
-            ContainsEdge(source=module_id, target=interface_id, kind="contains")
-        )
+        self._edges.append(ContainsEdge(source=module_id, target=interface_id, kind="contains"))
 
         for method in parsed_file.get("methods", []):
             self._build_method(method, interface_id)
@@ -260,11 +246,7 @@ class GraphBuilder:
             source_file=parsed_file["source_file"],
             line_range=parsed_file.get("line_range", [0, 0]),
             modifiers=[
-                m for m in (
-                    _coerce_enum(Modifier2, raw)
-                    for raw in parsed_file.get("modifiers", [])
-                )
-                if m is not None
+                m for m in (_coerce_enum(Modifier2, raw) for raw in parsed_file.get("modifiers", [])) if m is not None
             ],
             # constants is required by the schema; default to [] if parser omits it
             # (shouldn't happen for a well-formed enum, but guards against crashes).
@@ -274,9 +256,7 @@ class GraphBuilder:
         )
         self._nodes.append(enum_node)
 
-        self._edges.append(
-            ContainsEdge(source=module_id, target=enum_id, kind="contains")
-        )
+        self._edges.append(ContainsEdge(source=module_id, target=enum_id, kind="contains"))
 
     def _build_record(self, parsed_file: ParsedFile, module_id: str) -> None:
         """
@@ -285,10 +265,7 @@ class GraphBuilder:
         record_id = parsed_file["id"]
 
         # components: list[{"name": str, "type": str}] from the parser
-        components = [
-            NameTypePair(name=c["name"], type=c["type"])
-            for c in parsed_file.get("components", [])
-        ]
+        components = [NameTypePair(name=c["name"], type=c["type"]) for c in parsed_file.get("components", [])]
 
         record_node = RecordNode(
             id=record_id,
@@ -302,9 +279,7 @@ class GraphBuilder:
         )
         self._nodes.append(record_node)
 
-        self._edges.append(
-            ContainsEdge(source=module_id, target=record_id, kind="contains")
-        )
+        self._edges.append(ContainsEdge(source=module_id, target=record_id, kind="contains"))
 
     def _build_annotation_type(self, parsed_file: ParsedFile, module_id: str) -> None:
         """
@@ -330,19 +305,13 @@ class GraphBuilder:
             source_file=parsed_file["source_file"],
             line_range=parsed_file.get("line_range", [0, 0]),
             modifiers=[
-                m for m in (
-                    _coerce_enum(Modifier2, raw)
-                    for raw in parsed_file.get("modifiers", [])
-                )
-                if m is not None
+                m for m in (_coerce_enum(Modifier2, raw) for raw in parsed_file.get("modifiers", [])) if m is not None
             ],
             elements=elements,
         )
         self._nodes.append(annotation_type_node)
 
-        self._edges.append(
-            ContainsEdge(source=module_id, target=annotation_type_id, kind="contains")
-        )
+        self._edges.append(ContainsEdge(source=module_id, target=annotation_type_id, kind="contains"))
 
     # ------------------------------------------------------------------
     # Level 1 — field builder
@@ -366,11 +335,7 @@ class GraphBuilder:
             name=field["name"],
             type=field["type"],
             modifiers=[
-                m for m in (
-                    _coerce_enum(Modifier5, raw)
-                    for raw in field.get("modifiers", [])
-                )
-                if m is not None
+                m for m in (_coerce_enum(Modifier5, raw) for raw in field.get("modifiers", [])) if m is not None
             ],
             annotations=field.get("annotations") or None,
             is_autowired=field.get("is_autowired"),
@@ -381,9 +346,7 @@ class GraphBuilder:
         )
         self._nodes.append(field_node)
 
-        self._edges.append(
-            ContainsEdge(source=class_id, target=field["id"], kind="contains")
-        )
+        self._edges.append(ContainsEdge(source=class_id, target=field["id"], kind="contains"))
 
         if field.get("is_autowired"):
             injection_raw = field.get("injection_type")
@@ -392,10 +355,7 @@ class GraphBuilder:
                     source=field["id"],
                     target=field["type"],
                     kind="autowires",
-                    injection_type=(
-                        _coerce_enum(InjectionType, injection_raw)
-                        if injection_raw else None
-                    ),
+                    injection_type=(_coerce_enum(InjectionType, injection_raw) if injection_raw else None),
                     qualifier=field.get("qualifier"),
                 )
             )
@@ -410,9 +370,7 @@ class GraphBuilder:
         Inline: emit BeanFactoryEdge if @Bean method.
         Delegates: _build_call_edges for raw call expressions.
         """
-        parameters = [
-            self._embed_parameter(p) for p in method.get("parameters", [])
-        ]
+        parameters = [self._embed_parameter(p) for p in method.get("parameters", [])]
 
         # Translate http_metadata dict → HttpMetadata if present.
         # Schema HttpMetadata.method is non-optional — skip entirely when
@@ -429,8 +387,7 @@ class GraphBuilder:
                 )
             else:
                 logger.debug(
-                    "GraphBuilder: %s has @RequestMapping without method attribute"
-                    " — http_metadata omitted",
+                    "GraphBuilder: %s has @RequestMapping without method attribute — http_metadata omitted",
                     method["id"],
                 )
 
@@ -440,11 +397,7 @@ class GraphBuilder:
             name=method["name"],
             return_type=method["return_type"],
             modifiers=[
-                m for m in (
-                    _coerce_enum(Modifier4, raw)
-                    for raw in method.get("modifiers", [])
-                )
-                if m is not None
+                m for m in (_coerce_enum(Modifier4, raw) for raw in method.get("modifiers", [])) if m is not None
             ],
             annotations=method.get("annotations") or None,
             is_constructor=method["is_constructor"],
@@ -464,9 +417,7 @@ class GraphBuilder:
         )
         self._nodes.append(method_node)
 
-        self._edges.append(
-            ContainsEdge(source=class_id, target=method["id"], kind="contains")
-        )
+        self._edges.append(ContainsEdge(source=class_id, target=method["id"], kind="contains"))
 
         if method.get("is_bean_factory"):
             self._edges.append(
@@ -503,8 +454,7 @@ class GraphBuilder:
                 )
             else:
                 logger.warning(
-                    "GraphBuilder: parameter %r has binding with unknown kind %r"
-                    " — binding omitted",
+                    "GraphBuilder: parameter %r has binding with unknown kind %r — binding omitted",
                     param.get("name"),
                     kind_raw,
                 )
@@ -513,13 +463,15 @@ class GraphBuilder:
         # constructor only accepts the alias key "validate", not the Python
         # attribute name "validate_". model_validate() with a dict is the
         # clean way to pass alias-keyed fields programmatically.
-        return GraphParameterFact.model_validate({
-            "name":        param["name"],
-            "type":        param["type"],
-            "validate":    param.get("validate"),
-            "constraints": param.get("constraints") or None,
-            "binding":     binding,
-        })
+        return GraphParameterFact.model_validate(
+            {
+                "name": param["name"],
+                "type": param["type"],
+                "validate": param.get("validate"),
+                "constraints": param.get("constraints") or None,
+                "binding": binding,
+            }
+        )
 
     # ------------------------------------------------------------------
     # Edge helpers
