@@ -1,7 +1,7 @@
 ---
 status: "accepted"
 date: 2026-04-21
-decision-makers: Ganesh
+deciders: learner
 consulted: —
 informed: —
 ---
