@@ -1,9 +1,9 @@
 ---
-status: "accepted"
+status: accepted
 date: 2026-04-21
 deciders: learner
-consulted: —
-informed: —
+consulted: AI design advisor
+informed: future contributors
 ---
 
 # ADR-004 — Complexity Model: Metrics, Computation, and Reference Thresholds
@@ -135,7 +135,7 @@ Each metric below is implemented in the AST walker exactly as specified. Specifi
 | Method LoC | 100 | rule default warning | SonarSource `java:S138` |
 | Method LoC | 20 | conservative refactor target | Martin, R.C. (2008). *Clean Code*, ch. 3 |
 
-### Consequences
+## Consequences
 
 * Good, because every metric and every reference value in this ADR has a published source — guardrail satisfied.
 * Good, because the graph schema (ADR-006) only grows by one numeric field per metric — no derived label vocabulary to maintain.
@@ -145,14 +145,14 @@ Each metric below is implemented in the AST walker exactly as specified. Specifi
 * Bad, because if multiple consumers independently pick the same cut, the citation appears in multiple ADRs (mild duplication, accepted in exchange for consumer-local clarity).
 * Bad, because thresholds for v1 are scattered across consumer ADRs rather than centralised; reviewing "all thresholds in use" requires walking the consuming ADRs.
 
-### Confirmation
+## Confirmation
 
 * **Unit:** per-metric computation tests against curated fixtures with hand-verified expected values (a method whose CC the developer counted manually; a class whose LCOM4 components the developer drew on paper).
 * **Reference cross-check:** at least one fixture per metric whose value matches the corresponding rule's published expected output (e.g. SonarSource example for cognitive complexity has known-value sample code).
 * **Lombok-synth coverage:** fixture asserting WMC includes synthesised Lombok accessors at CC = 1, and method LoC = 0 for them.
 * **Determinism:** running the AST walker twice on identical input produces byte-identical complexity output.
 
-## Pros and Cons of the Options
+## Pros and Cons of the Considered Options
 
 ### Metric set
 
