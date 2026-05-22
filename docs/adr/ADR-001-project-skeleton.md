@@ -1,9 +1,9 @@
 ---
-status: "accepted"
+status: accepted
 date: 2026-04-21
-decision-makers: Ganesh
-consulted: —
-informed: —
+deciders: learner
+consulted: AI design advisor
+informed: future contributors
 ---
 
 # ADR-001 — Project Skeleton & Configuration Strategy
@@ -54,7 +54,7 @@ CLI kwargs passed to Settings(**overrides)
         > field default values
 ```
 
-### Consequences
+## Consequences
 
 * Good, because there is a single source of truth for configuration — no scattered `os.environ` calls across modules.
 * Good, because typed fields catch misconfiguration at startup, not mid-run.
@@ -64,13 +64,13 @@ CLI kwargs passed to Settings(**overrides)
 * Bad, because the priority order is framework-managed, so contributors must read the docs to understand it rather than trace merge code.
 * Bad, because adding a new config field requires changes in two places (`Settings` class and, where applicable, `config.yaml`).
 
-### Confirmation
+## Confirmation
 
 * A unit test constructs `Settings(...)` under representative combinations (YAML only; YAML + env; YAML + env + init kwargs) and asserts the expected layer wins.
 * CI runs `python -m codeograph --help` to confirm the CLI surface is intact on every PR.
 * Pre-commit (or CI) rejects any `.env` committed to the repo; `.gitignore` excludes `.env`, `.env.local`, `.env.*.local`.
 
-## Pros and Cons of the Options
+## Pros and Cons of the Considered Options
 
 ### `argparse`
 

@@ -1,9 +1,9 @@
 ---
-status: "accepted"
+status: accepted
 date: 2026-04-21
-decision-makers: Ganesh
-consulted: —
-informed: —
+deciders: learner
+consulted: AI design advisor
+informed: future contributors
 ---
 
 # ADR-002 — Input-Agnostic Source Acquisition & Categorisation
@@ -53,7 +53,7 @@ The tool must be input-agnostic: any reasonable Spring Boot project shape should
 * **Categorisation: C2 — honour `.gitignore` via `pathspec`, hardcoded skiplist as fallback.** When the project root has a `.gitignore`, `pathspec` applies it. When absent, fall back to the hardcoded skiplist. Hidden directories (`.git/`, `.idea/`, `.gradle/`) are always skipped regardless.
 * **Multi-module: M2 — enumerate all modules, label each source with its module.** Every `src/main/java` found recursively is in scope; each source file carries a `module` field derived from its nearest ancestor `pom.xml` / `build.gradle(.kts)`. Cross-module reference resolution is explicitly deferred to ADR-003.
 
-### Consequences
+## Consequences
 
 * Good, because v1 accepts any of the three common ways an engineer hands over a codebase (local checkout, repo URL, archive from a ticket).
 * Good, because enterprise multi-module Spring Boot projects — the realistic target — are handled end-to-end at the input layer.
@@ -64,14 +64,14 @@ The tool must be input-agnostic: any reasonable Spring Boot project shape should
 * Bad, because git URL handling requires `git` on the user's PATH; we document this in README rather than bundle a git client.
 * Bad, because `pathspec` adds one small dependency. Trade accepted against the alternative of surprising skip behaviour.
 
-### Confirmation
+## Confirmation
 
 * Unit tests cover each acquisition mode with fixture inputs: a local multi-module repo, a `file://` git URL, and a pre-built zip archive.
 * A golden-input test asserts that enumeration on a known multi-module Maven fixture produces the expected `(module, relative_path)` set.
 * A `.gitignore` fixture test verifies a custom output dir listed in `.gitignore` is skipped.
 * CI runs all three on every PR.
 
-## Pros and Cons of the Options
+## Pros and Cons of the Considered Options
 
 ### A1 / A2 / A3 (acquisition)
 

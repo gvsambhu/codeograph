@@ -1,9 +1,9 @@
 ---
-status: "accepted"
+status: accepted
 date: 2026-04-21
-decision-makers: Ganesh
-consulted: —
-informed: —
+deciders: learner
+consulted: AI design advisor
+informed: future contributors
 ---
 
 # ADR-003 — Parsing Strategy: AST Tool & AST-vs-LLM Split
@@ -249,7 +249,7 @@ Section 2 named six stereotypes plus three HTTP mapping annotations as the AST-e
 
 Adding interpretation for a new annotation is a small focused change: one switch case in `parser/annotation_interpreters.py`, one optional new field in the relevant `*Fact` dataclass, an entry in this table. No schema migration required if the new field is optional and added as a property on an existing node.
 
-### Consequences
+## Consequences
 
 * Good, because structural facts (signatures, annotations, call edges, complexity) are deterministic, free of token cost, and reproducible — underpinning golden-graph testing (ADR-007) and eval (ADR-017).
 * Good, because LLM budget concentrates on work only an LLM can do — domain labelling, NL summaries, migration hazards.
@@ -263,7 +263,7 @@ Adding interpretation for a new annotation is a small focused change: one switch
 * Bad, because Lombok synthesis is a side-pass we maintain against Lombok's spec; Lombok feature changes require updates here.
 * Bad, because the v1 annotation taxonomy (38 interpreted annotations) leaves real Spring Boot concepts uninterpreted in v1 (security, async, caching, profile, advanced validation, test taxonomy). Mitigated: deferred annotations are still captured in `annotations[]`, just not lifted to structured fields; v1.1 ADRs extend coverage; `tests/fixtures/codeograph-corpus` exercises the v1 baseline list to keep the gap visible.
 
-### Confirmation
+## Confirmation
 
 * **Unit:** fixture-based test per AST extractor (class / method / annotation / call / complexity / Lombok synthesis) asserting expected `ClassFacts` output.
 * **Integration:** multi-module Maven fixture with a populated fake `~/.m2` — asserts resolved edges for within-project and third-party, unresolved for genuinely unknown targets.
@@ -271,7 +271,7 @@ Adding interpretation for a new annotation is a small focused change: one switch
 * **Lombok:** fixture with `@Data` / `@Builder` / `@RequiredArgsConstructor` classes; assert synthesised members match spec.
 * **Runtime gate:** startup check that `java -version` returns ≥ 17, otherwise exit with a clear error and README link.
 
-## Pros and Cons of the Options
+## Pros and Cons of the Considered Options
 
 ### AST tool
 

@@ -1,9 +1,9 @@
 ---
-status: "accepted"
+status: accepted
 date: 2026-04-21
-decision-makers: Ganesh
-consulted: —
-informed: —
+deciders: learner
+consulted: AI design advisor
+informed: future contributors
 ---
 
 # ADR-005 — Token Utilization Strategy
@@ -123,7 +123,7 @@ ADR-005 reserves the `llm_model_*` field names; ADR-014 / ADR-016 fill in the v1
 * **Constraint flagged for ADR-013:** ADR-013's provider-abstraction design must not paper over per-provider cache mechanics. The cache-control parameter must remain reachable so the Pass 1 prefix can be marked.
 * **Constraint flagged for v1.1 batch (B2 deferred):** Batch API path will bypass LangChain for submission/polling and re-enter the LangChain structured-output flow on result parse.
 
-### Consequences
+## Consequences
 
 * Good, because the cached prefix collapses Pass 1's per-call input cost from ~full-prompt to ~variable-suffix-only after the first call. Typical 5–10× input cost reduction across the project.
 * Good, because the O1 default keeps extraction uniform for ~99% of real classes; the O3 escape hatch means no class silently degrades or fails on extreme outliers.
@@ -135,7 +135,7 @@ ADR-005 reserves the `llm_model_*` field names; ADR-014 / ADR-016 fill in the v1
 * Bad, because v1.1's batch path will involve dropping below LangChain to the Anthropic SDK for that one path. Architectural seam acknowledged.
 * Bad, because a single-model stance defers the cost-saving Haiku route to v1.1, paying full Sonnet input cost on every Pass 1 call (mitigated by caching).
 
-### Confirmation
+## Confirmation
 
 * **Cache-hit unit test:** mock provider; issue 5 Pass 1 calls; assert the cached prefix is sent only once and subsequent calls reference the cache.
 * **Oversized-class integration test:** fixture class > 80K-token estimate; assert the prompt sent contains only signatures (no method bodies); assert the resulting node has `extraction_mode: signatures_only`.
@@ -143,7 +143,7 @@ ADR-005 reserves the `llm_model_*` field names; ADR-014 / ADR-016 fill in the v1
 * **Failure-ratio test:** mock 15% of calls to fail; assert the run aborts with the configured error.
 * **Cache-control passthrough test:** snapshot the Anthropic API request payload; assert `cache_control` is present on the cached prefix block.
 
-## Pros and Cons of the Options
+## Pros and Cons of the Considered Options
 
 ### Caching
 
