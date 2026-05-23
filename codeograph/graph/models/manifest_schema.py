@@ -52,6 +52,17 @@ class Artefacts(BaseModel):
     ]
 
 
+class CacheStats(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    calls: int
+    hits: int
+    hit_rate: float
+    saved_usd_est: float
+    incurred_usd_est: float
+
+
 class CodeographRunManifest(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -60,7 +71,7 @@ class CodeographRunManifest(BaseModel):
         str,
         Field(
             description="Semver of the manifest schema itself (this file). Bump when manifest structure changes.",
-            examples=["1.0.0"],
+            examples=["1.1.0"],
         ),
     ]
     codeograph_version: Annotated[
@@ -76,3 +87,10 @@ class CodeographRunManifest(BaseModel):
             description="Per-artefact metadata keyed by artefact name. Both graph and llm_annotations are always present; llm_annotations sha256 is null when --ast-only was used."
         ),
     ]
+    cache_stats: Annotated[
+        dict[str, CacheStats] | None,
+        Field(
+            default=None,
+            description="Per-pass LLM cache statistics (added in manifest version 1.1). Keyed by pass name (pass_1, pass_2, pass_3).",
+        ),
+    ] = None

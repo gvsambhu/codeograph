@@ -52,6 +52,23 @@ class Settings(BaseSettings):
     )
 
     # -------------------------------------------------------------------------
+    # Cache
+    # -------------------------------------------------------------------------
+
+    cache_dir: Path = Field(
+        default=Path.home() / ".codeograph" / "cache",
+        description="Directory for the SQLite cache.db and telemetry JSONL files.",
+    )
+    cache_warn_size_mb: int = Field(
+        default=1024,
+        description="Emit advisory warning if cache.db size exceeds this limit in MB.",
+    )
+    cache_warn_entry_count: int = Field(
+        default=50000,
+        description="Emit advisory warning if cache.db entry count exceeds this limit.",
+    )
+
+    # -------------------------------------------------------------------------
     # Parser
     # -------------------------------------------------------------------------
 

@@ -10,7 +10,7 @@
     "schema_version": {
       "type": "string",
       "description": "Semver of the manifest schema itself (this file). Bump when manifest structure changes.",
-      "examples": ["1.0.0"]
+      "examples": ["1.1.0"]
     },
     "codeograph_version": {
       "type": "string",
@@ -31,6 +31,13 @@
           "$ref": "#/$defs/ArtefactMeta",
           "description": "Non-deterministic LLM enrichment layer (out/llm-annotations.json). sha256 is null when produced with --ast-only."
         }
+      }
+    },
+    "cache_stats": {
+      "type": "object",
+      "description": "Per-pass LLM cache statistics (added in manifest version 1.1). Keyed by pass name (pass_1, pass_2, pass_3).",
+      "additionalProperties": {
+        "$ref": "#/$defs/CacheStats"
       }
     }
   },
@@ -55,6 +62,18 @@
           "description": "SHA-256 hex digest of the artefact's canonical bytes. Null only for llm_annotations when --ast-only was used.",
           "pattern": "^[a-f0-9]{64}$"
         }
+      }
+    },
+    "CacheStats": {
+      "type": "object",
+      "required": ["calls", "hits", "hit_rate", "saved_usd_est", "incurred_usd_est"],
+      "additionalProperties": false,
+      "properties": {
+        "calls": { "type": "integer" },
+        "hits": { "type": "integer" },
+        "hit_rate": { "type": "number" },
+        "saved_usd_est": { "type": "number" },
+        "incurred_usd_est": { "type": "number" }
       }
     }
   }

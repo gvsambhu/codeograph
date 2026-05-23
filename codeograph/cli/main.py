@@ -13,7 +13,10 @@ from codeograph import __version__
 @click.version_option(version=__version__, prog_name="codeograph")
 def cli() -> None:
     """Ingest a Java/Spring Boot codebase; emit a knowledge graph and migration scaffold."""
+    pass
 
+from codeograph.cli.cache import cache_cli
+cli.add_command(cache_cli)
 
 @cli.command()
 @click.argument("input_path", metavar="INPUT")
@@ -84,7 +87,95 @@ def run(input_path: str, out: str, ast_only: bool, force: bool) -> None:
         )
 
         manifest_path = analyzer.analyze(corpus, out_dir)
-        click.echo(f"Done. Manifest: {manifest_path}")
+        click.echo(f"Done Pass 0. Manifest: {manifest_path}")
+
+        if ast_only:
+            click.echo("AST-only mode requested. Skipping LLM passes.")
+            return
+
+        click.echo("Initializing LLM passes...")
+        from codeograph.config.settings import Settings
+        from codeograph.llm.providers.anthropic import AnthropicProvider
+        from codeograph.llm.middleware.retry_policy import RetryPolicy
+        from codeograph.llm.cache.sqlite_backend import SQLiteCacheBackend
+        from codeograph.telemetry.emitter import JsonlEmitter
+        from codeograph.llm.factory import build_default_stack
+        from codeograph.llm.types import CallContext, Purpose
+        from codeograph.llm.prompts.loader import PromptLoader
+        from codeograph.passes.pass1.annotator import NodeAnnotator
+        from codeograph.passes.pass2.synthesizer import CorpusSynthesizer
+        from codeograph.llm._prompts_generated import PromptId
+        import datetime
+        import json
+
+        settings = Settings()
+        if not settings.anthropic_api_key:
+            click.echo("WARNING: CODEOGRAPH_ANTHROPIC_API_KEY is not set. LLM passes will fail unless mocked.")
+
+        # Setup Cache & Telemetry
+        settings.cache_dir.mkdir(parents=True, exist_ok=True)
+        cache_backend = SQLiteCacheBackend(settings.cache_dir / "cache.db")
+        telemetry_dir = settings.cache_dir / "telemetry"
+        telemetry_dir.mkdir(parents=True, exist_ok=True)
+        
+        run_ts = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        corpus_id = corpus.modules[0].name if corpus.modules else "default-corpus"
+        emitter_path = telemetry_dir / f"run-{corpus_id}-{run_ts}.jsonl"
+        emitter = JsonlEmitter(emitter_path)
+
+        # Base Provider
+        # TODO(learner): handle other providers from settings.llm_provider
+        base_provider = AnthropicProvider(
+            api_key=settings.anthropic_api_key.get_secret_value() if settings.anthropic_api_key else ""
+        )
+        retry_policy = RetryPolicy() # default policy
+        prompt_loader = PromptLoader(Path(__file__).parent.parent / "prompts")
+
+        # Load graph from Pass 0
+        graph_path = out_dir / "graph.json"
+        with open(graph_path, "r", encoding="utf-8") as f:
+            graph_data = json.load(f)
+        nodes = graph_data.get("nodes", [])
+
+        # --- Pass 1: Annotate Nodes ---
+        click.echo("Running Pass 1 (Node Annotation)...")
+        prompt_p1 = prompt_loader.get(PromptId.ANNOTATE_NODE)
+        ctx_p1 = CallContext(
+            purpose=Purpose.ANNOTATE,
+            prompt_id=PromptId.ANNOTATE_NODE,
+            prompt_version=prompt_p1.metadata.version if hasattr(prompt_p1, 'metadata') else "v1",
+            prompt_content_hash=prompt_p1.metadata.content_hash_pin if hasattr(prompt_p1, 'metadata') else "TODO",
+            corpus_id=corpus_id,
+        )
+        provider_p1 = build_default_stack(base_provider, retry_policy, cache_backend, emitter, ctx_p1)
+        annotator = NodeAnnotator(provider_p1, prompt_loader, out_dir, settings.llm_concurrency)
+        try:
+            annotations = annotator.annotate(nodes)
+        except Exception as e:
+            click.echo(f"Pass 1 failed: {e}")
+            raise
+            
+        # --- Pass 2: Synthesize Corpus ---
+        click.echo("Running Pass 2 (Corpus Synthesis)...")
+        prompt_p2 = prompt_loader.get(PromptId.SYNTHESIZE_CORPUS)
+        ctx_p2 = CallContext(
+            purpose=Purpose.SYNTHESIZE,
+            prompt_id=PromptId.SYNTHESIZE_CORPUS,
+            prompt_version=prompt_p2.metadata.version if hasattr(prompt_p2, 'metadata') else "v1",
+            prompt_content_hash=prompt_p2.metadata.content_hash_pin if hasattr(prompt_p2, 'metadata') else "TODO",
+            corpus_id=corpus_id,
+        )
+        provider_p2 = build_default_stack(base_provider, retry_policy, cache_backend, emitter, ctx_p2)
+        synthesizer = CorpusSynthesizer(provider_p2, prompt_loader, out_dir)
+        try:
+            synthesizer.synthesize(graph_path, out_dir / "llm-annotations.json")
+        except Exception as e:
+            click.echo(f"Pass 2 failed: {e}")
+            raise
+
+        # Note: We need to update manifest with cache stats and llm_annotations
+        # TODO(learner): Update manifest.json with cache stats and sha256 of new outputs
+        click.echo("LLM passes complete.")
 
     finally:
         if corpus is not None:
