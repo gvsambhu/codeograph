@@ -2,4 +2,5 @@
 
 class PromptId:
     """Constants for every prompt in codeograph/prompts/."""
-    pass
+    ANNOTATE_NODE = "annotate_node"
+    SYNTHESIZE_CORPUS = "synthesize_corpus"

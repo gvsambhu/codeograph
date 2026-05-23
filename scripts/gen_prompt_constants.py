@@ -3,8 +3,8 @@ import os
 from pathlib import Path
 
 def main():
-    base_dir = Path(__file__).parent.parent / "prompts"
-    out_file = Path(__file__).parent.parent / "llm" / "_prompts_generated.py"
+    base_dir = Path(__file__).parent.parent / "codeograph" / "prompts"
+    out_file = Path(__file__).parent.parent / "codeograph" / "llm" / "_prompts_generated.py"
     
     if not base_dir.exists():
         base_dir.mkdir(parents=True, exist_ok=True)
