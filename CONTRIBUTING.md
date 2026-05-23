@@ -7,21 +7,39 @@
 Types: `feat`, `fix`, `docs`, `chore`, `refactor`, `test`, `perf`.
 Scopes follow the codebase layout: `parser`, `graph`, `input`, `analyzer`, `cli`, `schema`, `ci`, `adr`, `golden`.
 
-Every commit ends with a co-author trailer:
+Every AI-assisted commit ends with two attribution trailers:
 
 ```
-Co-Authored-By: Claude <noreply@anthropic.com>
+Co-authored-by: <AI brand> <noreply@<provider>>
+AI-Model: <api-model-identifier-with-release-date>
 ```
 
-Use the bare `Claude` form — never pin a model version, it dates the history.
+Concrete forms by tool:
+
+```
+# Claude Code (Opus / Sonnet)
+Co-authored-by: Claude <noreply@anthropic.com>
+AI-Model: claude-opus-4-1-20250805
+
+# Google Antigravity (Gemini)
+Co-authored-by: Gemini <noreply@google.com>
+AI-Model: gemini-2.5-pro-20251201
+```
+
+Rules:
+
+- Use the **bare brand** in `Co-authored-by:` — never pin a model version inline, it dates the history.
+- Put the model identifier (with release date when available) on the separate `AI-Model:` line — preserves audit traceability if a model release has a known regression.
+- Mixed-tool commits (rare) include both trailer pairs.
+- Hand-written commits (no AI assistance) include neither trailer.
 
 ## Branching
 
 - `main` — protected. Only merged via PR.
-- `dev/feature-<N>` — long-lived feature branch for a delivery chunk.
-- `dev/<topic>` — short-lived topic branches that merge into a `dev/feature-*` branch (e.g. `dev/dc1-bugs`).
+- **Design work:** `design/r<N>-<topic>` for design rounds (ADR drafting).
+- **Development work:** `dev/dc<N>-<topic>` for development chunks (implementation).
 
-Direct pushes to `main` are not used. Every change goes through a PR.
+Every change goes through a PR. Direct pushes to `main` are not used.
 
 ## Pre-merge checklist
 
