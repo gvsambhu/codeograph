@@ -1,0 +1,15 @@
+repos:
+  - repo: local
+    hooks:
+      - id: update-prompt-hash-pins
+        name: Update Prompt Hash Pins
+        entry: python scripts/update_prompt_hash_pins.py
+        language: system
+        files: ^codeograph/prompts/.*\.md$
+        pass_filenames: true
+      - id: gen-prompt-constants
+        name: Generate Prompt Constants
+        entry: python scripts/gen_prompt_constants.py
+        language: system
+        pass_filenames: false
+        always_run: true
