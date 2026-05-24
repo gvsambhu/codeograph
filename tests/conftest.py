@@ -45,17 +45,20 @@ class MockLlmProvider(LlmProvider):
         tier: Tier,
         messages: list[Message],
         schema: type[BaseModel],
+        *,
+        override_model: str | None = None,
         max_tokens: int = 4096,
-        temperature: float = 0.0,
     ) -> LlmResult[BaseModel]:
         # TODO(learner): return a mock response that matches `schema`
         self.calls.append({
             "tier": tier,
             "messages": messages,
             "schema": schema,
+            "override_model": override_model,
             "max_tokens": max_tokens,
-            "temperature": temperature,
         })
+        if getattr(self, "mock_response", None) is not None:
+            return self.mock_response
         # Dummy instantiation — might fail if schema has required fields without defaults
         try:
             val = schema()
