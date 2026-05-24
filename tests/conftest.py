@@ -30,7 +30,6 @@ def update_goldens(request: pytest.FixtureRequest) -> bool:
 
 from codeograph.llm.provider import LlmProvider
 from codeograph.llm.types import Message, Tier, LlmResult, TokenUsage
-from typing import type
 from pydantic import BaseModel
 import shutil
 
@@ -102,7 +101,7 @@ def tmp_cache_db(tmp_path: Path):
 
 @pytest.fixture
 def tmp_telemetry_jsonl(tmp_path: Path):
-    from codeograph.telemetry.emitter import JsonlEmitter
+    from codeograph.telemetry.jsonl_emitter import JsonlEmitter
     log_file = tmp_path / "telemetry" / "test_telemetry.jsonl"
     log_file.parent.mkdir(parents=True, exist_ok=True)
     emitter = JsonlEmitter(log_file)

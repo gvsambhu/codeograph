@@ -13,7 +13,7 @@ class JsonlEmitter(TelemetryEmitter):
     def emit(self, record: TelemetryRecord) -> None:
         line = json.dumps(record.to_dict(), separators=(",", ":"), ensure_ascii=False)
         with self._lock:
-            self._fh.write(line + "\\n")
+            self._fh.write(line + "\n")
             self._fh.flush()
 
     def close(self) -> None:
