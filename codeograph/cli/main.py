@@ -143,18 +143,14 @@ def run(input_path: str, out: str, ast_only: bool, force: bool) -> None:
                     tier_map=tier_map,
                 )
             case "ollama":
-                # Assuming OllamaProvider will be implemented in v1.1
-                # base_provider = OllamaProvider(
-                #     base_url=settings.ollama_base_url,
-                #     tier_map=tier_map,
-                # )
-                raise NotImplementedError("Ollama provider is not yet implemented (v1.1 scope).")
+                base_provider = OllamaProvider(
+                    base_url=settings.ollama_base_url,
+                    tier_map=tier_map,
+                )
             case "bedrock":
-                # Assuming BedrockProvider will be implemented in v1.1
-                # base_provider = BedrockProvider(
-                #     tier_map=tier_map,
-                # )
-                raise NotImplementedError("Bedrock provider is not yet implemented (v1.1 scope).")
+                base_provider = BedrockProvider(
+                    tier_map=tier_map,
+                )
             case _:
                 raise ValueError(
                     f"Unknown llm_provider: {settings.llm_provider!r}. "
@@ -205,8 +201,36 @@ def run(input_path: str, out: str, ast_only: bool, force: bool) -> None:
             click.echo(f"Pass 2 failed: {e}")
             raise
 
-        # Note: We need to update manifest with cache stats and llm_annotations
-        # TODO(learner): Update manifest.json with cache stats and sha256 of new outputs
+        # Update manifest.json with cache stats
+        import hashlib
+        
+        cache_stats = cache_backend.stats()
+        
+        try:
+            with open(manifest_path, "r", encoding="utf-8") as f:
+                manifest_data = json.load(f)
+                
+            manifest_data["cache"] = {
+                "total_entries": cache_stats.total_entries,
+                "total_size_bytes": cache_stats.total_size_bytes
+            }
+            
+            # Optionally add sha256 of llm-annotations if it exists
+            annotations_path = out_dir / "llm-annotations.json"
+            if annotations_path.exists():
+                with open(annotations_path, "rb") as f:
+                    file_hash = hashlib.sha256(f.read()).hexdigest()
+                manifest_data.setdefault("artifacts", {})["llm_annotations"] = {
+                    "file": "llm-annotations.json",
+                    "sha256": file_hash
+                }
+                
+            with open(manifest_path, "w", encoding="utf-8") as f:
+                json.dump(manifest_data, f, indent=2)
+                
+        except Exception as e:
+            click.echo(f"Warning: Failed to update manifest.json: {e}")
+            
         click.echo("LLM passes complete.")
 
     finally:
