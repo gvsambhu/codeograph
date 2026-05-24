@@ -60,11 +60,20 @@ tests/
   ...                          unit tests mirror codeograph/ layout
 ```
 
+## LLM Features (DC2)
+
+Codeograph includes an LLM enrichment pipeline (Passes 1 and 2) that adds semantic understanding to the deterministic AST graph:
+
+- **Annotated Graph Output:** Detailed per-node semantics (Pass 1) and corpus-level synthesis (Pass 2) stored in `llm-annotations.json`.
+- **Response Cache:** A local SQLite cache (`cache.db`) stores responses. You can manage the cache using the `codeograph cache` CLI (e.g., `codeograph cache stats` or `codeograph cache purge`).
+- **Telemetry:** Every LLM call is recorded as a structured JSONL row in the `telemetry/` output folder, carrying token usage, latency, and cache-hit details.
+
+> **TODO(learner):** Add a paragraph here framing "Why LLM passes matter" using the project voice.
+
 ## Limitations (v1)
 
 - **Maven-only classpath resolution.** Gradle projects are detected and source files are parsed, but classpath resolution falls back to source-only mode. Method-call resolution is lower fidelity for Gradle inputs until v1.1.
-- **No LLM enrichment.** `--ast-only` is the only supported mode in DC1. Semantic annotations and domain decomposition land in DC2.
-- **No rendering.** TypeScript/NestJS and Go renderers are planned for later deliveries.
+- **No rendering.** TypeScript/NestJS and Go renderers are planned for later deliveries (DC3+).
 
 ## Documentation
 

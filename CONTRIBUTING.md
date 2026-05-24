@@ -65,6 +65,24 @@ The Tier 1 golden test (`tests/test_golden.py`) compares the emitted `graph.json
 
 JavaParser version bumps (in `pyproject.toml` `[tool.codeograph.versions]`) always require a goldens refresh.
 
+## Prompt Authoring
+
+Prompts are stored in `codeograph/prompts/` and are processed via a custom Jinja2 pipeline (ADR-014).
+
+### Custom Delimiters
+We use custom Jinja2 delimiters to avoid conflicting with source code syntax (like Java annotations `@` or standard markdown `{}`):
+- Variables: `<< var_name >>`
+- Blocks: `<% if condition %> ... <% endif %>`
+- Comments: `<# This is a comment #>`
+
+### Versioning and Hash Pins
+Every prompt version is an immutable file (e.g., `v1.md`). When creating or modifying a prompt:
+1. Include the YAML frontmatter with the `content_hash_pin` field.
+2. If it's a new version, bump the filename (e.g., `v2.md`) and update the `default.yaml` alias file to point to it.
+3. Our pre-commit hook automatically updates the `content_hash_pin` when you stage prompt files. If you bypass hooks, you must run `python scripts/update_prompt_hash_pins.py` manually.
+
+Modifying an existing prompt version *changes its hash*. The loader strictly verifies the pin, and the hash becomes part of the LLM Cache Key (ADR-015), ensuring no silent staleness.
+
 ## Banned terms
 
 The following must not appear anywhere in source, tests, docs, ADRs, or commit messages:
