@@ -74,13 +74,13 @@ class MockLlmProvider(LlmProvider):
         self,
         tier: Tier,
         requests: list[tuple[list[Message], type[BaseModel]]],
+        *,
         max_concurrent: int = 5,
-        max_tokens: int = 4096,
-        temperature: float = 0.0,
+        override_model: str | None = None,
     ) -> list[LlmResult[BaseModel]]:
         # Default fallback to sequential for easy mocking
         return [
-            self.complete_structured(tier, msgs, schema, max_tokens, temperature)
+            self.complete_structured(tier, msgs, schema, override_model=override_model)
             for msgs, schema in requests
         ]
         
@@ -113,6 +113,23 @@ def tmp_telemetry_jsonl(tmp_path: Path):
 def mock_prompt_loader(tmp_path: Path):
     from codeograph.llm.prompts.loader import PromptLoader
     prompts_dir = tmp_path / "prompts"
-    prompts_dir.mkdir()
-    # TODO(learner): Create mock prompt files in prompts_dir here
+    
+    # Create the Pass 1 mock prompt
+    p1_dir = prompts_dir / "annotate_node"
+    p1_dir.mkdir(parents=True, exist_ok=True)
+    (p1_dir / "v1.md").write_text(
+        "---\ncontent_hash_pin: 1359ce8f\n---\nSystem prompt here.", 
+        encoding="utf-8"
+    )
+    (p1_dir / "default.yaml").write_text("default: v1\n", encoding="utf-8")
+    
+    # Create the Pass 2 mock prompt
+    p2_dir = prompts_dir / "synthesize_corpus"
+    p2_dir.mkdir(parents=True, exist_ok=True)
+    (p2_dir / "v1.md").write_text(
+        "---\ncontent_hash_pin: 1359ce8f\n---\nSystem prompt here.", 
+        encoding="utf-8"
+    )
+    (p2_dir / "default.yaml").write_text("default: v1\n", encoding="utf-8")
+    
     return PromptLoader(prompts_dir)

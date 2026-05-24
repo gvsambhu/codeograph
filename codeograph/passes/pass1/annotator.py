@@ -95,7 +95,7 @@ class NodeAnnotator:
                     node_id=node_id,
                     degraded=True,
                     class_name="",
-                    stereotype="UNKNOWN",
+                    stereotype=None,
                     domain_hint="",
                     description="Skipped: source exceeded size limit.",
                     methods=[],
