@@ -133,3 +133,9 @@ def mock_prompt_loader(tmp_path: Path):
     (p2_dir / "default.yaml").write_text("default: v1\n", encoding="utf-8")
     
     return PromptLoader(prompts_dir)
+
+
+@pytest.fixture
+def runner():
+    from click.testing import CliRunner
+    return CliRunner()
