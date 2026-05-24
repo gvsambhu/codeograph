@@ -124,24 +124,36 @@ def run(input_path: str, out: str, ast_only: bool, force: bool) -> None:
         emitter = JsonlEmitter(emitter_path)
 
         # Base Provider — dispatches on settings.llm_provider
-        match settings.llm_provider:
+        from codeograph.llm.types import Tier
+
+        def llm_tier_map(settings) -> dict[Tier, str]:
+            return {
+                Tier.FAST: settings.llm_model_fast or settings.llm_model,
+                Tier.DEEP: settings.llm_model_deep or settings.llm_model,
+                Tier.RENDER: settings.llm_model_render or settings.llm_model,
+            }
+
+        tier_map = llm_tier_map(settings)
+        provider_name = settings.llm_provider.strip().lower()
+
+        match provider_name:
             case "anthropic":
                 base_provider = AnthropicProvider(
-                    api_key=settings.anthropic_api_key.get_secret_value() if settings.anthropic_api_key else ""
+                    api_key=settings.anthropic_api_key.get_secret_value() if settings.anthropic_api_key else "",
+                    tier_map=tier_map,
                 )
             case "ollama":
-                # TODO(learner): implement Ollama provider (v1.1 scope)
-                # from langchain_ollama import ChatOllama
-                # from codeograph.llm.providers.langchain_base import LangChainLlmProvider
-                # chat = ChatOllama(model=settings.llm_model, base_url=settings.ollama_base_url)
-                # base_provider = LangChainLlmProvider(chat, tier_map={...})
+                # Assuming OllamaProvider will be implemented in v1.1
+                # base_provider = OllamaProvider(
+                #     base_url=settings.ollama_base_url,
+                #     tier_map=tier_map,
+                # )
                 raise NotImplementedError("Ollama provider is not yet implemented (v1.1 scope).")
             case "bedrock":
-                # TODO(learner): implement Bedrock provider (v1.1 scope)
-                # from langchain_aws import ChatBedrock
-                # from codeograph.llm.providers.langchain_base import LangChainLlmProvider
-                # chat = ChatBedrock(model_id=settings.llm_model)
-                # base_provider = LangChainLlmProvider(chat, tier_map={...})
+                # Assuming BedrockProvider will be implemented in v1.1
+                # base_provider = BedrockProvider(
+                #     tier_map=tier_map,
+                # )
                 raise NotImplementedError("Bedrock provider is not yet implemented (v1.1 scope).")
             case _:
                 raise ValueError(
