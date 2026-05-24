@@ -38,7 +38,6 @@ class MockLlmProvider(LlmProvider):
     
     def __init__(self):
         self.calls: list[dict] = []
-        # TODO(learner): allow tests to configure predefined responses or errors here
         
     def complete_structured(
         self,
@@ -49,7 +48,6 @@ class MockLlmProvider(LlmProvider):
         override_model: str | None = None,
         max_tokens: int = 4096,
     ) -> LlmResult[BaseModel]:
-        # TODO(learner): return a mock response that matches `schema`
         self.calls.append({
             "tier": tier,
             "messages": messages,
