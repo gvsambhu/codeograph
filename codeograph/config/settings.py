@@ -42,6 +42,26 @@ class Settings(BaseSettings):
         default="claude-sonnet-4-6",
         description="Exact model identifier used for all LLM calls in v1 (ADR-005 M1).",
     )
+    llm_model_fast: str | None = Field(
+        default=None,
+        description="Optional FAST-tier model override.",
+    )
+    llm_model_deep: str | None = Field(
+        default=None,
+        description="Optional DEEP-tier model override.",
+    )
+    llm_model_render: str | None = Field(
+        default=None,
+        description="Optional RENDER-tier model override.",
+    )
+    ollama_base_url: str = Field(
+        default="http://localhost:11434",
+        description="Base URL for Ollama API.",
+    )
+    bedrock_region: str | None = Field(
+        default=None,
+        description="Optional AWS region for Bedrock runtime.",
+    )
     llm_concurrency: int = Field(
         default=5,
         description="Maximum concurrent LLM calls (ADR-005).",
