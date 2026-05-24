@@ -123,12 +123,32 @@ def run(input_path: str, out: str, ast_only: bool, force: bool) -> None:
         emitter_path = telemetry_dir / f"run-{corpus_id}-{run_ts}.jsonl"
         emitter = JsonlEmitter(emitter_path)
 
-        # Base Provider
-        # TODO(learner): handle other providers from settings.llm_provider
-        base_provider = AnthropicProvider(
-            api_key=settings.anthropic_api_key.get_secret_value() if settings.anthropic_api_key else ""
-        )
-        retry_policy = RetryPolicy() # default policy
+        # Base Provider — dispatches on settings.llm_provider
+        match settings.llm_provider:
+            case "anthropic":
+                base_provider = AnthropicProvider(
+                    api_key=settings.anthropic_api_key.get_secret_value() if settings.anthropic_api_key else ""
+                )
+            case "ollama":
+                # TODO(learner): implement Ollama provider (v1.1 scope)
+                # from langchain_ollama import ChatOllama
+                # from codeograph.llm.providers.langchain_base import LangChainLlmProvider
+                # chat = ChatOllama(model=settings.llm_model, base_url=settings.ollama_base_url)
+                # base_provider = LangChainLlmProvider(chat, tier_map={...})
+                raise NotImplementedError("Ollama provider is not yet implemented (v1.1 scope).")
+            case "bedrock":
+                # TODO(learner): implement Bedrock provider (v1.1 scope)
+                # from langchain_aws import ChatBedrock
+                # from codeograph.llm.providers.langchain_base import LangChainLlmProvider
+                # chat = ChatBedrock(model_id=settings.llm_model)
+                # base_provider = LangChainLlmProvider(chat, tier_map={...})
+                raise NotImplementedError("Bedrock provider is not yet implemented (v1.1 scope).")
+            case _:
+                raise ValueError(
+                    f"Unknown llm_provider: {settings.llm_provider!r}. "
+                    "Must be one of: anthropic | ollama | bedrock."
+                )
+        retry_policy = RetryPolicy()  # default policy
         prompt_loader = PromptLoader(Path(__file__).parent.parent / "prompts")
 
         # Load graph from Pass 0
