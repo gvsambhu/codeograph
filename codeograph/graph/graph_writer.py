@@ -50,7 +50,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 GRAPH_SCHEMA_VERSION = "1.0.0"
-MANIFEST_SCHEMA_VERSION = "1.0.0"
+MANIFEST_SCHEMA_VERSION = "1.1.0"  # bumped in DC2 to introduce optional cache_stats block
 
 GRAPH_FILENAME = "graph.json"
 MANIFEST_FILENAME = "manifest.json"

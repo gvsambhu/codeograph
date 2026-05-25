@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import click
 
@@ -210,34 +211,68 @@ def run(input_path: str, out: str, ast_only: bool, force: bool) -> None:
             click.echo(f"Pass 2 failed: {e}")
             raise
 
-        # Update manifest.json with cache stats
+        # Flush telemetry so the JSONL is readable for per-pass aggregation.
+        emitter.close()
+
+        # Update manifest.json: stamp llm_annotations sha256 + populate per-pass
+        # cache_stats from the telemetry JSONL.  manifest schema_version is 1.1.0
+        # (bumped in DC2); cache_stats is keyed by pass_1 / pass_2 per the schema.
         import hashlib
 
-        cache_stats = cache_backend.stats()
+        from codeograph.graph.models.manifest_schema import CacheStats, CodeographRunManifest
+        from codeograph.llm.types import Purpose
 
         try:
+            # Load existing manifest via the pydantic model so writes round-trip
+            # cleanly through the schema and reject any drift from contract.
             with open(manifest_path, encoding="utf-8") as f:
-                manifest_data = json.load(f)
+                manifest = CodeographRunManifest.model_validate_json(f.read())
 
-            manifest_data["cache"] = {
-                "total_entries": cache_stats.total_entries,
-                "total_size_bytes": cache_stats.total_size_bytes,
-            }
-
-            # Optionally add sha256 of llm-annotations if it exists.
-            # Use a distinct binary handle (bfh) so mypy can narrow the IO type correctly —
-            # `f` was previously the text-mode manifest reader and would conflict otherwise.
+            # Stamp llm-annotations sha256 (Pass 0 wrote sha256=None).
             annotations_path = out_dir / "llm-annotations.json"
             if annotations_path.exists():
                 with open(annotations_path, "rb") as bfh:
-                    file_hash = hashlib.sha256(bfh.read()).hexdigest()
-                manifest_data.setdefault("artifacts", {})["llm_annotations"] = {
-                    "file": "llm-annotations.json",
-                    "sha256": file_hash,
-                }
+                    manifest.artefacts.llm_annotations.sha256 = hashlib.sha256(bfh.read()).hexdigest()
+
+            # Aggregate telemetry JSONL by Purpose → pass label.  Each record is one
+            # complete_structured call; cache_hit is True when CachingLlmProvider
+            # short-circuited.  cost_usd_est is 0.0 in v1 (cost model deferred to v1.1
+            # per ADR-016); saved_usd_est and incurred_usd_est therefore default to 0.0.
+            purpose_to_pass = {Purpose.ANNOTATE.value: "pass_1", Purpose.SYNTHESIZE.value: "pass_2"}
+            per_pass: dict[str, list[dict[str, Any]]] = {"pass_1": [], "pass_2": []}
+            if emitter_path.exists():
+                with open(emitter_path, encoding="utf-8") as tf:
+                    for line in tf:
+                        line = line.strip()
+                        if not line:
+                            continue
+                        rec = json.loads(line)
+                        pass_label = purpose_to_pass.get(rec.get("purpose"))
+                        if pass_label:
+                            per_pass[pass_label].append(rec)
+
+            cache_stats: dict[str, CacheStats] = {}
+            for pass_label, recs in per_pass.items():
+                if not recs:
+                    continue
+                calls = len(recs)
+                hits = sum(1 for r in recs if r.get("cache_hit"))
+                hit_rate = (hits / calls) if calls else 0.0
+                incurred = sum(float(r.get("cost_usd_est", 0.0)) for r in recs if not r.get("cache_hit"))
+                saved = sum(float(r.get("cost_usd_est", 0.0)) for r in recs if r.get("cache_hit"))
+                cache_stats[pass_label] = CacheStats(
+                    calls=calls,
+                    hits=hits,
+                    hit_rate=round(hit_rate, 4),
+                    saved_usd_est=round(saved, 4),
+                    incurred_usd_est=round(incurred, 4),
+                )
+
+            if cache_stats:
+                manifest.cache_stats = cache_stats
 
             with open(manifest_path, "w", encoding="utf-8") as f:
-                json.dump(manifest_data, f, indent=2)
+                f.write(manifest.model_dump_json(indent=2))
 
         except Exception as e:
             click.echo(f"Warning: Failed to update manifest.json: {e}")
