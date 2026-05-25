@@ -124,7 +124,7 @@ def run(input_path: str, out: str, ast_only: bool, force: bool) -> None:
         emitter = JsonlEmitter(emitter_path)
 
         # Base Provider — dispatches on settings.llm_provider
-        from codeograph.llm.types import Tier
+        from codeograph.llm.types import Tier, ProviderType
 
         def llm_tier_map(settings) -> dict[Tier, str]:
             return {
@@ -134,27 +134,26 @@ def run(input_path: str, out: str, ast_only: bool, force: bool) -> None:
             }
 
         tier_map = llm_tier_map(settings)
-        provider_name = settings.llm_provider.strip().lower()
 
-        match provider_name:
-            case "anthropic":
+        match settings.llm_provider:
+            case ProviderType.ANTHROPIC:
                 base_provider = AnthropicProvider(
                     api_key=settings.anthropic_api_key.get_secret_value() if settings.anthropic_api_key else "",
                     tier_map=tier_map,
                 )
-            case "ollama":
+            case ProviderType.OLLAMA:
                 base_provider = OllamaProvider(
                     base_url=settings.ollama_base_url,
                     tier_map=tier_map,
                 )
-            case "bedrock":
+            case ProviderType.BEDROCK:
                 base_provider = BedrockProvider(
                     tier_map=tier_map,
                 )
             case _:
                 raise ValueError(
                     f"Unknown llm_provider: {settings.llm_provider!r}. "
-                    "Must be one of: anthropic | ollama | bedrock."
+                    f"Must be one of: {[p.value for p in ProviderType]}."
                 )
         retry_policy = RetryPolicy()  # default policy
         prompt_loader = PromptLoader(Path(__file__).parent.parent / "prompts")

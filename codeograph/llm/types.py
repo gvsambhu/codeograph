@@ -6,6 +6,12 @@ from typing import Literal, Generic, TypeVar
 
 T = TypeVar("T")
 
+class ProviderType(StrEnum):
+    """The supported LLM backend providers."""
+    ANTHROPIC = "anthropic"
+    OLLAMA = "ollama"
+    BEDROCK = "bedrock"
+
 class Tier(StrEnum):
     """Tier resolves to a concrete model via a tier_map."""
     FAST = "fast"      # Pass 1 — annotation, high throughput, cheap model

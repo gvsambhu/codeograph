@@ -6,6 +6,7 @@ from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
 
 from codeograph.config.yaml_source import YamlConfigSource
+from codeograph.llm.types import ProviderType
 
 _DEFAULT_JAR = Path(__file__).parent.parent / "parser" / "lib" / "parser.jar"
 
@@ -34,8 +35,8 @@ class Settings(BaseSettings):
         default=None,
         description="Anthropic API key. Set via CODEOGRAPH_ANTHROPIC_API_KEY.",
     )
-    llm_provider: str = Field(
-        default="anthropic",
+    llm_provider: ProviderType = Field(
+        default=ProviderType.ANTHROPIC,
         description="LLM provider: anthropic | ollama | bedrock.",
     )
     llm_model: str = Field(
@@ -96,14 +97,6 @@ class Settings(BaseSettings):
         default=_DEFAULT_JAR,
         description="Path to the bundled JavaParser JAR. Override to use a custom build.",
     )
-
-    @field_validator("llm_provider")
-    @classmethod
-    def validate_llm_provider(cls, v: str) -> str:
-        v = v.lower()
-        if v not in {"anthropic", "ollama", "bedrock"}:
-            raise ValueError(f"Invalid llm_provider: {v!r}. Must be one of: anthropic | ollama | bedrock.")
-        return v
 
     @field_validator("llm_concurrency")
     @classmethod
