@@ -6,7 +6,7 @@ from pydantic import BaseModel
 
 from codeograph.llm.cache.base import CacheBackend
 from codeograph.llm.cache.cache_entry import CacheEntry
-from codeograph.llm.cache.key import compute_cache_key
+from codeograph.llm.cache.key import compute_cache_key, compute_input_hash, compute_output_hash, compute_schema_hash
 from codeograph.llm.provider import LlmProvider
 from codeograph.llm.types import CallContext, LlmResult, Message, Tier, TokenUsage
 
@@ -22,6 +22,9 @@ class CachingLlmProvider(LlmProvider):
     def count_tokens(self, messages: list[Message]) -> int:
         return self._inner.count_tokens(messages)
 
+    def resolve_model(self, tier: Tier, override_model: str | None = None) -> str:
+        return self._inner.resolve_model(tier, override_model)
+
     def complete_structured(
         self,
         tier: Tier,
@@ -31,8 +34,8 @@ class CachingLlmProvider(LlmProvider):
         override_model: str | None = None,
         max_tokens: int = 4096,
     ) -> LlmResult[T]:
-        model_name = override_model or tier.value
-        rendered_input = "\\n".join(m.content for m in messages)
+        model_name = self._inner.resolve_model(tier, override_model)
+        rendered_input = "\n".join(m.content for m in messages)
 
         key = compute_cache_key(
             model=model_name,
@@ -48,26 +51,27 @@ class CachingLlmProvider(LlmProvider):
         if cached:
             val = schema(**json.loads(cached.output_body))
             usage = TokenUsage(**json.loads(cached.token_usage_json))
-            return LlmResult(value=val, usage=usage, model=cached.model, latency_ms=0)
+            return LlmResult(value=val, usage=usage, model=cached.model, latency_ms=0, cache_hit=True)
 
         res = self._inner.complete_structured(
             tier, messages, schema, override_model=override_model, max_tokens=max_tokens
         )
 
+        output_body = res.value.model_dump_json()
         entry = CacheEntry(
             cache_key=key,
-            provider="unknown",
+            provider=self._ctx.provider_name,
             model=res.model,
             tier=tier.value,
             purpose=self._ctx.purpose.value,
             prompt_id=self._ctx.prompt_id,
             prompt_version=self._ctx.prompt_version,
             prompt_content_hash=self._ctx.prompt_content_hash,
-            input_hash="TBD",
-            schema_hash="TBD",
+            input_hash=compute_input_hash(rendered_input),
+            schema_hash=compute_schema_hash(schema),
             max_tokens=max_tokens,
             input_body=rendered_input,
-            output_body=res.value.model_dump_json() if hasattr(res.value, "model_dump_json") else "{}",
+            output_body=output_body,
             token_usage_json=json.dumps(res.usage.__dict__),
             created_at=datetime.now(UTC).isoformat(),
         )

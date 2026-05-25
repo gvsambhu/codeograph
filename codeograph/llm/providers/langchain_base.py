@@ -72,6 +72,9 @@ class LangChainLlmProvider(LlmProvider):
                 lc_msgs.append(AIMessage(content=m.content, additional_kwargs=kwargs))
         return lc_msgs
 
+    def resolve_model(self, tier: Tier, override_model: str | None = None) -> str:
+        return override_model or self._tier_map[tier]
+
     def count_tokens(self, messages: list[Message]) -> int:
         lc_msgs = self._to_langchain_messages(messages)
         try:

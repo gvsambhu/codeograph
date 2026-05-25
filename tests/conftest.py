@@ -41,6 +41,9 @@ class MockLlmProvider(LlmProvider):
     def __init__(self):
         self.calls: list[dict] = []
 
+    def resolve_model(self, tier: Tier, override_model: str | None = None) -> str:
+        return override_model or "mock-model"
+
     def complete_structured(
         self,
         tier: Tier,
