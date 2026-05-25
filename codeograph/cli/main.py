@@ -105,7 +105,7 @@ def run(input_path: str, out: str, ast_only: bool, force: bool) -> None:
         from codeograph.llm.factory import build_default_stack
         from codeograph.llm.middleware.retry_policy import RetryPolicy
         from codeograph.llm.prompts.loader import PromptLoader
-        from codeograph.llm.providers.anthropic import AnthropicProvider
+        from codeograph.llm.providers.anthropic_provider import AnthropicProvider
         from codeograph.llm.types import CallContext, Purpose
         from codeograph.passes.pass1.annotator import NodeAnnotator
         from codeograph.passes.pass2.synthesizer import CorpusSynthesizer
