@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pydantic import Field, SecretStr
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
 
 from codeograph.config.yaml_source import YamlConfigSource
@@ -97,14 +97,37 @@ class Settings(BaseSettings):
         description="Path to the bundled JavaParser JAR. Override to use a custom build.",
     )
 
-    # TODO (learner): add @field_validator for llm_provider — must be one of
-    #   {"anthropic", "ollama", "bedrock"}; raise ValueError with a clear message otherwise.
-    # TODO (learner): add @field_validator for llm_concurrency — enforce a sane range (e.g. 1–50).
-    # TODO (learner): add @field_validator for max_pass1_failure_ratio — enforce 0.0 < x <= 1.0.
-    # TODO (learner): add @model_validator to check that javaparser_jar exists when
-    #   running outside --ast-only mode (or log a warning; decide the policy).
-    # TODO (learner): add further fields as M4–M8 reveal the need.
+    @field_validator("llm_provider")
+    @classmethod
+    def validate_llm_provider(cls, v: str) -> str:
+        v = v.lower()
+        if v not in {"anthropic", "ollama", "bedrock"}:
+            raise ValueError(f"Invalid llm_provider: {v!r}. Must be one of: anthropic | ollama | bedrock.")
+        return v
 
+    @field_validator("llm_concurrency")
+    @classmethod
+    def validate_llm_concurrency(cls, v: int) -> int:
+        if not (1 <= v <= 50):
+            raise ValueError(f"llm_concurrency must be between 1 and 50, got {v}.")
+        return v
+
+    @field_validator("max_pass1_failure_ratio")
+    @classmethod
+    def validate_max_pass1_failure_ratio(cls, v: float) -> float:
+        if not (0.0 <= v <= 1.0):
+            raise ValueError(f"max_pass1_failure_ratio must be between 0.0 and 1.0, got {v}.")
+        return v
+
+    @model_validator(mode="after")
+    def validate_javaparser_jar_exists(self) -> Settings:
+        import warnings
+        # If the file doesn't exist, log a warning rather than crashing.
+        # This handles ast-only bypass logic happening in the CLI, where the jar 
+        # is only required if a Java file actually needs to be parsed natively.
+        if not self.javaparser_jar.exists():
+            warnings.warn(f"javaparser_jar not found at {self.javaparser_jar}. Parsing may fail.")
+        return self
     @classmethod
     def settings_customise_sources(
         cls,
