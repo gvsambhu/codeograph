@@ -7,21 +7,39 @@
 Types: `feat`, `fix`, `docs`, `chore`, `refactor`, `test`, `perf`.
 Scopes follow the codebase layout: `parser`, `graph`, `input`, `analyzer`, `cli`, `schema`, `ci`, `adr`, `golden`.
 
-Every commit ends with a co-author trailer:
+Every AI-assisted commit ends with two attribution trailers:
 
 ```
-Co-Authored-By: Claude <noreply@anthropic.com>
+Co-authored-by: <AI brand> <noreply@<provider>>
+AI-Model: <api-model-identifier-with-release-date>
 ```
 
-Use the bare `Claude` form — never pin a model version, it dates the history.
+Concrete forms by tool:
+
+```
+# Claude Code (Opus / Sonnet)
+Co-authored-by: Claude <noreply@anthropic.com>
+AI-Model: claude-opus-4-1-20250805
+
+# Google Antigravity (Gemini)
+Co-authored-by: Gemini <noreply@google.com>
+AI-Model: gemini-2.5-pro-20251201
+```
+
+Rules:
+
+- Use the **bare brand** in `Co-authored-by:` — never pin a model version inline, it dates the history.
+- Put the model identifier (with release date when available) on the separate `AI-Model:` line — preserves audit traceability if a model release has a known regression.
+- Mixed-tool commits (rare) include both trailer pairs.
+- Hand-written commits (no AI assistance) include neither trailer.
 
 ## Branching
 
 - `main` — protected. Only merged via PR.
-- `dev/feature-<N>` — long-lived feature branch for a delivery chunk.
-- `dev/<topic>` — short-lived topic branches that merge into a `dev/feature-*` branch (e.g. `dev/dc1-bugs`).
+- **Design work:** `design/r<N>-<topic>` for design rounds (ADR drafting).
+- **Development work:** `dev/dc<N>-<topic>` for development chunks (implementation).
 
-Direct pushes to `main` are not used. Every change goes through a PR.
+Every change goes through a PR. Direct pushes to `main` are not used.
 
 ## Pre-merge checklist
 
@@ -47,17 +65,50 @@ The Tier 1 golden test (`tests/test_golden.py`) compares the emitted `graph.json
 
 JavaParser version bumps (in `pyproject.toml` `[tool.codeograph.versions]`) always require a goldens refresh.
 
+## Prompt Authoring
+
+Prompts are stored in `codeograph/prompts/` and are processed via a custom Jinja2 pipeline (ADR-014).
+
+### Custom Delimiters
+We use custom Jinja2 delimiters to avoid conflicting with source code syntax (like Java annotations `@` or standard markdown `{}`):
+- Variables: `<< var_name >>`
+- Blocks: `<% if condition %> ... <% endif %>`
+- Comments: `<# This is a comment #>`
+
+### Versioning and Hash Pins
+Every prompt version is an immutable file (e.g., `v1.md`). When creating or modifying a prompt:
+1. Include the YAML frontmatter with the `content_hash_pin` field.
+2. If it's a new version, bump the filename (e.g., `v2.md`) and update the `default.yaml` alias file to point to it.
+3. Our pre-commit hook automatically updates the `content_hash_pin` when you stage prompt files. If you bypass hooks, you must run `python scripts/update_prompt_hash_pins.py` manually.
+
+Modifying an existing prompt version *changes its hash*. The loader strictly verifies the pin, and the hash becomes part of the LLM Cache Key (ADR-015), ensuring no silent staleness.
+
 ## Banned terms
 
-The following must not appear anywhere in source, tests, docs, ADRs, or commit messages:
+A small list of terms must not appear anywhere in source, tests, docs, ADRs,
+commit messages, or PR text. The canonical list lives in
+[`.banned-terms.txt`](./.banned-terms.txt) — link to it rather than
+restating it here.
 
-```
-[redacted]        [redacted]       [redacted]
-assignment    [redacted]      submission
-[redacted]
-```
+**Enforcement:**
 
-Enforced by NFR-1 and reviewed before merge.
+- **Local:** `scripts/check_banned_terms.py` runs as a pre-commit hook on
+  staged files and the commit message. Install hooks once with
+  `pre-commit install --hook-type pre-commit --hook-type commit-msg`.
+- **CI:** the same scanner runs in `.github/workflows/ci.yml` on every push
+  and pull request, scanning the full repo tree and commits in range.
+- **PR text:** at present, PR titles, descriptions, and comments are NOT
+  scanned automatically — they are the reviewer's responsibility. When
+  the violation is found in posted PR text, the policy is to fail the
+  check and require the comment be edited or deleted (not auto-redacted).
+  Extending the workflow to scan PR text is tracked as a follow-up.
+
+**Per-line exemption:** when an inherent technical term legitimately
+matches (e.g., a mypy `[assignment]` error code, third-party API lifecycle
+vocabulary), append `# banned-terms: ok` to that line as a pragma.
+Use sparingly; rephrasing is preferred.
+
+Enforced by NFR-1.
 
 ## ADRs
 

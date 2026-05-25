@@ -28,6 +28,8 @@ dependencies = [
     "pydantic>=2.0",
     "pathspec>=0.12",
     "pyyaml>=6.0",
+    "jinja2>=3.1",
+    "langchain-anthropic>=0.1",
 ]
 
 [project.scripts]
@@ -61,6 +63,8 @@ ignore = []
 # Schema model files use long Pydantic Field(description=...) strings that are
 # intentional documentation — wrapping them harms readability.
 "codeograph/graph/models/*.py" = ["E501"]
+"codeograph/passes/pass1/schemas.py" = ["E501"]
+"codeograph/passes/pass2/schemas.py" = ["E501"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["codeograph"]

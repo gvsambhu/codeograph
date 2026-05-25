@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pydantic import Field, SecretStr
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
 
 from codeograph.config.yaml_source import YamlConfigSource
+from codeograph.llm.types import ProviderType
 
 _DEFAULT_JAR = Path(__file__).parent.parent / "parser" / "lib" / "parser.jar"
 
@@ -34,13 +35,33 @@ class Settings(BaseSettings):
         default=None,
         description="Anthropic API key. Set via CODEOGRAPH_ANTHROPIC_API_KEY.",
     )
-    llm_provider: str = Field(
-        default="anthropic",
+    llm_provider: ProviderType = Field(
+        default=ProviderType.ANTHROPIC,
         description="LLM provider: anthropic | ollama | bedrock.",
     )
     llm_model: str = Field(
         default="claude-sonnet-4-6",
         description="Exact model identifier used for all LLM calls in v1 (ADR-005 M1).",
+    )
+    llm_model_fast: str | None = Field(
+        default=None,
+        description="Optional FAST-tier model override.",
+    )
+    llm_model_deep: str | None = Field(
+        default=None,
+        description="Optional DEEP-tier model override.",
+    )
+    llm_model_render: str | None = Field(
+        default=None,
+        description="Optional RENDER-tier model override.",
+    )
+    ollama_base_url: str = Field(
+        default="http://localhost:11434",
+        description="Base URL for Ollama API.",
+    )
+    bedrock_region: str | None = Field(
+        default=None,
+        description="Optional AWS region for Bedrock runtime.",
     )
     llm_concurrency: int = Field(
         default=5,
@@ -52,6 +73,23 @@ class Settings(BaseSettings):
     )
 
     # -------------------------------------------------------------------------
+    # Cache
+    # -------------------------------------------------------------------------
+
+    cache_dir: Path = Field(
+        default=Path.home() / ".codeograph" / "cache",
+        description="Directory for the SQLite cache.db and telemetry JSONL files.",
+    )
+    cache_warn_size_mb: int = Field(
+        default=1024,
+        description="Emit advisory warning if cache.db size exceeds this limit in MB.",
+    )
+    cache_warn_entry_count: int = Field(
+        default=50000,
+        description="Emit advisory warning if cache.db entry count exceeds this limit.",
+    )
+
+    # -------------------------------------------------------------------------
     # Parser
     # -------------------------------------------------------------------------
 
@@ -60,13 +98,30 @@ class Settings(BaseSettings):
         description="Path to the bundled JavaParser JAR. Override to use a custom build.",
     )
 
-    # TODO (learner): add @field_validator for llm_provider — must be one of
-    #   {"anthropic", "ollama", "bedrock"}; raise ValueError with a clear message otherwise.
-    # TODO (learner): add @field_validator for llm_concurrency — enforce a sane range (e.g. 1–50).
-    # TODO (learner): add @field_validator for max_pass1_failure_ratio — enforce 0.0 < x <= 1.0.
-    # TODO (learner): add @model_validator to check that javaparser_jar exists when
-    #   running outside --ast-only mode (or log a warning; decide the policy).
-    # TODO (learner): add further fields as M4–M8 reveal the need.
+    @field_validator("llm_concurrency")
+    @classmethod
+    def validate_llm_concurrency(cls, v: int) -> int:
+        if not (1 <= v <= 50):
+            raise ValueError(f"llm_concurrency must be between 1 and 50, got {v}.")
+        return v
+
+    @field_validator("max_pass1_failure_ratio")
+    @classmethod
+    def validate_max_pass1_failure_ratio(cls, v: float) -> float:
+        if not (0.0 <= v <= 1.0):
+            raise ValueError(f"max_pass1_failure_ratio must be between 0.0 and 1.0, got {v}.")
+        return v
+
+    @model_validator(mode="after")
+    def validate_javaparser_jar_exists(self) -> Settings:
+        import warnings
+
+        # If the file doesn't exist, log a warning rather than crashing.
+        # This handles ast-only bypass logic happening in the CLI, where the jar
+        # is only required if a Java file actually needs to be parsed natively.
+        if not self.javaparser_jar.exists():
+            warnings.warn(f"javaparser_jar not found at {self.javaparser_jar}. Parsing may fail.")
+        return self
 
     @classmethod
     def settings_customise_sources(

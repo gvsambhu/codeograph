@@ -34,8 +34,27 @@ jobs:
       - name: Install dependencies
         run: pip install -e ".[dev]"
 
+      - name: Prompt artefact freshness (ADR-014)
+        # Regenerate _prompts_generated.py and re-pin every prompt's content_hash_pin.
+        # If a contributor edited a prompt without running pre-commit (or bypassed
+        # hooks), the working tree will diff and this step fails. Catches stale
+        # generated code and stale hash pins before they reach main.
+        run: |
+          python scripts/gen_prompt_constants.py
+          for f in codeograph/prompts/*/*.md; do
+            python scripts/update_prompt_hash_pins.py "$f" || true
+          done
+          git diff --exit-code
+
       - name: Lint (ruff)
         run: ruff check . && ruff format --check .
+
+      - name: Banned-terms scan (NFR-1)
+        # Full-tree scan honouring .banned-terms-allowlist.txt and per-line
+        # `banned-terms: ok` pragmas. Catches leaks that bypass the local
+        # pre-commit hook (e.g., contributor without hooks installed, or a
+        # term added via a tool that doesn't run pre-commit like gh web UI).
+        run: python scripts/check_banned_terms.py --repo
 
       - name: Type-check (mypy)
         run: mypy codeograph/
