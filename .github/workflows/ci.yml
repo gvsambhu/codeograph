@@ -37,6 +37,13 @@ jobs:
       - name: Lint (ruff)
         run: ruff check . && ruff format --check .
 
+      - name: Banned-terms scan (NFR-1)
+        # Full-tree scan honouring .banned-terms-allowlist.txt and per-line
+        # `banned-terms: ok` pragmas. Catches leaks that bypass the local
+        # pre-commit hook (e.g., contributor without hooks installed, or a
+        # term added via a tool that doesn't run pre-commit like gh web UI).
+        run: python scripts/check_banned_terms.py --repo
+
       - name: Type-check (mypy)
         run: mypy codeograph/
 

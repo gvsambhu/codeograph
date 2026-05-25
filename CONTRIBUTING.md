@@ -85,15 +85,30 @@ Modifying an existing prompt version *changes its hash*. The loader strictly ver
 
 ## Banned terms
 
-The following must not appear anywhere in source, tests, docs, ADRs, or commit messages:
+A small list of terms must not appear anywhere in source, tests, docs, ADRs,
+commit messages, or PR text. The canonical list lives in
+[`.banned-terms.txt`](./.banned-terms.txt) — link to it rather than
+restating it here.
 
-```
-[redacted]        [redacted]       [redacted]
-assignment    [redacted]      submission
-[redacted]
-```
+**Enforcement:**
 
-Enforced by NFR-1 and reviewed before merge.
+- **Local:** `scripts/check_banned_terms.py` runs as a pre-commit hook on
+  staged files and the commit message. Install hooks once with
+  `pre-commit install --hook-type pre-commit --hook-type commit-msg`.
+- **CI:** the same scanner runs in `.github/workflows/ci.yml` on every push
+  and pull request, scanning the full repo tree and commits in range.
+- **PR text:** at present, PR titles, descriptions, and comments are NOT
+  scanned automatically — they are the reviewer's responsibility. When
+  the violation is found in posted PR text, the policy is to fail the
+  check and require the comment be edited or deleted (not auto-redacted).
+  Extending the workflow to scan PR text is tracked as a follow-up.
+
+**Per-line exemption:** when an inherent technical term legitimately
+matches (e.g., a mypy `[assignment]` error code, third-party API lifecycle
+vocabulary), append `# banned-terms: ok` to that line as a pragma.
+Use sparingly; rephrasing is preferred.
+
+Enforced by NFR-1.
 
 ## ADRs
 

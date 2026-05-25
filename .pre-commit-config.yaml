@@ -13,3 +13,18 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
+      - id: banned-terms-files
+        name: Banned terms (staged files)
+        entry: python scripts/check_banned_terms.py --files
+        language: system
+        pass_filenames: true
+        # Skip the term list, allowlist, and the scanner itself — they all
+        # legitimately mention the terms. Honoured by the scanner's own
+        # allowlist too, but excluded here so the hook never even invokes.
+        exclude: ^(\.banned-terms\.txt|\.banned-terms-allowlist\.txt|scripts/check_banned_terms\.py)$
+      - id: banned-terms-commit-msg
+        name: Banned terms (commit message)
+        entry: python scripts/check_banned_terms.py --commit-msg
+        language: system
+        stages: [commit-msg]
+        pass_filenames: true
