@@ -4,6 +4,21 @@ import json
 from pydantic import BaseModel
 
 
+def compute_input_hash(rendered_input: str) -> str:
+    """SHA-256 of the rendered prompt input (all message bodies joined)."""
+    return hashlib.sha256(rendered_input.encode("utf-8")).hexdigest()
+
+
+def compute_schema_hash(schema: type[BaseModel]) -> str:
+    """SHA-256 of the response schema's JSON Schema (sorted keys)."""
+    return hashlib.sha256(json.dumps(schema.model_json_schema(), sort_keys=True).encode("utf-8")).hexdigest()
+
+
+def compute_output_hash(output_body: str) -> str:
+    """SHA-256 of the serialised LLM response body."""
+    return hashlib.sha256(output_body.encode("utf-8")).hexdigest()
+
+
 def compute_cache_key(
     *,
     model: str,
@@ -24,8 +39,8 @@ def compute_cache_key(
         prompt_id,
         prompt_version,
         prompt_content_hash,
-        hashlib.sha256(rendered_input.encode("utf-8")).hexdigest(),
-        hashlib.sha256(json.dumps(schema.model_json_schema(), sort_keys=True).encode("utf-8")).hexdigest(),
+        compute_input_hash(rendered_input),
+        compute_schema_hash(schema),
         str(max_tokens),
     ]
     joined = "\0".join(components)  # null byte — cannot appear in any component

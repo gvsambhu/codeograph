@@ -38,6 +38,7 @@ class CallContext:
     prompt_version: str
     prompt_content_hash: str
     corpus_id: str
+    provider_name: str = "unknown"  # e.g. "anthropic", "ollama" — populates telemetry + cache provider field
 
 
 @dataclass(frozen=True)
@@ -74,3 +75,4 @@ class LlmResult[T]:
     usage: TokenUsage
     model: str
     latency_ms: int
+    cache_hit: bool = False  # True when returned from CachingLlmProvider without a live call

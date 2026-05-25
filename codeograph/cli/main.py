@@ -179,6 +179,7 @@ def run(input_path: str, out: str, ast_only: bool, force: bool) -> None:
             prompt_version=prompt_p1.metadata.version if hasattr(prompt_p1, "metadata") else "v1",
             prompt_content_hash=prompt_p1.metadata.content_hash_pin if hasattr(prompt_p1, "metadata") else "TODO",
             corpus_id=corpus_id,
+            provider_name=settings.llm_provider,
         )
         provider_p1 = build_default_stack(base_provider, retry_policy, cache_backend, emitter, ctx_p1)
         annotator = NodeAnnotator(provider_p1, prompt_loader, out_dir, settings.llm_concurrency)
@@ -197,6 +198,7 @@ def run(input_path: str, out: str, ast_only: bool, force: bool) -> None:
             prompt_version=prompt_p2.metadata.version if hasattr(prompt_p2, "metadata") else "v1",
             prompt_content_hash=prompt_p2.metadata.content_hash_pin if hasattr(prompt_p2, "metadata") else "TODO",
             corpus_id=corpus_id,
+            provider_name=settings.llm_provider,
         )
         provider_p2 = build_default_stack(base_provider, retry_policy, cache_backend, emitter, ctx_p2)
         synthesizer = CorpusSynthesizer(provider_p2, prompt_loader, out_dir)
