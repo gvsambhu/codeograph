@@ -20,6 +20,9 @@ class RetryingLlmProvider(LlmProvider):
         self._inner = inner
         self._policy = policy
 
+    def resolve_model(self, tier: Tier, override_model: str | None = None) -> str:
+        return self._inner.resolve_model(tier, override_model)
+
     def count_tokens(self, messages: list[Message]) -> int:
         return self._inner.count_tokens(messages)
 

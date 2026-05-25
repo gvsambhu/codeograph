@@ -20,6 +20,9 @@ class TelemetryLlmProvider(LlmProvider):
         self._emitter = emitter
         self._ctx = ctx
 
+    def resolve_model(self, tier: Tier, override_model: str | None = None) -> str:
+        return self._inner.resolve_model(tier, override_model)
+
     def count_tokens(self, messages: list[Message]) -> int:
         return self._inner.count_tokens(messages)
 

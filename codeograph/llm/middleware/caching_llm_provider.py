@@ -22,6 +22,9 @@ class CachingLlmProvider(LlmProvider):
     def count_tokens(self, messages: list[Message]) -> int:
         return self._inner.count_tokens(messages)
 
+    def resolve_model(self, tier: Tier, override_model: str | None = None) -> str:
+        return self._inner.resolve_model(tier, override_model)
+
     def complete_structured(
         self,
         tier: Tier,
@@ -31,8 +34,8 @@ class CachingLlmProvider(LlmProvider):
         override_model: str | None = None,
         max_tokens: int = 4096,
     ) -> LlmResult[T]:
-        model_name = override_model or tier.value
-        rendered_input = "\\n".join(m.content for m in messages)
+        model_name = self._inner.resolve_model(tier, override_model)
+        rendered_input = "\n".join(m.content for m in messages)
 
         key = compute_cache_key(
             model=model_name,

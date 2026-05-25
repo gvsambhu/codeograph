@@ -16,6 +16,16 @@ class LlmProvider(ABC):
         pass
 
     @abstractmethod
+    def resolve_model(self, tier: Tier, override_model: str | None = None) -> str:
+        """Return the concrete model string that will be sent to the provider.
+
+        Middleware layers must delegate to their inner provider.  Leaf providers
+        look up their tier_map.  Required so CachingLlmProvider can include the
+        real model name in the cache key (ADR-015 Fork 4) before the call is made.
+        """
+        pass
+
+    @abstractmethod
     def complete_structured(
         self,
         tier: Tier,

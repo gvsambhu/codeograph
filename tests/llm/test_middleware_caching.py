@@ -21,7 +21,7 @@ def test_caching_middleware_hit(mock_llm_provider, tmp_cache_db):
     rendered_input = "\n".join(m.content for m in messages)
 
     key = compute_cache_key(
-        model=Tier.FAST.value,
+        model=mock_llm_provider.resolve_model(Tier.FAST),
         prompt_id=ctx.prompt_id,
         prompt_version=ctx.prompt_version,
         prompt_content_hash=ctx.prompt_content_hash,
@@ -99,7 +99,7 @@ def test_caching_middleware_miss(mock_llm_provider, tmp_cache_db):
 
     rendered_input = "\n".join(m.content for m in messages)
     key = compute_cache_key(
-        model=Tier.FAST.value,
+        model=mock_llm_provider.resolve_model(Tier.FAST),
         prompt_id=ctx.prompt_id,
         prompt_version=ctx.prompt_version,
         prompt_content_hash=ctx.prompt_content_hash,
