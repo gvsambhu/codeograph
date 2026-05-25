@@ -7,6 +7,7 @@ from pathlib import Path
 import click
 
 from codeograph import __version__
+from codeograph.cli.cache import cache_cli
 
 
 @click.group()
@@ -15,8 +16,9 @@ def cli() -> None:
     """Ingest a Java/Spring Boot codebase; emit a knowledge graph and migration scaffold."""
     pass
 
-from codeograph.cli.cache import cache_cli
+
 cli.add_command(cache_cli)
+
 
 @cli.command()
 @click.argument("input_path", metavar="INPUT")
@@ -94,19 +96,20 @@ def run(input_path: str, out: str, ast_only: bool, force: bool) -> None:
             return
 
         click.echo("Initializing LLM passes...")
-        from codeograph.config.settings import Settings
-        from codeograph.llm.providers.anthropic import AnthropicProvider
-        from codeograph.llm.middleware.retry_policy import RetryPolicy
-        from codeograph.llm.cache.sqlite_backend import SQLiteCacheBackend
-        from codeograph.telemetry.emitter import JsonlEmitter
-        from codeograph.llm.factory import build_default_stack
-        from codeograph.llm.types import CallContext, Purpose
-        from codeograph.llm.prompts.loader import PromptLoader
-        from codeograph.passes.pass1.annotator import NodeAnnotator
-        from codeograph.passes.pass2.synthesizer import CorpusSynthesizer
-        from codeograph.llm._prompts_generated import PromptId
         import datetime
         import json
+
+        from codeograph.config.settings import Settings
+        from codeograph.llm._prompts_generated import PromptId
+        from codeograph.llm.cache.sqlite_backend import SQLiteCacheBackend
+        from codeograph.llm.factory import build_default_stack
+        from codeograph.llm.middleware.retry_policy import RetryPolicy
+        from codeograph.llm.prompts.loader import PromptLoader
+        from codeograph.llm.providers.anthropic import AnthropicProvider
+        from codeograph.llm.types import CallContext, Purpose
+        from codeograph.passes.pass1.annotator import NodeAnnotator
+        from codeograph.passes.pass2.synthesizer import CorpusSynthesizer
+        from codeograph.telemetry.emitter import JsonlEmitter
 
         settings = Settings()
         if not settings.anthropic_api_key:
@@ -117,16 +120,16 @@ def run(input_path: str, out: str, ast_only: bool, force: bool) -> None:
         cache_backend = SQLiteCacheBackend(settings.cache_dir / "cache.db")
         telemetry_dir = settings.cache_dir / "telemetry"
         telemetry_dir.mkdir(parents=True, exist_ok=True)
-        
-        run_ts = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+
+        run_ts = datetime.datetime.now(datetime.UTC).strftime("%Y%m%dT%H%M%SZ")
         corpus_id = corpus.modules[0].name if corpus.modules else "default-corpus"
         emitter_path = telemetry_dir / f"run-{corpus_id}-{run_ts}.jsonl"
         emitter = JsonlEmitter(emitter_path)
 
         # Base Provider — dispatches on settings.llm_provider
-        from codeograph.llm.types import Tier, ProviderType
+        from codeograph.llm.types import ProviderType, Tier
 
-        def llm_tier_map(settings) -> dict[Tier, str]:
+        def llm_tier_map(settings: Settings) -> dict[Tier, str]:
             return {
                 Tier.FAST: settings.llm_model_fast or settings.llm_model,
                 Tier.DEEP: settings.llm_model_deep or settings.llm_model,
@@ -142,13 +145,16 @@ def run(input_path: str, out: str, ast_only: bool, force: bool) -> None:
                     tier_map=tier_map,
                 )
             case ProviderType.OLLAMA:
-                base_provider = OllamaProvider(
-                    base_url=settings.ollama_base_url,
-                    tier_map=tier_map,
+                # OllamaProvider deferred to v1.1 per DC2 kickoff §"Open questions" #1.
+                raise NotImplementedError(
+                    "Ollama provider is not implemented in v1. "
+                    "Use llm_provider=anthropic; Ollama support is planned for v1.1."
                 )
             case ProviderType.BEDROCK:
-                base_provider = BedrockProvider(
-                    tier_map=tier_map,
+                # BedrockProvider deferred to v1.1 per DC2 kickoff §"Open questions" #1.
+                raise NotImplementedError(
+                    "Bedrock provider is not implemented in v1. "
+                    "Use llm_provider=anthropic; Bedrock support is planned for v1.1."
                 )
             case _:
                 raise ValueError(
@@ -160,7 +166,7 @@ def run(input_path: str, out: str, ast_only: bool, force: bool) -> None:
 
         # Load graph from Pass 0
         graph_path = out_dir / "graph.json"
-        with open(graph_path, "r", encoding="utf-8") as f:
+        with open(graph_path, encoding="utf-8") as f:
             graph_data = json.load(f)
         nodes = graph_data.get("nodes", [])
 
@@ -170,8 +176,8 @@ def run(input_path: str, out: str, ast_only: bool, force: bool) -> None:
         ctx_p1 = CallContext(
             purpose=Purpose.ANNOTATE,
             prompt_id=PromptId.ANNOTATE_NODE,
-            prompt_version=prompt_p1.metadata.version if hasattr(prompt_p1, 'metadata') else "v1",
-            prompt_content_hash=prompt_p1.metadata.content_hash_pin if hasattr(prompt_p1, 'metadata') else "TODO",
+            prompt_version=prompt_p1.metadata.version if hasattr(prompt_p1, "metadata") else "v1",
+            prompt_content_hash=prompt_p1.metadata.content_hash_pin if hasattr(prompt_p1, "metadata") else "TODO",
             corpus_id=corpus_id,
         )
         provider_p1 = build_default_stack(base_provider, retry_policy, cache_backend, emitter, ctx_p1)
@@ -181,55 +187,59 @@ def run(input_path: str, out: str, ast_only: bool, force: bool) -> None:
         except Exception as e:
             click.echo(f"Pass 1 failed: {e}")
             raise
-            
+
         # --- Pass 2: Synthesize Corpus ---
         click.echo("Running Pass 2 (Corpus Synthesis)...")
         prompt_p2 = prompt_loader.get(PromptId.SYNTHESIZE_CORPUS)
         ctx_p2 = CallContext(
             purpose=Purpose.SYNTHESIZE,
             prompt_id=PromptId.SYNTHESIZE_CORPUS,
-            prompt_version=prompt_p2.metadata.version if hasattr(prompt_p2, 'metadata') else "v1",
-            prompt_content_hash=prompt_p2.metadata.content_hash_pin if hasattr(prompt_p2, 'metadata') else "TODO",
+            prompt_version=prompt_p2.metadata.version if hasattr(prompt_p2, "metadata") else "v1",
+            prompt_content_hash=prompt_p2.metadata.content_hash_pin if hasattr(prompt_p2, "metadata") else "TODO",
             corpus_id=corpus_id,
         )
         provider_p2 = build_default_stack(base_provider, retry_policy, cache_backend, emitter, ctx_p2)
         synthesizer = CorpusSynthesizer(provider_p2, prompt_loader, out_dir)
         try:
-            synthesizer.synthesize(graph_path, out_dir / "llm-annotations.json")
+            # Pass 2 consumes Pass 1's in-memory annotations + the Pass 0 graph dict
+            # (per CorpusSynthesizer.synthesize signature).
+            synthesizer.synthesize(annotations, graph_data)
         except Exception as e:
             click.echo(f"Pass 2 failed: {e}")
             raise
 
         # Update manifest.json with cache stats
         import hashlib
-        
+
         cache_stats = cache_backend.stats()
-        
+
         try:
-            with open(manifest_path, "r", encoding="utf-8") as f:
+            with open(manifest_path, encoding="utf-8") as f:
                 manifest_data = json.load(f)
-                
+
             manifest_data["cache"] = {
                 "total_entries": cache_stats.total_entries,
-                "total_size_bytes": cache_stats.total_size_bytes
+                "total_size_bytes": cache_stats.total_size_bytes,
             }
-            
-            # Optionally add sha256 of llm-annotations if it exists
+
+            # Optionally add sha256 of llm-annotations if it exists.
+            # Use a distinct binary handle (bfh) so mypy can narrow the IO type correctly —
+            # `f` was previously the text-mode manifest reader and would conflict otherwise.
             annotations_path = out_dir / "llm-annotations.json"
             if annotations_path.exists():
-                with open(annotations_path, "rb") as f:
-                    file_hash = hashlib.sha256(f.read()).hexdigest()
+                with open(annotations_path, "rb") as bfh:
+                    file_hash = hashlib.sha256(bfh.read()).hexdigest()
                 manifest_data.setdefault("artifacts", {})["llm_annotations"] = {
                     "file": "llm-annotations.json",
-                    "sha256": file_hash
+                    "sha256": file_hash,
                 }
-                
+
             with open(manifest_path, "w", encoding="utf-8") as f:
                 json.dump(manifest_data, f, indent=2)
-                
+
         except Exception as e:
             click.echo(f"Warning: Failed to update manifest.json: {e}")
-            
+
         click.echo("LLM passes complete.")
 
     finally:

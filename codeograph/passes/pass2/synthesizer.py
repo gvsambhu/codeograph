@@ -1,12 +1,13 @@
 import json
 import logging
 from pathlib import Path
+from typing import Any
 
-from codeograph.llm.provider import LlmProvider
+from codeograph.llm._prompts_generated import PromptId
 from codeograph.llm.prompts.loader import PromptLoader
 from codeograph.llm.prompts.renderer import render
-from codeograph.llm._prompts_generated import PromptId
-from codeograph.llm.types import Message, Tier, CacheHint
+from codeograph.llm.provider import LlmProvider
+from codeograph.llm.types import CacheHint, Message, Tier
 from codeograph.passes.pass2.schemas import SynthesisResult
 
 logger = logging.getLogger(__name__)
@@ -23,35 +24,41 @@ class CorpusSynthesizer:
         self._prompt_loader = prompt_loader
         self._output_dir = output_dir
 
-    def synthesize(self, annotations: list[dict], graph: dict) -> dict:
+    def synthesize(self, records: list[dict[str, Any]], graph: dict[str, Any]) -> dict[str, Any]:
         """
         Run Pass 2 — single LLM call over aggregated Pass 1 annotations.
 
         Args:
-            annotations: List of NodeAnnotation dicts from Pass 1 (llm-annotations.json).
-            graph:       graph.json dict from Pass 0 (read by the caller).
+            records: List of AnnotationRecord dicts from Pass 1 (llm-annotations.json).
+                     Each record is an envelope: {node_id, degraded, annotation}.
+            graph:   graph.json dict from Pass 0 (read by the caller).
 
         Returns:
             SynthesisResult dict written back into graph.json as top-level enrichments.
         """
         prompt = self._prompt_loader.get(PromptId.SYNTHESIZE_CORPUS)
 
-        # Build a compact text summary — no source code, low token cost (per legacy pattern)
-        domain_map: dict[str, list[dict]] = {}
-        for ann in annotations:
+        # Build a compact text summary — no source code, low token cost (per legacy pattern).
+        # Domain key comes from the nested annotation; degraded records get a "unknown" bucket
+        # and are rendered with a [DEGRADED] marker.
+        domain_map: dict[str, list[dict[str, Any]]] = {}
+        for rec in records:
+            ann = rec.get("annotation") or {}
             domain = ann.get("domain_hint", "unknown")
-            domain_map.setdefault(domain, []).append(ann)
+            domain_map.setdefault(domain, []).append(rec)
 
         lines: list[str] = []
-        for domain, nodes in domain_map.items():
+        for domain, recs in domain_map.items():
             lines.append(f"Domain: {domain}")
-            for node in nodes:
-                if node.get("degraded"):
-                    lines.append(f"  {node.get('class_name', '?')} [DEGRADED]")
+            for rec in recs:
+                ann = rec.get("annotation") or {}
+                class_name = ann.get("class_name", "?")
+                if rec.get("degraded"):
+                    lines.append(f"  {class_name} [DEGRADED]")
                     continue
-                desc = node.get("description", "")
-                stereotype = node.get("stereotype", "UNKNOWN")
-                lines.append(f"  {node.get('class_name', '?')} [{stereotype}]: {desc}")
+                desc = ann.get("description", "")
+                stereotype = ann.get("stereotype") or "UNKNOWN"
+                lines.append(f"  {class_name} [{stereotype}]: {desc}")
             lines.append("")
 
         compact_summary = "\n".join(lines)
@@ -83,9 +90,7 @@ class CorpusSynthesizer:
             "description": synthesis.description,
             "architecturePattern": synthesis.architecture_pattern,
             "domains": synthesis.domains,
-            "crossDomainDependencies": [
-                dep.model_dump() for dep in synthesis.cross_domain_dependencies
-            ],
+            "crossDomainDependencies": [dep.model_dump() for dep in synthesis.cross_domain_dependencies],
         }
 
         self._output_dir.mkdir(parents=True, exist_ok=True)

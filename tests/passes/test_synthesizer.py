@@ -62,7 +62,7 @@ def test_synthesizer_basic(mock_llm_provider, mock_prompt_loader, tmp_path):
     out_path = output_dir / "graph.json"
     assert out_path.is_file()
 
-    with open(out_path, "r", encoding="utf-8") as fh:
+    with open(out_path, encoding="utf-8") as fh:
         written = json.load(fh)
 
     expected_result = synthesis.model_dump()
@@ -72,9 +72,7 @@ def test_synthesizer_basic(mock_llm_provider, mock_prompt_loader, tmp_path):
         "description": synthesis.description,
         "architecturePattern": synthesis.architecture_pattern,
         "domains": synthesis.domains,
-        "crossDomainDependencies": [
-            dep.model_dump() for dep in synthesis.cross_domain_dependencies
-        ],
+        "crossDomainDependencies": [dep.model_dump() for dep in synthesis.cross_domain_dependencies],
     }
 
     assert written["nodes"] == graph["nodes"]

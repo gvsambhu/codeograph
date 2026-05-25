@@ -1,11 +1,8 @@
-import pytest
-from codeograph.passes.pass1.annotator import NodeAnnotator
-
 import json
 
 from codeograph.llm.types import LlmResult, TokenUsage
 from codeograph.passes.pass1.annotator import NodeAnnotator
-from codeograph.passes.pass1.schemas import NodeAnnotation
+from codeograph.passes.pass1.schemas import AnnotationRecord, NodeAnnotation
 
 
 def test_annotator_normal_nodes(mock_llm_provider, mock_prompt_loader, tmp_path):
@@ -48,10 +45,18 @@ def test_annotator_normal_nodes(mock_llm_provider, mock_prompt_loader, tmp_path)
     assert output_dir.exists()
     assert out_path.is_file()
 
-    with open(out_path, "r", encoding="utf-8") as fh:
+    with open(out_path, encoding="utf-8") as fh:
         written = json.load(fh)
 
-    expected = [expected_annotation.model_dump()]
+    # Annotator now wraps each NodeAnnotation in an AnnotationRecord envelope
+    # (orchestrator-owned `degraded` separated from the LLM-response schema).
+    expected = [
+        AnnotationRecord(
+            node_id="NodeA",
+            degraded=False,
+            annotation=expected_annotation,
+        ).model_dump()
+    ]
     assert result == expected
     assert written == expected
 
@@ -76,28 +81,22 @@ def test_annotator_degraded_nodes(mock_llm_provider, mock_prompt_loader, tmp_pat
         }
     ]
 
-    # Temporarily patch NodeAnnotation schema to allow 'degraded' field 
-    # to avoid failing if the schema doesn't define it
     result = annotator.annotate(nodes)
 
     out_path = output_dir / "llm-annotations.json"
     assert out_path.is_file()
 
-    with open(out_path, "r", encoding="utf-8") as fh:
+    with open(out_path, encoding="utf-8") as fh:
         written = json.load(fh)
 
-    # Note: the user expected degraded: True, but schemas.py has it differently
-    # We will test what happens and fix the annotator if needed.
+    # Degraded records: the envelope carries the degradation marker; the inner
+    # `annotation` is None because the LLM was never called for this node.
     expected = [
-        {
-            "node_id": "HugeNode",
-            "class_name": "",
-            "stereotype": None,
-            "domain_hint": "",
-            "description": "Skipped: source exceeded size limit.",
-            "conversion_notes": None,
-            "methods": [],
-        }
+        AnnotationRecord(
+            node_id="HugeNode",
+            degraded=True,
+            annotation=None,
+        ).model_dump()
     ]
 
     assert result == expected

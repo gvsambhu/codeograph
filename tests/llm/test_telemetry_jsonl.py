@@ -1,8 +1,8 @@
-import pytest
 import json
 
 from codeograph.telemetry.attempt import Attempt
 from codeograph.telemetry.telemetry_record import TelemetryRecord
+
 
 def test_jsonl_emitter_writes_lines(tmp_telemetry_jsonl, tmp_path):
     attempt = Attempt(
@@ -44,7 +44,7 @@ def test_jsonl_emitter_writes_lines(tmp_telemetry_jsonl, tmp_path):
     tmp_telemetry_jsonl.emit(record)
 
     jsonl_path = tmp_path / "telemetry" / "test_telemetry.jsonl"
-    with open(jsonl_path, "r", encoding="utf-8") as f:
+    with open(jsonl_path, encoding="utf-8") as f:
         line = f.readline()
 
     assert line.strip() != ""

@@ -1,5 +1,5 @@
 import json
-import pytest
+
 from pydantic import BaseModel
 
 from codeograph.llm.cache.cache_entry import CacheEntry
@@ -44,12 +44,14 @@ def test_caching_middleware_hit(mock_llm_provider, tmp_cache_db):
         max_tokens=max_tokens,
         input_body=rendered_input,
         output_body='{"text":"cached hello"}',
-        token_usage_json=json.dumps({
-            "input_tokens": 10,
-            "output_tokens": 20,
-            "cached_tokens": 0,
-            "input_estimated": None,
-        }),
+        token_usage_json=json.dumps(
+            {
+                "input_tokens": 10,
+                "output_tokens": 20,
+                "cached_tokens": 0,
+                "input_estimated": None,
+            }
+        ),
         created_at="2026-05-24T10:00:00+00:00",
         hit_count=0,
         last_hit_at=None,

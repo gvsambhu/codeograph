@@ -1,9 +1,12 @@
 from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor
 from typing import TypeVar
-from codeograph.llm.types import Tier, Message, LlmResult
+from pydantic import BaseModel
 
-T = TypeVar("T")
+from codeograph.llm.types import LlmResult, Message, Tier
+
+T = TypeVar("T", bound=BaseModel)
+
 
 class LlmProvider(ABC):
     @abstractmethod
@@ -35,8 +38,7 @@ class LlmProvider(ABC):
         """Default impl uses ThreadPoolExecutor. Provider-uniform."""
         with ThreadPoolExecutor(max_workers=max_concurrent) as ex:
             futures = [
-                ex.submit(self.complete_structured, tier, msgs, schema,
-                          override_model=override_model, max_tokens=4096)
+                ex.submit(self.complete_structured, tier, msgs, schema, override_model=override_model, max_tokens=4096)
                 for msgs, schema in requests
             ]
             return [f.result() for f in futures]

@@ -1,13 +1,14 @@
 import json
 import logging
 from pathlib import Path
+from typing import Any
 
-from codeograph.llm.provider import LlmProvider
+from codeograph.llm._prompts_generated import PromptId
 from codeograph.llm.prompts.loader import PromptLoader
 from codeograph.llm.prompts.renderer import render
-from codeograph.llm._prompts_generated import PromptId
-from codeograph.llm.types import Message, Tier, CacheHint
-from codeograph.passes.pass1.schemas import NodeAnnotation
+from codeograph.llm.provider import LlmProvider
+from codeograph.llm.types import CacheHint, Message, Tier
+from codeograph.passes.pass1.schemas import AnnotationRecord, NodeAnnotation
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +29,7 @@ class NodeAnnotator:
         self._output_dir = output_dir
         self._max_concurrent = max_concurrent
 
-    def annotate(self, nodes: list[dict]) -> list[dict]:
+    def annotate(self, nodes: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """
         Run Pass 1 over all graph nodes.
 
@@ -36,20 +37,24 @@ class NodeAnnotator:
             nodes: List of graph node dicts from graph.json (Pass 0 output).
 
         Returns:
-            List of NodeAnnotation dicts written to llm-annotations.json.
+            List of AnnotationRecord dicts written to llm-annotations.json.
+            Each record wraps either a successful NodeAnnotation or a degraded marker.
         """
         prompt = self._prompt_loader.get(PromptId.ANNOTATE_NODE)
 
         # Partition: normal vs degraded (oversized)
-        normal, degraded_ids = [], []
+        normal: list[dict[str, Any]] = []
+        degraded_ids: list[str] = []
         for node in nodes:
             source = node.get("source_code", "")
             if len(source) > _MAX_SOURCE_CHARS:
                 logger.warning(
                     "Node %s exceeds max source chars (%d > %d) — marking degraded",
-                    node.get("id"), len(source), _MAX_SOURCE_CHARS,
+                    node.get("id"),
+                    len(source),
+                    _MAX_SOURCE_CHARS,
                 )
-                degraded_ids.append(node.get("id"))
+                degraded_ids.append(str(node.get("id", "")))
             else:
                 normal.append(node)
 
@@ -62,9 +67,8 @@ class NodeAnnotator:
                 node_name=node.get("name", ""),
                 source_body=node.get("source_code", ""),
                 category=node.get("category", "UNKNOWN"),
-                dependencies=", ".join(
-                    d.get("name", "") for d in node.get("dependencies", {}).get("injected", [])
-                ) or "none",
+                dependencies=", ".join(d.get("name", "") for d in node.get("dependencies", {}).get("injected", []))
+                or "none",
             )
             messages: list[Message] = [
                 Message(role="system", content=prompt.system, cache=CacheHint(ttl="1h")),
@@ -74,7 +78,9 @@ class NodeAnnotator:
 
         logger.info(
             "Pass 1: annotating %d node(s) (%d degraded), max_concurrent=%d",
-            len(normal), len(degraded_ids), self._max_concurrent,
+            len(normal),
+            len(degraded_ids),
+            self._max_concurrent,
         )
 
         results = self._provider.complete_structured_many(
@@ -83,29 +89,33 @@ class NodeAnnotator:
             max_concurrent=self._max_concurrent,
         )
 
-        # Assemble output — normal nodes first, then degraded stubs
-        annotations: list[dict] = []
+        # Assemble output — normal nodes first, then degraded stubs.
+        # Each entry is an AnnotationRecord envelope (orchestrator-owned `degraded`
+        # is separated from the LLM-response NodeAnnotation per ADR-005 O3).
+        records: list[dict[str, Any]] = []
         for node, result in zip(normal, results):
             annotation: NodeAnnotation = result.value
-            annotations.append(annotation.model_dump())
+            records.append(
+                AnnotationRecord(
+                    node_id=annotation.node_id,
+                    degraded=False,
+                    annotation=annotation,
+                ).model_dump()
+            )
 
         for node_id in degraded_ids:
-            annotations.append(
-                NodeAnnotation(
+            records.append(
+                AnnotationRecord(
                     node_id=node_id,
                     degraded=True,
-                    class_name="",
-                    stereotype=None,
-                    domain_hint="",
-                    description="Skipped: source exceeded size limit.",
-                    methods=[],
+                    annotation=None,
                 ).model_dump()
             )
 
         self._output_dir.mkdir(parents=True, exist_ok=True)
         out_path = self._output_dir / "llm-annotations.json"
         with open(out_path, "w", encoding="utf-8") as fh:
-            json.dump(annotations, fh, indent=2, ensure_ascii=False)
-        logger.info("Pass 1 complete — %d annotations written to %s", len(annotations), out_path)
+            json.dump(records, fh, indent=2, ensure_ascii=False)
+        logger.info("Pass 1 complete — %d records written to %s", len(records), out_path)
 
-        return annotations
+        return records

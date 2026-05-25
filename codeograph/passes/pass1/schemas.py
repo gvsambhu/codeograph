@@ -1,20 +1,15 @@
-from typing import Literal, Optional
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
 class HttpMetadata(BaseModel):
-    http_method: Literal["GET", "POST", "PUT", "DELETE", "PATCH"] = Field(
-        description="The HTTP method used."
-    )
+    http_method: Literal["GET", "POST", "PUT", "DELETE", "PATCH"] = Field(description="The HTTP method used.")
     path: str = Field(
         description="The full absolute HTTP path including class-level @RequestMapping prefixes (e.g., '/api/v1/orders' not just '/orders')."
     )
-    request_body_type: Optional[str] = Field(
-        None, description="The semantic type of the @RequestBody parameter."
-    )
-    response_type: Optional[str] = Field(
-        None, description="The semantic type inside ResponseEntity<...>."
-    )
+    request_body_type: str | None = Field(None, description="The semantic type of the @RequestBody parameter.")
+    response_type: str | None = Field(None, description="The semantic type inside ResponseEntity<...>.")
 
 
 class MethodAnnotation(BaseModel):
@@ -29,11 +24,10 @@ class MethodAnnotation(BaseModel):
     conversion_difficulty: Literal["Low", "Medium", "High"] = Field(
         description="Low (direct mapping), Medium (needs adaptation), High (complex translation)"
     )
-    conversion_notes: str = Field(
-        description="1-2 sentences of specific guidance for the conversion engineer"
-    )
-    http_metadata: Optional[HttpMetadata] = Field(
-        None, description="Provide for methods on CONTROLLER or RestController classes only; null for all other stereotypes."
+    conversion_notes: str = Field(description="1-2 sentences of specific guidance for the conversion engineer")
+    http_metadata: HttpMetadata | None = Field(
+        None,
+        description="Provide for methods on CONTROLLER or RestController classes only; null for all other stereotypes.",
     )
 
 
@@ -59,11 +53,9 @@ class NodeAnnotation(BaseModel):
     them back verbatim so the annotation is self-contained and correlatable.
     """
 
-    node_id: str = Field(
-        description="The unique graph node ID provided in the prompt — echo it back verbatim."
-    )
+    node_id: str = Field(description="The unique graph node ID provided in the prompt — echo it back verbatim.")
     class_name: str = Field(description="The exact class name as declared.")
-    stereotype: Optional[_StereotypeLiteral] = Field(
+    stereotype: _StereotypeLiteral | None = Field(
         description=(
             "The architectural stereotype provided in the prompt — echo it back verbatim. "
             "Null if the class carries no recognised Spring stereotype."
@@ -72,10 +64,8 @@ class NodeAnnotation(BaseModel):
     domain_hint: str = Field(
         description="The business domain this class belongs to (e.g., 'order management', 'user identity'). Use business language, not package names."
     )
-    description: str = Field(
-        description="1-2 sentences explaining the class responsibility. Use business language."
-    )
-    conversion_notes: Optional[str] = Field(
+    description: str = Field(description="1-2 sentences explaining the class responsibility. Use business language.")
+    conversion_notes: str | None = Field(
         None,
         description=(
             "Class-level migration guidance for the conversion engineer — use when the entire class "
@@ -99,6 +89,4 @@ class AnnotationRecord(BaseModel):
 
     node_id: str = Field(description="Graph node ID — matches NodeAnnotation.node_id when annotation is present.")
     degraded: bool = Field(False, description="True when the orchestrator skipped this node due to size limits.")
-    annotation: Optional[NodeAnnotation] = Field(
-        None, description="The LLM-produced annotation. None when degraded=True."
-    )
+    annotation: NodeAnnotation | None = Field(None, description="The LLM-produced annotation. None when degraded=True.")

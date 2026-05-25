@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+
 @dataclass(frozen=True)
 class PromptMetadata:
     id: str
@@ -9,6 +10,7 @@ class PromptMetadata:
     optional_vars: list[str]
     cacheable_segments: list[str]
     content_hash_pin: str
+
 
 @dataclass(frozen=True)
 class Prompt:

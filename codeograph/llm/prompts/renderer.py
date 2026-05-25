@@ -12,5 +12,6 @@ _ENV = Environment(
     autoescape=False,
 )
 
+
 def render(template_source: str, **vars: object) -> str:
     return _ENV.from_string(template_source).render(**vars)

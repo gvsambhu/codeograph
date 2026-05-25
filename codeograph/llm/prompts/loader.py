@@ -1,11 +1,15 @@
 import hashlib
 from pathlib import Path
+
 import yaml
+
 from codeograph.llm.prompts.models import Prompt, PromptMetadata
-from codeograph.llm.prompts.validation import _validate, PromptValidationError
+from codeograph.llm.prompts.validation import _validate
+
 
 class PromptLoadError(Exception):
     pass
+
 
 class PromptLoader:
     def __init__(self, base_dir: Path):
@@ -21,7 +25,7 @@ class PromptLoader:
             alias_file = prompt_dir / "default.yaml"
             if not alias_file.exists():
                 raise PromptLoadError(f"No version specified and default.yaml missing in {prompt_dir}")
-            with open(alias_file, "r", encoding="utf-8") as f:
+            with open(alias_file, encoding="utf-8") as f:
                 alias_data = yaml.safe_load(f)
             version = alias_data.get("default")
             if not version:
@@ -35,7 +39,7 @@ class PromptLoader:
         if not prompt_file.exists():
             raise PromptLoadError(f"Prompt file not found: {prompt_file}")
 
-        with open(prompt_file, "r", encoding="utf-8") as f:
+        with open(prompt_file, encoding="utf-8") as f:
             content = f.read()
 
         if not content.startswith("---"):
@@ -61,7 +65,7 @@ class PromptLoader:
             required_vars=fm_data.get("required_vars", []),
             optional_vars=fm_data.get("optional_vars", []),
             cacheable_segments=fm_data.get("cacheable_segments", []),
-            content_hash_pin=pin
+            content_hash_pin=pin,
         )
 
         body_normalized = "\n".join(line.rstrip() for line in body.splitlines()) + "\n"
@@ -72,7 +76,7 @@ class PromptLoader:
 
         system_segment = ""
         user_segment = ""
-        
+
         # Simple extraction based on standard headers per ADR-014
         if "# System" in body_normalized and "# User" in body_normalized:
             parts = body_normalized.split("# System", 1)[1].split("# User", 1)
@@ -87,7 +91,7 @@ class PromptLoader:
             metadata=metadata,
             system=system_segment,
             user=user_segment,
-            content_hash=actual_hash
+            content_hash=actual_hash,
         )
 
         _validate(prompt)

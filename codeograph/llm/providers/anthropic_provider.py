@@ -1,9 +1,14 @@
+from typing import Any
+
 from langchain_anthropic import ChatAnthropic
-from codeograph.llm.types import Tier
+from pydantic import SecretStr
+
 from codeograph.llm.providers.langchain_base import LangChainLlmProvider
+from codeograph.llm.types import Tier
+
 
 class AnthropicProvider(LangChainLlmProvider):
-    def __init__(self, api_key: str, tier_map: dict[Tier, str], **kwargs):
+    def __init__(self, api_key: str, tier_map: dict[Tier, str], **kwargs: Any) -> None:
         if not api_key:
             raise ValueError("Anthropic API key cannot be empty.")
         if not tier_map:
@@ -11,6 +16,8 @@ class AnthropicProvider(LangChainLlmProvider):
         for tier in Tier:
             if tier not in tier_map:
                 raise ValueError(f"Missing model mapping for tier: {tier}")
-                
-        chat = ChatAnthropic(api_key=api_key, **kwargs)
+
+        # ChatAnthropic requires a SecretStr for api_key; wrap the plain string here so
+        # callers can pass a raw key without forcing them to import pydantic.
+        chat = ChatAnthropic(api_key=SecretStr(api_key), **kwargs)
         super().__init__(chat, tier_map)

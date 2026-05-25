@@ -1,9 +1,8 @@
 """CLI commands for managing the LLM cache."""
 
-from collections import Counter, defaultdict
-from datetime import datetime, timedelta, timezone
 import json
-from pathlib import Path
+from collections import Counter, defaultdict
+from datetime import UTC, datetime, timedelta
 
 import click
 
@@ -28,7 +27,7 @@ def stats() -> None:
 
     backend = SQLiteCacheBackend(db_path)
     stats = backend.stats()
-    
+
     # TODO(learner): format output to match preferences
     click.echo(f"Cache stats for {db_path}:")
     click.echo(f"Total entries: {stats.total_entries}")
@@ -80,7 +79,7 @@ def report(since: int) -> None:
         click.echo("No telemetry data found.")
         return
 
-    cutoff = datetime.now(timezone.utc) - timedelta(days=since)
+    cutoff = datetime.now(UTC) - timedelta(days=since)
 
     files = sorted(telemetry_dir.glob("*.jsonl"))
     if not files:
@@ -93,20 +92,20 @@ def report(since: int) -> None:
     cost_saved = 0.0
     cost_incurred = 0.0
 
-    weekly = defaultdict(lambda: {"calls": 0, "hits": 0})
-    hit_prompts: Counter = Counter()
-    miss_prompts: Counter = Counter()
+    weekly: defaultdict[str, dict[str, int]] = defaultdict(lambda: {"calls": 0, "hits": 0})
+    hit_prompts: Counter[str] = Counter()
+    miss_prompts: Counter[str] = Counter()
 
     def parse_ts(value: str) -> datetime:
         if value.endswith("Z"):
             value = value.replace("Z", "+00:00")
         dt = datetime.fromisoformat(value)
         if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
+            dt = dt.replace(tzinfo=UTC)
         return dt
 
     for path in files:
-        with open(path, "r", encoding="utf-8") as fh:
+        with open(path, encoding="utf-8") as fh:
             for line in fh:
                 line = line.strip()
                 if not line:

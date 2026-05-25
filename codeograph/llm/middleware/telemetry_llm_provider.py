@@ -1,14 +1,17 @@
 import time
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TypeVar
+from pydantic import BaseModel
+
+from codeograph.llm.errors import LlmError
 from codeograph.llm.provider import LlmProvider
-from codeograph.llm.types import Tier, Message, LlmResult, CallContext
+from codeograph.llm.types import CallContext, LlmResult, Message, Tier
 from codeograph.telemetry.base import TelemetryEmitter
 from codeograph.telemetry.telemetry_record import TelemetryRecord
-from codeograph.llm.errors import LlmError
 
-T = TypeVar("T")
+T = TypeVar("T", bound=BaseModel)
+
 
 class TelemetryLlmProvider(LlmProvider):
     def __init__(self, inner: LlmProvider, emitter: TelemetryEmitter, ctx: CallContext):
@@ -20,25 +23,29 @@ class TelemetryLlmProvider(LlmProvider):
         return self._inner.count_tokens(messages)
 
     def complete_structured(
-        self, tier: Tier, messages: list[Message], schema: type[T],
-        *, override_model: str | None = None, max_tokens: int = 4096,
+        self,
+        tier: Tier,
+        messages: list[Message],
+        schema: type[T],
+        *,
+        override_model: str | None = None,
+        max_tokens: int = 4096,
     ) -> LlmResult[T]:
-        
-        start_ts = datetime.now(timezone.utc).isoformat()
+
+        start_ts = datetime.now(UTC).isoformat()
         start = time.monotonic()
-        
+
         try:
             res = self._inner.complete_structured(
-                tier, messages, schema, 
-                override_model=override_model, max_tokens=max_tokens
+                tier, messages, schema, override_model=override_model, max_tokens=max_tokens
             )
-            
+
             latency = int((time.monotonic() - start) * 1000)
-            
+
             record = TelemetryRecord(
                 ts=start_ts,
                 trace_id=str(uuid.uuid4()),
-                pipeline_name="UNKNOWN", 
+                pipeline_name="UNKNOWN",
                 pipeline_run_id="UNKNOWN",
                 corpus_id=self._ctx.corpus_id,
                 provider="unknown",
@@ -55,17 +62,17 @@ class TelemetryLlmProvider(LlmProvider):
                 output_tokens=res.usage.output_tokens,
                 cached_tokens=res.usage.cached_tokens,
                 input_estimated=res.usage.input_estimated,
-                cache_hit=(latency == 0), 
+                cache_hit=(latency == 0),
                 status="success",
                 error_class=None,
                 error_message=None,
                 total_latency_ms=latency,
                 attempts=[],
-                cost_usd_est=0.0
+                cost_usd_est=0.0,
             )
             self._emitter.emit(record)
             return res
-            
+
         except LlmError as e:
             latency = int((time.monotonic() - start) * 1000)
             record = TelemetryRecord(
@@ -94,7 +101,7 @@ class TelemetryLlmProvider(LlmProvider):
                 error_message=str(e),
                 total_latency_ms=latency,
                 attempts=[],
-                cost_usd_est=0.0
+                cost_usd_est=0.0,
             )
             self._emitter.emit(record)
             raise e

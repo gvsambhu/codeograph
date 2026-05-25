@@ -1,4 +1,4 @@
-import pytest
+from dataclasses import replace
 
 from codeograph.llm.cache.cache_entry import CacheEntry
 
@@ -41,7 +41,6 @@ def test_sqlite_cache_put_get(tmp_cache_db):
     # Optional: unknown key returns None
     assert tmp_cache_db.get("unknown_key") is None
 
-from dataclasses import replace
 
 def test_sqlite_cache_stats(tmp_cache_db):
     initial_stats = tmp_cache_db.stats()
@@ -78,6 +77,7 @@ def test_sqlite_cache_stats(tmp_cache_db):
     assert updated_stats.total_entries == 2
     assert updated_stats.total_size_bytes > 0
     assert updated_stats.total_size_bytes >= initial_stats.total_size_bytes
+
 
 def test_sqlite_cache_purge(tmp_cache_db):
     base_entry = CacheEntry(

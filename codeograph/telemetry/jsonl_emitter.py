@@ -1,8 +1,10 @@
-from pathlib import Path
-import threading
 import json
+import threading
+from pathlib import Path
+
 from codeograph.telemetry.base import TelemetryEmitter
 from codeograph.telemetry.telemetry_record import TelemetryRecord
+
 
 class JsonlEmitter(TelemetryEmitter):
     def __init__(self, path: Path):

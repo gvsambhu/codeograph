@@ -1,6 +1,8 @@
 import hashlib
 import json
+
 from pydantic import BaseModel
+
 
 def compute_cache_key(
     *,
@@ -23,10 +25,8 @@ def compute_cache_key(
         prompt_version,
         prompt_content_hash,
         hashlib.sha256(rendered_input.encode("utf-8")).hexdigest(),
-        hashlib.sha256(
-            json.dumps(schema.model_json_schema(), sort_keys=True).encode("utf-8")
-        ).hexdigest(),
+        hashlib.sha256(json.dumps(schema.model_json_schema(), sort_keys=True).encode("utf-8")).hexdigest(),
         str(max_tokens),
     ]
-    joined = "\0".join(components)     # null byte — cannot appear in any component
+    joined = "\0".join(components)  # null byte — cannot appear in any component
     return hashlib.sha256(joined.encode("utf-8")).hexdigest()[:16]

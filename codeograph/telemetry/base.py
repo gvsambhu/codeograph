@@ -1,5 +1,7 @@
 from abc import ABC, abstractmethod
+
 from codeograph.telemetry.telemetry_record import TelemetryRecord
+
 
 class TelemetryEmitter(ABC):
     @abstractmethod

@@ -115,12 +115,14 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def validate_javaparser_jar_exists(self) -> Settings:
         import warnings
+
         # If the file doesn't exist, log a warning rather than crashing.
-        # This handles ast-only bypass logic happening in the CLI, where the jar 
+        # This handles ast-only bypass logic happening in the CLI, where the jar
         # is only required if a Java file actually needs to be parsed natively.
         if not self.javaparser_jar.exists():
             warnings.warn(f"javaparser_jar not found at {self.javaparser_jar}. Parsing may fail.")
         return self
+
     @classmethod
     def settings_customise_sources(
         cls,

@@ -36,7 +36,7 @@ def test_telemetry_middleware_emits_record(mock_llm_provider, tmp_telemetry_json
     assert result == mock_llm_provider.mock_response
 
     jsonl_path = tmp_path / "telemetry" / "test_telemetry.jsonl"
-    with open(jsonl_path, "r", encoding="utf-8") as f:
+    with open(jsonl_path, encoding="utf-8") as f:
         line = f.readline()
 
     assert line.strip() != ""

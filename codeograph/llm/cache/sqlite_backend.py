@@ -1,9 +1,11 @@
 import sqlite3
 import threading
 from pathlib import Path
+
 from codeograph.llm.cache.base import CacheBackend
 from codeograph.llm.cache.cache_entry import CacheEntry
 from codeograph.llm.cache.cache_stats import CacheStats
+
 
 class SQLiteCacheBackend(CacheBackend):
     def __init__(self, path: Path):
@@ -16,7 +18,7 @@ class SQLiteCacheBackend(CacheBackend):
         self._lock = threading.Lock()
         self._migrate()
 
-    def _migrate(self):
+    def _migrate(self) -> None:
         with self._lock:
             cursor = self._conn.cursor()
             cursor.execute("PRAGMA user_version")
@@ -58,8 +60,10 @@ class SQLiteCacheBackend(CacheBackend):
             row = cursor.fetchone()
             if row:
                 cursor.execute(
-                    "UPDATE cache_entries SET hit_count = hit_count + 1, last_hit_at = datetime('now') WHERE cache_key = ?",
-                    (key,)
+                    "UPDATE cache_entries "
+                    "SET hit_count = hit_count + 1, last_hit_at = datetime('now') "
+                    "WHERE cache_key = ?",
+                    (key,),
                 )
                 self._conn.commit()
                 return CacheEntry(**dict(row))
@@ -68,7 +72,8 @@ class SQLiteCacheBackend(CacheBackend):
     def put(self, key: str, entry: CacheEntry) -> None:
         with self._lock:
             cursor = self._conn.cursor()
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT OR REPLACE INTO cache_entries (
                     cache_key, provider, model, tier, purpose, prompt_id, prompt_version,
                     prompt_content_hash, input_hash, schema_hash, max_tokens, input_body,
@@ -78,7 +83,9 @@ class SQLiteCacheBackend(CacheBackend):
                     :prompt_content_hash, :input_hash, :schema_hash, :max_tokens, :input_body,
                     :output_body, :token_usage_json, :created_at, :hit_count, :last_hit_at
                 )
-            """, entry.__dict__)
+            """,
+                entry.__dict__,
+            )
             self._conn.commit()
 
     def stats(self) -> CacheStats:
@@ -89,21 +96,21 @@ class SQLiteCacheBackend(CacheBackend):
             size = self._path.stat().st_size if self._path.exists() else 0
             return CacheStats(total_entries=count, total_size_bytes=size)
 
-    def purge(self, *, older_than_days: int | None = None,
-              prompt_version: str | None = None,
-              model: str | None = None) -> int:
+    def purge(
+        self, *, older_than_days: int | None = None, prompt_version: str | None = None, model: str | None = None
+    ) -> int:
         query = "DELETE FROM cache_entries WHERE 1=1"
         params = []
         if older_than_days is not None:
             query += " AND created_at < datetime('now', ?)"
-            params.append(f'-{older_than_days} days')
+            params.append(f"-{older_than_days} days")
         if prompt_version is not None:
             query += " AND prompt_version = ?"
             params.append(prompt_version)
         if model is not None:
             query += " AND model = ?"
             params.append(model)
-            
+
         with self._lock:
             cursor = self._conn.cursor()
             cursor.execute(query, params)
