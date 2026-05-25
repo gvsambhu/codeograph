@@ -2,6 +2,7 @@ import time
 import uuid
 from datetime import UTC, datetime
 from typing import TypeVar
+
 from pydantic import BaseModel
 
 from codeograph.llm.errors import LlmError

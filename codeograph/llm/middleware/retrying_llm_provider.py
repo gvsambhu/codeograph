@@ -1,5 +1,6 @@
 import time
 from typing import TypeVar
+
 from pydantic import BaseModel
 
 from codeograph.llm.errors import LlmRateLimitExhausted, LlmTransientError

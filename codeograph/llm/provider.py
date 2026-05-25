@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor
 from typing import TypeVar
+
 from pydantic import BaseModel
 
 from codeograph.llm.types import LlmResult, Message, Tier

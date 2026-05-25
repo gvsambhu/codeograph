@@ -1,6 +1,7 @@
 import json
 from datetime import UTC, datetime
 from typing import TypeVar
+
 from pydantic import BaseModel
 
 from codeograph.llm.cache.base import CacheBackend

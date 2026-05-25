@@ -1,12 +1,12 @@
 import time
 from typing import Any, TypeVar
-from pydantic import BaseModel
 
 import anthropic
 import pydantic
 from langchain_core.exceptions import OutputParserException
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
+from pydantic import BaseModel
 
 from codeograph.llm.errors import (
     LlmAuthError,
