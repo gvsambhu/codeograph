@@ -40,7 +40,7 @@ For someone new to the project who wants to understand the design end-to-end, re
 - [`ADR-015 — Telemetry + response cache`](ADR-015-telemetry-and-response-cache.md) — JSONL records, SQLite content-addressed cache, cross-run reporting
 
 ### 5. Rendering
-- `ADR-008 — Renderer interface` ⬜
+- [`ADR-008 — Pluggable renderer interface`](ADR-008-pluggable-renderer-interface.md)
 - `ADR-009 — Rendering budget cap` ⬜
 - `ADR-010 — Spring → TS/NestJS mapping` ⬜
 
@@ -74,7 +74,7 @@ For someone new to the project who wants to understand the design end-to-end, re
 | 005 | Token utilization | ✅ | LLM infrastructure |
 | 006 | Knowledge graph schema | ✅ | Graph extraction |
 | 007 | Golden-graph pattern | ✅ | Graph extraction |
-| 008 | Renderer interface | ⬜ | Rendering |
+| 008 | Pluggable renderer interface | ✅ | Rendering |
 | 009 | Rendering budget cap | ⬜ | Rendering |
 | 010 | Spring → TS/NestJS mapping | ⬜ | Rendering |
 | 011 | Spring → Go mapping | ⏸️ | Deferred (v1.1) |
