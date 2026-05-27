@@ -42,7 +42,7 @@ For someone new to the project who wants to understand the design end-to-end, re
 ### 5. Rendering
 - [`ADR-008 — Pluggable renderer interface`](ADR-008-pluggable-renderer-interface.md)
 - [`ADR-009 — Rendering budget cap`](ADR-009-rendering-budget-cap.md)
-- `ADR-010 — Spring → TS/NestJS mapping` ⬜
+- [`ADR-010 — Spring Boot to NestJS/TypeScript idiom mapping`](ADR-010-spring-to-typescript-nestjs-mapping.md)
 
 ### 6. Quality & testing
 - `ADR-017 — Eval framework` ⬜
@@ -76,7 +76,7 @@ For someone new to the project who wants to understand the design end-to-end, re
 | 007 | Golden-graph pattern | ✅ | Graph extraction |
 | 008 | Pluggable renderer interface | ✅ | Rendering |
 | 009 | Rendering budget cap | ✅ | Rendering |
-| 010 | Spring → TS/NestJS mapping | ⬜ | Rendering |
+| 010 | Spring Boot → NestJS/TypeScript idiom mapping | ✅ | Rendering |
 | 011 | Spring → Go mapping | ⏸️ | Deferred (v1.1) |
 | 012 | Error-handling translation | ⏸️ | Deferred (v1.1) |
 | 013 | LLM provider abstraction | ✅ | LLM infrastructure |
