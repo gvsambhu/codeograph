@@ -2,6 +2,7 @@ import asyncio
 import tempfile
 from pathlib import Path, PurePosixPath
 from typing import cast
+from unittest.mock import AsyncMock, patch
 
 from codeograph.graph.models.graph_schema import ClassNode
 from codeograph.llm.prompts.loader import PromptLoader
@@ -11,7 +12,7 @@ from codeograph.renderers.typescript_nestjs.renderer import TypeScriptRenderer
 from codeograph.rendering.class_selector import SelectionResult
 
 
-def test_render_group_basic(mocker):
+def test_render_group_basic():
     # 1. Build a minimal ClassNode + graph
     class_node = ClassNode(
         id="com.example.orders.OrderService",
@@ -50,13 +51,13 @@ def test_render_group_basic(mocker):
         prompt_loader=prompt_loader,
     )
 
-    # 5. Patch renderer._call_llm
+    # 5. Patch renderer._call_llm with stdlib unittest.mock (no pytest-mock dep)
+    # _call_llm is async, so AsyncMock is required to make `await` work.
     canned_ts = "// canned\nexport class OrderService {}\n"
-    mocker.patch.object(renderer, "_call_llm", return_value=canned_ts)
-
-    # 6. Call _render_group
-    semaphore = asyncio.Semaphore(5)
-    file_map = asyncio.run(renderer._render_group(result, {}, node_map, semaphore))
+    with patch.object(renderer, "_call_llm", new=AsyncMock(return_value=canned_ts)):
+        # 6. Call _render_group
+        semaphore = asyncio.Semaphore(5)
+        file_map = asyncio.run(renderer._render_group(result, {}, node_map, semaphore))
 
     # 7. Assert
     has_ts = any(path.name.endswith(".ts") and not path.name.endswith(".module.ts") for path in file_map.keys())
