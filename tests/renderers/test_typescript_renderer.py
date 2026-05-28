@@ -3,8 +3,6 @@ import tempfile
 from pathlib import Path, PurePosixPath
 from typing import cast
 
-import pytest
-
 from codeograph.graph.models.graph_schema import ClassNode
 from codeograph.llm.prompts.loader import PromptLoader
 from codeograph.llm.provider import LlmProvider

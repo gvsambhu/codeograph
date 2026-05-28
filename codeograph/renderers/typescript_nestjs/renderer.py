@@ -296,16 +296,8 @@ class TypeScriptRenderer(Renderer[TypeScriptConfig]):  # noqa: UP046
                 if isinstance(methods_raw, list):
                     _methods = methods_raw
 
-        uses_mono = any(
-            "Mono<" in (m.get("return_type") or "")
-            for m in _methods
-            if isinstance(m, dict)
-        )
-        uses_flux = any(
-            "Flux<" in (m.get("return_type") or "")
-            for m in _methods
-            if isinstance(m, dict)
-        )
+        uses_mono = any("Mono<" in (m.get("return_type") or "") for m in _methods if isinstance(m, dict))
+        uses_flux = any("Flux<" in (m.get("return_type") or "") for m in _methods if isinstance(m, dict))
         uses_webflux = uses_mono or uses_flux
 
         if uses_webflux:
