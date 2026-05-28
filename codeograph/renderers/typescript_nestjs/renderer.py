@@ -274,7 +274,7 @@ class TypeScriptRenderer(Renderer[TypeScriptConfig]):  # noqa: UP046
         class_annotations: set[str] = set(class_node.annotations or [])
         security_hits = _SPRING_SECURITY_ANNOTATIONS & class_annotations
         if security_hits:
-            if self._config.security_feature_policy == "exclude":
+            if self._config.security_feature_policy == "refuse":
                 return None
             # "stub_with_todo": inject a hint so the model emits a Guard stub.
             hints["security_hint"] = (
@@ -285,41 +285,45 @@ class TypeScriptRenderer(Renderer[TypeScriptConfig]):  # noqa: UP046
             )
 
         # --- WebFlux policy (from Pass 1 method return types) ---
-        # TODO(learner): detect WebFlux reactive types and apply webflux_policy.
-        #
-        # The annotations dict maps fqcn → AnnotationRecord dict (the JSON-decoded
-        # form of llm-annotations.json).  Each record has this structure:
-        #
-        #   {
-        #     "node_id": "com.example.orders.OrderService",
-        #     "degraded": false,
-        #     "annotation": {
-        #       "methods": [
-        #         {"name": "findAll", "return_type": "Flux<OrderDto>", ...},
-        #         ...
-        #       ]
-        #     }
-        #   }
-        #
-        # Detection recipe:
-        #   record = annotations.get(class_node.id)
-        #   if isinstance(record, dict):
-        #       ann = record.get("annotation") or {}
-        #       methods = ann.get("methods", []) if isinstance(ann, dict) else []
-        #       uses_webflux = any(
-        #           "Mono<" in m.get("return_type", "") or
-        #           "Flux<" in m.get("return_type", "")
-        #           for m in methods
-        #           if isinstance(m, dict)
-        #       )
-        #       if uses_webflux:
-        #           if self._config.webflux_policy == "refuse_to_render":
-        #               return None
-        #           hints["webflux_hint"] = (
-        #               "This class uses Spring WebFlux reactive types "
-        #               "(Mono<T>/Flux<T>). Emit Promise<T>/AsyncIterable<T> "
-        #               "equivalents with a // TODO(learner): comment."
-        #           )
+        # Detection is scoped to annotation_json.annotation.methods[] — method
+        # return type detail lives there, not in class_json.
+        record = annotations.get(class_node.id)
+        _methods: list[object] = []
+        if isinstance(record, dict):
+            ann = record.get("annotation") or {}
+            if isinstance(ann, dict):
+                methods_raw = ann.get("methods", [])
+                if isinstance(methods_raw, list):
+                    _methods = methods_raw
+
+        uses_mono = any(
+            "Mono<" in (m.get("return_type") or "")
+            for m in _methods
+            if isinstance(m, dict)
+        )
+        uses_flux = any(
+            "Flux<" in (m.get("return_type") or "")
+            for m in _methods
+            if isinstance(m, dict)
+        )
+        uses_webflux = uses_mono or uses_flux
+
+        if uses_webflux:
+            if self._config.webflux_policy == "refuse":
+                return None
+            if self._config.webflux_policy == "translate_mono_only":
+                hints["webflux_hint"] = (
+                    "This class uses Spring WebFlux reactive return types. "
+                    "Translate Mono<T> to Promise<T> and render async NestJS methods. "
+                    "Do not use RxJS Observable. "
+                    "If a Flux<T> shape cannot be represented under this policy, emit a TODO stub."
+                )
+            elif self._config.webflux_policy == "best_effort":
+                hints["webflux_hint"] = (
+                    "This class uses Spring WebFlux reactive return types. "
+                    "Translate Mono<T> to Promise<T> and Flux<T> to Observable<T> from rxjs. "
+                    "Import Observable when needed and preserve any unclear reactive semantics with TODO stubs."
+                )
 
         # --- Derive output path ---
         simple_name = class_node.id.rsplit(".", 1)[-1]

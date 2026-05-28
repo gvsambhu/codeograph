@@ -30,26 +30,28 @@ DbLayer = Literal["typeorm"]
 DbAdapter = Literal["pg", "better-sqlite3"]
 """Node.js database driver.  ``"pg"`` is the production default (Q6)."""
 
-UnsupportedFeaturePolicy = Literal["stub_with_todo", "refuse_to_render", "best_effort"]
-"""Encounter-behaviour for Java features with no direct NestJS equivalent.
+UnsupportedFeaturePolicy = Literal["stub_todo", "silent_skip", "refuse"]
+"""Encounter-behaviour for Java features with no direct NestJS equivalent (ADR-010 Fork 9).
 
-- ``stub_with_todo``: Emit a ``// TODO(learner): ...`` stub (default).
-- ``refuse_to_render``: Skip the class entirely; record in SelectionResult.refused.
-- ``best_effort``: Attempt a partial translation; may produce non-compiling output.
+- ``stub_todo``: Emit valid TS with a greppable ``// TODO: Spring <FEATURE>`` stub (default).
+- ``silent_skip``: Render the closest NestJS equivalent silently; no TODO comment.
+- ``refuse``: Skip the class entirely; record in SelectionResult.refused.
 """
 
-SecurityFeaturePolicy = Literal["stub_with_todo", "exclude"]
-"""Encounter-behaviour for Spring Security annotations (@PreAuthorize etc.).
+SecurityFeaturePolicy = Literal["stub_todo", "silent_skip", "refuse"]
+"""Encounter-behaviour for Spring Security annotations (@PreAuthorize, @Secured, etc.).
 
-- ``stub_with_todo``: Emit a NestJS Guard stub with a TODO comment (default).
-- ``exclude``: Drop the class from the render set entirely.
+- ``stub_todo``: Emit endpoint WITHOUT auth + ``@UseGuards(/* TODO */)`` stub (insecure opt-in).
+- ``silent_skip``: Render endpoint without auth and without any TODO (most permissive).
+- ``refuse``: Skip the class entirely (default — prevents silently open endpoints).
 """
 
-WebFluxPolicy = Literal["stub_with_todo", "refuse_to_render"]
+WebFluxPolicy = Literal["refuse", "translate_mono_only", "best_effort"]
 """Encounter-behaviour for Spring WebFlux reactive types (Mono<T>, Flux<T>).
 
-- ``stub_with_todo``: Emit a stub returning ``Promise<T>`` with a TODO (default).
-- ``refuse_to_render``: Skip the class.
+- ``refuse``: Skip any class with reactive return types (default — avoids subtly broken output).
+- ``translate_mono_only``: Translate ``Mono<T>`` → ``Promise<T>``; refuse classes with ``Flux<T>``.
+- ``best_effort``: Translate ``Mono<T>`` → ``Promise<T>`` and ``Flux<T>`` → ``Observable<T>`` (RxJS).
 """
 
 RenderStrategy = Literal["from_manifest"]
@@ -126,25 +128,28 @@ class TypeScriptConfig(BaseModel):
     # -- Feature policies (ADR-010 Fork 9) -------------------------------------
 
     unsupported_feature_policy: UnsupportedFeaturePolicy = Field(
-        default="stub_with_todo",
+        default="stub_todo",
         description=(
             "Encounter-behaviour when the renderer meets a Java feature "
             "that has no direct NestJS equivalent.  "
-            "'stub_with_todo' is the safe default."
+            "'stub_todo' is the safe default (greppable TODO stubs)."
         ),
     )
 
     security_feature_policy: SecurityFeaturePolicy = Field(
-        default="stub_with_todo",
-        description=("Encounter-behaviour for Spring Security annotations (@PreAuthorize, @Secured, etc.)."),
+        default="refuse",
+        description=(
+            "Encounter-behaviour for Spring Security annotations (@PreAuthorize, @Secured, etc.).  "
+            "'refuse' is the default — prevents silently open endpoints."
+        ),
     )
 
     webflux_policy: WebFluxPolicy = Field(
-        default="stub_with_todo",
+        default="refuse",
         description=(
             "Encounter-behaviour for Spring WebFlux reactive types "
             "(Mono<T>, Flux<T>).  "
-            "The renderer emits Promise<T> stubs when 'stub_with_todo'."
+            "'refuse' is the default — avoids subtly broken reactive translation."
         ),
     )
 

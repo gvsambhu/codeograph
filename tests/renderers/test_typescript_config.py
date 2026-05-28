@@ -19,9 +19,9 @@ class TestTypeScriptConfigDefaults:
         assert cfg.render_strategy == "from_manifest"
         assert cfg.render_budget == 50
         assert cfg.domain_mapping == {}
-        assert cfg.unsupported_feature_policy == "stub_with_todo"
-        assert cfg.security_feature_policy == "stub_with_todo"
-        assert cfg.webflux_policy == "stub_with_todo"
+        assert cfg.unsupported_feature_policy == "stub_todo"
+        assert cfg.security_feature_policy == "refuse"
+        assert cfg.webflux_policy == "refuse"
         assert cfg.include_scaffold is True
         assert cfg.strict is True
 
@@ -63,7 +63,7 @@ class TestTypeScriptConfigValidation:
 
     def test_invalid_webflux_policy_raises(self):
         with pytest.raises(ValidationError):
-            TypeScriptConfig(webflux_policy="best_effort")  # type: ignore[arg-type]
+            TypeScriptConfig(webflux_policy="stub_with_todo")  # type: ignore[arg-type]
 
 
 class TestTypeScriptConfigOverrides:
