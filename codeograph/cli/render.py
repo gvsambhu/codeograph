@@ -229,11 +229,20 @@ def render_cli(
     retry_policy = RetryPolicy()
     prompt_loader = PromptLoader(Path(__file__).parent.parent / "prompts")
 
+    # Resolve the render prompt's content_hash_pin from the renderer's own prompt
+    # directory so the cache key is tied to the actual prompt body (ADR-014/015).
+    # The TypeScript renderer owns its prompts; the CLI must not hard-code the hash.
+    _ts_render_prompts = PromptLoader(
+        Path(__file__).parent.parent / "renderers" / "typescript_nestjs" / "prompts"
+    )
+    _render_prompt = _ts_render_prompts.get("render_file", version="v1")
+    _render_prompt_hash = _render_prompt.metadata.content_hash_pin
+
     render_ctx = CallContext(
         purpose=Purpose.RENDER,
         prompt_id="render_file",
         prompt_version="v1",
-        prompt_content_hash="TODO",
+        prompt_content_hash=_render_prompt_hash,
         corpus_id=from_path.name,
         provider_name=settings.llm_provider,
     )
