@@ -276,13 +276,15 @@ class TypeScriptRenderer(Renderer[TypeScriptConfig]):  # noqa: UP046
         if security_hits:
             if self._config.security_feature_policy == "refuse":
                 return None
-            # "stub_with_todo": inject a hint so the model emits a Guard stub.
-            hints["security_hint"] = (
-                f"This class carries Spring Security annotation(s): "
-                f"{', '.join(sorted(security_hits))}. "
-                f"Emit a NestJS @UseGuards() decorator stub with a "
-                f"// TODO(learner): replace with a real Guard implementation."
-            )
+            elif self._config.security_feature_policy == "stub_todo":
+                # Inject a hint so the model emits a Guard stub with a TODO comment.
+                hints["security_hint"] = (
+                    f"This class carries Spring Security annotation(s): "
+                    f"{', '.join(sorted(security_hits))}. "
+                    f"Emit a NestJS @UseGuards() decorator stub with a "
+                    f"// TODO(learner): replace with a real Guard implementation."
+                )
+            # elif "silent_skip": render without auth and without any TODO — no hint.
 
         # --- WebFlux policy (from Pass 1 method return types) ---
         # Detection is scoped to annotation_json.annotation.methods[] — method
