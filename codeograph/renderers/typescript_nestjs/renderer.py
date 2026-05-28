@@ -304,6 +304,9 @@ class TypeScriptRenderer(Renderer[TypeScriptConfig]):  # noqa: UP046
             if self._config.webflux_policy == "refuse":
                 return None
             if self._config.webflux_policy == "translate_mono_only":
+                # Flux<T> cannot be represented as Promise<T>; refuse per ADR-010 Fork 9.
+                if uses_flux:
+                    return None
                 hints["webflux_hint"] = (
                     "This class uses Spring WebFlux reactive return types. "
                     "Translate Mono<T> to Promise<T> and render async NestJS methods. "
