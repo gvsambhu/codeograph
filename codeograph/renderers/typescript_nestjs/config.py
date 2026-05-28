@@ -30,12 +30,18 @@ DbLayer = Literal["typeorm"]
 DbAdapter = Literal["pg", "better-sqlite3"]
 """Node.js database driver.  ``"pg"`` is the production default (Q6)."""
 
-UnsupportedFeaturePolicy = Literal["stub_todo", "silent_skip", "refuse"]
+UnsupportedFeaturePolicy = Literal["stub_todo", "silent_skip"]
 """Encounter-behaviour for Java features with no direct NestJS equivalent (ADR-010 Fork 9).
 
 - ``stub_todo``: Emit valid TS with a greppable ``// TODO: Spring <FEATURE>`` stub (default).
 - ``silent_skip``: Render the closest NestJS equivalent silently; no TODO comment.
-- ``refuse``: Skip the class entirely; record in SelectionResult.refused.
+
+Note: ``"refuse"`` was removed in the 2026-05-28 fixup round.  Unlike
+``security_feature_policy`` and ``webflux_policy`` — which have concrete
+class-level signals (@PreAuthorize, Mono<>/Flux<> return types) — there is
+no robust deterministic detector for generic "unsupported Spring features"
+at the class level.  ``stub_todo`` is the reviewable alternative.
+See ADR-010 Amendments.
 """
 
 SecurityFeaturePolicy = Literal["stub_todo", "silent_skip", "refuse"]
