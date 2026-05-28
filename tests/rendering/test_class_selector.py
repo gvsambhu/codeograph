@@ -192,14 +192,11 @@ class TestStratifiedThresholdV1:
         assert len(result.excluded) == 2
 
     def test_selected_never_exceeds_cap(self):
-        nodes = [
-            _make_class_node(f"com.example.orders.C{i}", cbo=i, wmc=i)
-            for i in range(8)
-        ]
+        nodes = [_make_class_node(f"com.example.orders.C{i}", cbo=i, wmc=i) for i in range(8)]
         graph = _make_graph(nodes)
         selector = ClassSelector(cap=3)
         results = selector.select(graph)
-        
+
         for result in results:
             assert len(result.selected) <= 3
 

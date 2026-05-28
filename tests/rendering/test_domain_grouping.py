@@ -6,6 +6,8 @@ ManualMappingGrouping: explicit mapping with longest-prefix-wins semantics.
 
 from __future__ import annotations
 
+import pytest
+
 from codeograph.rendering.domain_grouping import (
     ManualMappingGrouping,
     PackagePrefixGrouping,
@@ -106,11 +108,14 @@ class TestManualMappingGrouping:
         g = self._make({})
         assert g.group("com.example.orders.OrderService") == "misc"
 
-    @pytest.mark.parametrize("fqcn", [
-        "com.example.SomeClass",
-        "org.unknown.SomeClass",
-        "com.example",
-    ])
+    @pytest.mark.parametrize(
+        "fqcn",
+        [
+            "com.example.SomeClass",
+            "org.unknown.SomeClass",
+            "com.example",
+        ],
+    )
     def test_group_never_returns_empty_string(self, fqcn: str):
         g = self._make({"com.example": "app"})
         assert g.group(fqcn) != ""
