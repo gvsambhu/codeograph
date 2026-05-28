@@ -323,9 +323,13 @@ class TypeScriptRenderer(Renderer[TypeScriptConfig]):  # noqa: UP046
                 )
 
         # --- Derive output path ---
+        # The role suffix (.service.ts, .controller.ts, etc.) is derived from the
+        # class stereotype so that _render_domain_module can classify files by
+        # endswith() checks.  ADR-010 Fork 8 / Issue #1.
         simple_name = class_node.id.rsplit(".", 1)[-1]
         file_stem = _to_kebab_case(simple_name)
-        path = PurePosixPath(f"src/{group_name}/{file_stem}.ts")
+        role_suffix = _stereotype_to_role_suffix(class_node.stereotype)
+        path = PurePosixPath(f"src/{group_name}/{file_stem}{role_suffix}")
 
         # --- LLM call ---
         content = await self._call_llm(class_node, annotations, hints)
@@ -552,6 +556,38 @@ def _to_kebab_case(name: str) -> str:
     s1 = re.sub(r"([a-z0-9])([A-Z])", r"\1-\2", name)
     s2 = re.sub(r"([A-Z]+)([A-Z][a-z])", r"\1-\2", s1)
     return s2.lower()
+
+
+def _stereotype_to_role_suffix(stereotype: object) -> str:
+    """Return the NestJS file-role suffix for *stereotype*.
+
+    The suffix is appended to the kebab-case class stem so that
+    ``_render_domain_module`` can classify output files with a plain
+    ``path.name.endswith(suffix)`` check (ADR-010 Fork 8).
+
+    *stereotype* may be a ``Stereotype`` enum value or a plain string.
+    The function coerces to string via ``.value`` (enum) or ``str()``.
+
+    Mapping::
+
+        RestController / Controller → .controller.ts
+        Service                     → .service.ts
+        Repository                  → .repository.ts
+        Entity                      → .entity.ts
+        ControllerAdvice            → .filter.ts
+        anything else               → .ts   (DTOs, exceptions, config classes)
+    """
+    _MAP: dict[str, str] = {
+        "RestController": ".controller.ts",
+        "Controller": ".controller.ts",
+        "Service": ".service.ts",
+        "Repository": ".repository.ts",
+        "Entity": ".entity.ts",
+        "ControllerAdvice": ".filter.ts",
+    }
+    # ClassNode.stereotype is a Stereotype enum; extract its string value.
+    key: str = getattr(stereotype, "value", None) or (str(stereotype) if stereotype else "")
+    return _MAP.get(key, ".ts")
 
 
 def _db_adapter_info(adapter: str) -> tuple[str, str]:
