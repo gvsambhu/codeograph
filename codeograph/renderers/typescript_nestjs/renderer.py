@@ -146,9 +146,7 @@ class TypeScriptRenderer(Renderer[TypeScriptConfig]):  # noqa: UP046
         # Separate from self._prompts (which points at the main codeograph/prompts/).
         # Will raise PromptLoadError until the learner writes the prompt body (M8)
         # and runs scripts/update_prompt_hash_pins.py.
-        self._render_prompts: PromptLoader = PromptLoader(
-            Path(__file__).parent / "prompts"
-        )
+        self._render_prompts: PromptLoader = PromptLoader(Path(__file__).parent / "prompts")
 
     # ------------------------------------------------------------------
     # Public interface
@@ -204,10 +202,7 @@ class TypeScriptRenderer(Renderer[TypeScriptConfig]):  # noqa: UP046
 
         # Step 2 — LLM rendering with concurrency cap
         semaphore = asyncio.Semaphore(self._concurrency)
-        render_tasks = [
-            self._render_group(result, annotations, node_map, semaphore)
-            for result in selection_results
-        ]
+        render_tasks = [self._render_group(result, annotations, node_map, semaphore) for result in selection_results]
         group_maps: list[dict[PurePosixPath, bytes]] = await asyncio.gather(*render_tasks)
 
         for gmap in group_maps:
@@ -254,9 +249,7 @@ class TypeScriptRenderer(Renderer[TypeScriptConfig]):  # noqa: UP046
         # Emit the domain module file for this group
         module_content = self._render_domain_module(result, file_map)
         if module_content:
-            module_path = PurePosixPath(
-                f"src/{result.group_name}/{result.group_name}.module.ts"
-            )
+            module_path = PurePosixPath(f"src/{result.group_name}/{result.group_name}.module.ts")
             file_map[module_path] = module_content
 
         return file_map
@@ -367,11 +360,35 @@ class TypeScriptRenderer(Renderer[TypeScriptConfig]):  # noqa: UP046
         prompt = self._render_prompts.get("render_file", version="v1")
 
         annotation_data = annotations.get(class_node.id, {})
+
+        # Build compact grounding summary passed as <<class_summary>>.
+        # Gives the model upfront context before it parses the full JSON blobs,
+        # reducing hallucination risk on class role and method count.
+        _ann_raw = annotations.get(class_node.id)
+        _methods: list[object] = []
+        if isinstance(_ann_raw, dict):
+            _inner = _ann_raw.get("annotation")
+            if isinstance(_inner, dict):
+                _methods_raw = _inner.get("methods")
+                if isinstance(_methods_raw, list):
+                    _methods = _methods_raw
+        class_summary = "\n".join(
+            [
+                f"Resolved role: {class_node.stereotype or 'unknown'}",
+                f"Class name: {class_node.name}",
+                f"Top-level annotations: {', '.join(class_node.annotations or []) or 'none'}",
+                f"Superclass: {class_node.superclass or 'null'}",
+                f"Interfaces: {', '.join(class_node.implements or []) or 'null'}",
+                f"Method count: {len(_methods)}",
+            ]
+        )
+
         user_text = render_prompt(
             prompt.user,
             fqcn=class_node.id,
             class_json=class_node.model_dump_json(),
             annotation_json=json.dumps(annotation_data),
+            class_summary=class_summary,
             db_layer=self._config.db_layer,
             unsupported_feature_policy=self._config.unsupported_feature_policy,
             webflux_policy=self._config.webflux_policy,
@@ -394,9 +411,7 @@ class TypeScriptRenderer(Renderer[TypeScriptConfig]):  # noqa: UP046
     # Scaffold emission
     # ------------------------------------------------------------------
 
-    def _render_scaffold(
-        self, domain_groups: list[dict[str, str]]
-    ) -> dict[PurePosixPath, bytes]:
+    def _render_scaffold(self, domain_groups: list[dict[str, str]]) -> dict[PurePosixPath, bytes]:
         """Emit the NestJS project skeleton using Jinja2 scaffold templates."""
         project_name = "app"  # TODO: derive from graph or config
         db_adapter = self._config.db_adapter
@@ -471,7 +486,9 @@ class TypeScriptRenderer(Renderer[TypeScriptConfig]):  # noqa: UP046
             elif path.name.endswith(".entity.ts"):
                 entities.append({"class_name": _to_pascal_case(path.stem.replace("-", "_")), "file_stem": path.stem})
             elif path.name.endswith(".repository.ts"):
-                repositories.append({"class_name": _to_pascal_case(path.stem.replace("-", "_")), "file_stem": path.stem})
+                repositories.append(
+                    {"class_name": _to_pascal_case(path.stem.replace("-", "_")), "file_stem": path.stem}
+                )
 
         context: dict[str, object] = {
             "group_name": result.group_name,
@@ -485,9 +502,7 @@ class TypeScriptRenderer(Renderer[TypeScriptConfig]):  # noqa: UP046
         }
         return self._emit_template("domain.module.ts.j2", context)
 
-    def _emit_template(
-        self, template_name: str, context: dict[str, object]
-    ) -> bytes:
+    def _emit_template(self, template_name: str, context: dict[str, object]) -> bytes:
         """Render one Jinja2 template to bytes."""
         tpl = self._jinja.get_template(template_name)
         return tpl.render(**context).encode("utf-8")
@@ -496,9 +511,7 @@ class TypeScriptRenderer(Renderer[TypeScriptConfig]):  # noqa: UP046
     # Class selection + graph helpers
     # ------------------------------------------------------------------
 
-    def _select_classes(
-        self, graph: CodeographKnowledgeGraph
-    ) -> list[SelectionResult]:
+    def _select_classes(self, graph: CodeographKnowledgeGraph) -> list[SelectionResult]:
         """Build a ClassSelector from config and run it over the graph."""
         grouping: DomainGrouping
         if self._config.domain_mapping:
@@ -509,9 +522,7 @@ class TypeScriptRenderer(Renderer[TypeScriptConfig]):  # noqa: UP046
         selector = ClassSelector(cap=self._config.render_budget, grouping=grouping)
         return selector.select(graph)
 
-    def _build_node_map(
-        self, graph: CodeographKnowledgeGraph
-    ) -> dict[str, ClassNode]:
+    def _build_node_map(self, graph: CodeographKnowledgeGraph) -> dict[str, ClassNode]:
         """Return a ``{fqcn: ClassNode}`` dict for the graph's class nodes."""
         from codeograph.graph.models.graph_schema import ClassNode as CN
 
