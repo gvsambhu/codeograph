@@ -18,6 +18,7 @@ The subcommand is registered in ``cli/main.py`` via ``cli.add_command(render_cli
 from __future__ import annotations
 
 import json
+import shutil
 from pathlib import Path
 
 import click
@@ -152,11 +153,26 @@ def render_cli(
 
     # --- validate output directory ----------------------------------------
     out_path = Path(out).resolve()
+
+    # Path-safety guard: refuse to clear a directory that contains or IS the cwd.
+    _cwd = Path.cwd().resolve()
+    if out_path == _cwd or _cwd.is_relative_to(out_path):
+        raise click.UsageError(
+            f"--out '{out_path}' is the current working directory or an ancestor of it. "
+            "Choose a dedicated output directory to avoid accidental data loss."
+        )
+
     if out_path.exists() and any(out_path.iterdir()):
         if not force:
             raise click.UsageError(
                 f"Output directory '{out_path}' already exists and is non-empty. Use --force to overwrite."
             )
+        click.echo(f"Clearing existing files in {out_path} …")
+        for child in out_path.iterdir():
+            if child.is_dir():
+                shutil.rmtree(child)
+            else:
+                child.unlink()
 
     # --- load artefacts ---------------------------------------------------
     click.echo(f"Loading graph from {graph_path} …")
