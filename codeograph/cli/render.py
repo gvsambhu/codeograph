@@ -18,6 +18,7 @@ The subcommand is registered in ``cli/main.py`` via ``cli.add_command(render_cli
 from __future__ import annotations
 
 import json
+import shutil
 from pathlib import Path
 
 import click
@@ -152,11 +153,26 @@ def render_cli(
 
     # --- validate output directory ----------------------------------------
     out_path = Path(out).resolve()
+
+    # Path-safety guard: refuse to clear a directory that contains or IS the cwd.
+    _cwd = Path.cwd().resolve()
+    if out_path == _cwd or _cwd.is_relative_to(out_path):
+        raise click.UsageError(
+            f"--out '{out_path}' is the current working directory or an ancestor of it. "
+            "Choose a dedicated output directory to avoid accidental data loss."
+        )
+
     if out_path.exists() and any(out_path.iterdir()):
         if not force:
             raise click.UsageError(
                 f"Output directory '{out_path}' already exists and is non-empty. Use --force to overwrite."
             )
+        click.echo(f"Clearing existing files in {out_path} …")
+        for child in out_path.iterdir():
+            if child.is_dir():
+                shutil.rmtree(child)
+            else:
+                child.unlink()
 
     # --- load artefacts ---------------------------------------------------
     click.echo(f"Loading graph from {graph_path} …")
@@ -213,11 +229,20 @@ def render_cli(
     retry_policy = RetryPolicy()
     prompt_loader = PromptLoader(Path(__file__).parent.parent / "prompts")
 
+    # Resolve the render prompt's content_hash_pin from the renderer's own prompt
+    # directory so the cache key is tied to the actual prompt body (ADR-014/015).
+    # The TypeScript renderer owns its prompts; the CLI must not hard-code the hash.
+    _ts_render_prompts = PromptLoader(
+        Path(__file__).parent.parent / "renderers" / "typescript_nestjs" / "prompts"
+    )
+    _render_prompt = _ts_render_prompts.get("render_file", version="v1")
+    _render_prompt_hash = _render_prompt.metadata.content_hash_pin
+
     render_ctx = CallContext(
         purpose=Purpose.RENDER,
         prompt_id="render_file",
         prompt_version="v1",
-        prompt_content_hash="TODO",
+        prompt_content_hash=_render_prompt_hash,
         corpus_id=from_path.name,
         provider_name=settings.llm_provider,
     )
@@ -238,6 +263,30 @@ def render_cli(
 
     click.echo("Rendering … (this will make LLM calls for each selected class)")
     file_map = renderer.render(graph, annotations)
+
+    # --- PackagePrefixGrouping collapse warning (ADR-009 / Issue #7) --------
+    # When no explicit domain_mapping was given, auto-grouping ran.  If it
+    # collapsed all classes into a single group from a large class set, the
+    # LCP is almost certainly too shallow (mixed-vendor packages).  Warn the
+    # user and suggest ManualMappingGrouping as the escape hatch.
+    if not raw_config.get("domain_mapping"):
+        _domain_dirs = {
+            p.parts[1]  # first segment after "src/"
+            for p in file_map
+            if len(p.parts) >= 3 and p.parts[0] == "src"
+        }
+        _src_ts_files = [p for p in file_map if p.parts[0] == "src" and p.name.endswith(".ts") and not p.name.endswith(".module.ts")]
+        if len(_domain_dirs) == 1 and len(_src_ts_files) > 5:
+            click.echo(
+                "WARNING: PackagePrefixGrouping produced only 1 domain group from "
+                f"{len(_src_ts_files)} rendered classes. "
+                "This usually means the longest common package prefix is too shallow "
+                "(mixed-vendor codebase). "
+                "Consider using ManualMappingGrouping via "
+                "'[render.typescript.domain_mapping]' in your config. "
+                "See ADR-009 Amendments for details.",
+                err=True,
+            )
 
     # --- write output files -----------------------------------------------
     out_path.mkdir(parents=True, exist_ok=True)

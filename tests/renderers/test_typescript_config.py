@@ -54,8 +54,10 @@ class TestTypeScriptConfigValidation:
         assert cfg_high.render_budget == 500
 
     def test_invalid_unsupported_feature_policy_raises(self):
+        # "refuse" was removed from UnsupportedFeaturePolicy in the 2026-05-28 fixup
+        # (no deterministic class-level signal exists; see ADR-010 Amendments).
         with pytest.raises(ValidationError):
-            TypeScriptConfig(unsupported_feature_policy="ignore")  # type: ignore[arg-type]
+            TypeScriptConfig(unsupported_feature_policy="refuse")  # type: ignore[arg-type]
 
     def test_invalid_security_feature_policy_raises(self):
         with pytest.raises(ValidationError):
