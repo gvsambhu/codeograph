@@ -81,6 +81,17 @@ class PackagePrefixGrouping(DomainGrouping):
     - Classes that live *at* the common-prefix level (no further segment)
       fall into ``"misc"``.
     - An empty graph produces no groups.
+
+    **Known limitation — mixed-vendor codebases:**
+    Auto-detection is reliable only when all classes share a deep common
+    prefix (single-vendor codebases, e.g. everything under ``com.example``).
+    For mixed-vendor graphs (e.g. ``com.example.orders.*`` alongside
+    ``com.other.Lib``), the LCP collapses to a shallow ancestor (``"com"``),
+    stripping too little and causing all domains to merge into one group.
+    When the CLI detects that auto-grouping produced only one group from a
+    large class set it emits a warning and suggests switching to
+    ``ManualMappingGrouping`` via the ``[render.typescript.domain_mapping]``
+    config key.  See ADR-009 Amendments.
     """
 
     def __init__(self) -> None:

@@ -416,3 +416,19 @@ The per-class render granularity locked in ADR-010 Fork 8 multiplies neatly with
 
 * Lanza, M., & Marinescu, R. (2006). *Object-Oriented Metrics in Practice: Using Software Metrics to Characterize, Evaluate, and Improve the Design of Object-Oriented Systems.* Springer. — source for the CBO ≥ 5 and WMC ≥ 20 thresholds used in bucketing.
 * MADR template — https://github.com/adr/madr
+
+---
+
+## Amendments
+
+### 2026-05-28 — Document PackagePrefixGrouping mixed-vendor limitation (DC3 Fixup Round 01, Issue #7 Path B)
+
+**Change:** `PackagePrefixGrouping` docstring updated to explain the shallow-LCP collapse problem on mixed-vendor codebases. `codeograph render` now emits a `stderr` warning when auto-grouping produces only 1 domain group from more than 5 rendered classes, and suggests `ManualMappingGrouping` as the escape hatch.
+
+**Rationale:** A real-world class set like `['com.example.orders.A', 'com.example.inventory.X', 'com.other.Lib']` yields LCP `'com'`, stripping too little and collapsing every domain into one bucket named `'example'`. This defeats the per-domain budget cap and the multi-module decomposition that Fork 1 (ADR-010) was designed for. The fix at this stage is honest documentation and an operational warning; the heuristic improvement (outlier detection before LCP computation) is deferred to v1.1 as a design-round task.
+
+**Escape hatch:** Users on mixed-vendor codebases should set `[render.typescript.domain_mapping]` explicitly in config to activate `ManualMappingGrouping`, which performs a longest-prefix match and is unaffected by vendor package heterogeneity.
+
+**Deferred:** The Path A heuristic (detect outlier packages, compute LCP within the dominant cluster) is tracked for a future design round. It requires a learner-defined outlier rule and belongs in a dedicated ADR amendment, not a fixup round.
+
+**Files changed:** `codeograph/rendering/domain_grouping.py` (docstring), `codeograph/cli/render.py` (stderr warning).

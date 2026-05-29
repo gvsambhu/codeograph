@@ -264,6 +264,30 @@ def render_cli(
     click.echo("Rendering … (this will make LLM calls for each selected class)")
     file_map = renderer.render(graph, annotations)
 
+    # --- PackagePrefixGrouping collapse warning (ADR-009 / Issue #7) --------
+    # When no explicit domain_mapping was given, auto-grouping ran.  If it
+    # collapsed all classes into a single group from a large class set, the
+    # LCP is almost certainly too shallow (mixed-vendor packages).  Warn the
+    # user and suggest ManualMappingGrouping as the escape hatch.
+    if not raw_config.get("domain_mapping"):
+        _domain_dirs = {
+            p.parts[1]  # first segment after "src/"
+            for p in file_map
+            if len(p.parts) >= 3 and p.parts[0] == "src"
+        }
+        _src_ts_files = [p for p in file_map if p.parts[0] == "src" and p.name.endswith(".ts") and not p.name.endswith(".module.ts")]
+        if len(_domain_dirs) == 1 and len(_src_ts_files) > 5:
+            click.echo(
+                "WARNING: PackagePrefixGrouping produced only 1 domain group from "
+                f"{len(_src_ts_files)} rendered classes. "
+                "This usually means the longest common package prefix is too shallow "
+                "(mixed-vendor codebase). "
+                "Consider using ManualMappingGrouping via "
+                "'[render.typescript.domain_mapping]' in your config. "
+                "See ADR-009 Amendments for details.",
+                err=True,
+            )
+
     # --- write output files -----------------------------------------------
     out_path.mkdir(parents=True, exist_ok=True)
     written = 0
