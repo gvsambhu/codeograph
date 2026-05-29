@@ -76,10 +76,10 @@ class SelectionResult:
                         0 for other tiers).
 
     ADR-010 Fork 9 extension fields (3):
-        refused:        Classes excluded because an ``unsupported_feature_policy``
-                        triggered a ``refuse_to_render`` decision.
+        refused:        Classes excluded because ``security_feature_policy``
+                        or ``webflux_policy`` triggered a ``"refuse"`` decision.
         stub_todos:     Classes that will be rendered as stub-with-TODO because
-                        a feature policy triggered ``stub_with_todo``.
+                        a feature policy triggered ``"stub_todo"``.
         feature_policies_active: Names of the feature policies that fired
                         during this selection pass.
     """

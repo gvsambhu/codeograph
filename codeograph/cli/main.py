@@ -179,8 +179,8 @@ def run(input_path: str, out: str, ast_only: bool, force: bool) -> None:
         ctx_p1 = CallContext(
             purpose=Purpose.ANNOTATE,
             prompt_id=PromptId.ANNOTATE_NODE,
-            prompt_version=prompt_p1.metadata.version if hasattr(prompt_p1, "metadata") else "v1",
-            prompt_content_hash=prompt_p1.metadata.content_hash_pin if hasattr(prompt_p1, "metadata") else "TODO",
+            prompt_version=prompt_p1.metadata.version,
+            prompt_content_hash=prompt_p1.metadata.content_hash_pin,
             corpus_id=corpus_id,
             provider_name=settings.llm_provider,
         )
@@ -198,8 +198,8 @@ def run(input_path: str, out: str, ast_only: bool, force: bool) -> None:
         ctx_p2 = CallContext(
             purpose=Purpose.SYNTHESIZE,
             prompt_id=PromptId.SYNTHESIZE_CORPUS,
-            prompt_version=prompt_p2.metadata.version if hasattr(prompt_p2, "metadata") else "v1",
-            prompt_content_hash=prompt_p2.metadata.content_hash_pin if hasattr(prompt_p2, "metadata") else "TODO",
+            prompt_version=prompt_p2.metadata.version,
+            prompt_content_hash=prompt_p2.metadata.content_hash_pin,
             corpus_id=corpus_id,
             provider_name=settings.llm_provider,
         )
