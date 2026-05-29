@@ -9,6 +9,7 @@ import click
 
 from codeograph import __version__
 from codeograph.cli.cache import cache_cli
+from codeograph.cli.render import render_cli
 
 
 @click.group()
@@ -19,6 +20,7 @@ def cli() -> None:
 
 
 cli.add_command(cache_cli)
+cli.add_command(render_cli)
 
 
 @cli.command()

@@ -44,6 +44,10 @@ jobs:
           for f in codeograph/prompts/*/*.md; do
             python scripts/update_prompt_hash_pins.py "$f" || true
           done
+          # Renderer-package prompts live under renderers/**/ (ADR-014, DC3)
+          for f in codeograph/renderers/**/prompts/*/*.md; do
+            python scripts/update_prompt_hash_pins.py "$f" || true
+          done
           git diff --exit-code
 
       - name: Lint (ruff)

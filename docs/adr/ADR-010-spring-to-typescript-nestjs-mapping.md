@@ -981,3 +981,15 @@ The same nine-fork structure (DI / HTTP / persistence / exceptions / config / va
 * `class-transformer` — https://github.com/typestack/class-transformer
 * Spring Framework Reference — Annotation taxonomy used as the source side of the mapping.
 * MADR template — https://github.com/adr/madr
+
+---
+
+## Amendments
+
+### 2026-05-28 — Remove `unsupported_feature_policy="refuse"` (DC3 Fixup Round 01, Issue #6 Path B)
+
+**Change:** `UnsupportedFeaturePolicy` narrowed from `Literal["stub_todo", "silent_skip", "refuse"]` to `Literal["stub_todo", "silent_skip"]`. Passing `refuse` to `TypeScriptConfig` now raises a Pydantic `ValidationError`.
+
+**Rationale:** The original `refuse` value was a policy without a detection signal. `security_feature_policy="refuse"` and `webflux_policy="refuse"` both work because they have concrete, deterministic class-level signals — Spring Security annotations (`@PreAuthorize`, `@Secured`, etc.) and reactive return types (`Mono<T>`, `Flux<T>`) respectively. Generic "unsupported Spring features" have no equivalent class-level detector. Implementing one would require a feature-by-feature annotation scan, and `stub_todo` already surfaces the gap reviewably in the generated output. Keeping `refuse` as a valid value was a dead code path that misled callers.
+
+**Files changed:** `config.py` (Literal narrowed + docstring), `prompts/render_file/v1.md` (refuse bullet removed), `tests/renderers/test_typescript_config.py` (test now validates that `"refuse"` raises).
