@@ -4,15 +4,12 @@ from pathlib import Path, PurePosixPath
 from typing import cast
 from unittest.mock import AsyncMock, patch
 
-import pytest
-
 from codeograph.graph.models.graph_schema import ClassNode
 from codeograph.llm.prompts.loader import PromptLoader
 from codeograph.llm.provider import LlmProvider
 from codeograph.renderers.typescript_nestjs.config import TypeScriptConfig
 from codeograph.renderers.typescript_nestjs.renderer import TypeScriptRenderer
 from codeograph.rendering.class_selector import SelectionResult
-
 
 # ---------------------------------------------------------------------------
 # Shared fixtures / helpers
@@ -123,9 +120,7 @@ def test_render_group_basic():
 class TestWebFluxTranslateMonoOnly:
     """ADR-010 Fork 9: translate_mono_only refuses Flux, passes Mono."""
 
-    def _render_class_sync(
-        self, renderer: TypeScriptRenderer, class_node: ClassNode, annotations: dict
-    ):
+    def _render_class_sync(self, renderer: TypeScriptRenderer, class_node: ClassNode, annotations: dict):
         """Run _render_class in a fresh event loop (avoids nested-loop issues in tests)."""
         return asyncio.run(renderer._render_class(class_node, "orders", annotations))
 
@@ -162,9 +157,7 @@ class TestWebFluxTranslateMonoOnly:
 class TestSecurityFeaturePolicy:
     """ADR-010 Fork 9: security policy dispatch — refuse/stub_todo/silent_skip."""
 
-    def _render_class_sync(
-        self, renderer: TypeScriptRenderer, class_node: ClassNode, annotations: dict
-    ):
+    def _render_class_sync(self, renderer: TypeScriptRenderer, class_node: ClassNode, annotations: dict):
         return asyncio.run(renderer._render_class(class_node, "orders", annotations))
 
     def _secured_node(self) -> ClassNode:

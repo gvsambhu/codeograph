@@ -232,9 +232,7 @@ def render_cli(
     # Resolve the render prompt's content_hash_pin from the renderer's own prompt
     # directory so the cache key is tied to the actual prompt body (ADR-014/015).
     # The TypeScript renderer owns its prompts; the CLI must not hard-code the hash.
-    _ts_render_prompts = PromptLoader(
-        Path(__file__).parent.parent / "renderers" / "typescript_nestjs" / "prompts"
-    )
+    _ts_render_prompts = PromptLoader(Path(__file__).parent.parent / "renderers" / "typescript_nestjs" / "prompts")
     _render_prompt = _ts_render_prompts.get("render_file", version="v1")
     _render_prompt_hash = _render_prompt.metadata.content_hash_pin
 
@@ -275,7 +273,9 @@ def render_cli(
             for p in file_map
             if len(p.parts) >= 3 and p.parts[0] == "src"
         }
-        _src_ts_files = [p for p in file_map if p.parts[0] == "src" and p.name.endswith(".ts") and not p.name.endswith(".module.ts")]
+        _src_ts_files = [
+            p for p in file_map if p.parts[0] == "src" and p.name.endswith(".ts") and not p.name.endswith(".module.ts")
+        ]
         if len(_domain_dirs) == 1 and len(_src_ts_files) > 5:
             click.echo(
                 "WARNING: PackagePrefixGrouping produced only 1 domain group from "

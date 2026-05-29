@@ -10,11 +10,9 @@ import json
 from pathlib import Path, PurePosixPath
 from unittest.mock import MagicMock, patch
 
-import pytest
 from click.testing import CliRunner
 
 from codeograph.cli.render import render_cli
-
 
 # ---------------------------------------------------------------------------
 # Helpers
