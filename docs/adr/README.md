@@ -45,8 +45,8 @@ For someone new to the project who wants to understand the design end-to-end, re
 - [`ADR-010 — Spring Boot to NestJS/TypeScript idiom mapping`](ADR-010-spring-to-typescript-nestjs-mapping.md)
 
 ### 6. Quality & testing
-- `ADR-017 — Eval framework` ⬜
-- `ADR-018 — Test strategy (pytest)` ⬜
+- [`ADR-017 — Evaluation framework`](ADR-017-evaluation-framework.md)
+- [`ADR-018 — Test strategy with pytest`](ADR-018-test-strategy-with-pytest.md)
 
 ### 7. Cross-cutting
 - `ADR-022 — Run manifest + structured logging` ⬜
@@ -83,8 +83,8 @@ For someone new to the project who wants to understand the design end-to-end, re
 | 014 | Prompt versioning | ✅ | LLM infrastructure |
 | 015 | Telemetry + response cache | ✅ | LLM infrastructure |
 | 016 | Cost-control CLI | ⏸️ | Deferred (v1.1) |
-| 017 | Eval framework | ⬜ | Quality & testing |
-| 018 | Test strategy (pytest) | ⬜ | Quality & testing |
+| 017 | Evaluation framework | ✅ | Quality & testing |
+| 018 | Test strategy with pytest | ✅ | Quality & testing |
 | 019 | Snapshot + negative tests | ⏸️ | Deferred (v1.1) |
 | 020 | LLM-judge calibration | ⏸️ | Deferred (v1.1) |
 | 021 | Determinism contract | ⏸️ | Deferred (v1.1) |
