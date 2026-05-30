@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Literal, Annotated, Union
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -29,7 +29,7 @@ class ScoreBandThreshold(BaseModel):
 
 
 Threshold = Annotated[
-    Union[BooleanThreshold, MinRatioThreshold, MaxCountThreshold, ScoreBandThreshold],
+    BooleanThreshold | MinRatioThreshold | MaxCountThreshold | ScoreBandThreshold,
     Field(discriminator="kind"),
 ]
 
@@ -48,7 +48,7 @@ class CheckResult(BaseModel):
     details: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def derive_result(self) -> "CheckResult":
+    def derive_result(self) -> CheckResult:
         v = self.value
         t = self.threshold
 

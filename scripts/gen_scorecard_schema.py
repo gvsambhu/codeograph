@@ -5,6 +5,7 @@ from pathlib import Path
 
 from codeograph.evals.scorecard_schema import Scorecard
 
+
 def main():
     schema = Scorecard.model_json_schema()
     
