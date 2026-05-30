@@ -6,7 +6,6 @@ using tmp_path — no external deps (no git, no network, no zip tooling).
 
 from __future__ import annotations
 
-import zipfile
 from pathlib import Path
 
 import pytest
@@ -15,7 +14,6 @@ from codeograph.input.acquirers.base_acquirer import AcquisitionError
 from codeograph.input.acquirers.local_acquirer import LocalAcquirer
 from codeograph.input.input_acquirer import InputAcquirer, _detect_input_type
 from codeograph.input.models import AcquisitionSource
-
 
 # ---------------------------------------------------------------------------
 # _detect_input_type heuristic

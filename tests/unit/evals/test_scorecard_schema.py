@@ -20,10 +20,9 @@ from codeograph.evals.scorecard_schema import (
     CheckResult,
     MaxCountThreshold,
     MinRatioThreshold,
-    Scorecard,
     ScoreBandThreshold,
+    Scorecard,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
