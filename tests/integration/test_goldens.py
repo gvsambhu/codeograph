@@ -1,18 +1,18 @@
 """
 Golden-graph regression tests (ADR-007).
 
-Tier 1 — surgical codeograph-corpus fixture
-============================================
+Surgical codeograph-corpus fixture
+====================================
 Builds a CorpusSpec from the checked-in fixture at
 ``tests/fixtures/codeograph-corpus/`` and runs the full CorpusAnalyzer
 pipeline.
 
 Normal run
-  pytest -m tier1
+  pytest -m slow
   → graph.json output is compared byte-for-byte against the stored golden.
 
 Update run (after a deliberate graph-schema change)
-  pytest tests/test_golden.py --update-goldens -k "not tier3"
+  pytest tests/integration/test_goldens.py --update-goldens
   or: make golden-update
   → stored golden files are overwritten; diff the result before committing.
 
@@ -131,7 +131,7 @@ def _assert_golden(actual_bytes: bytes, golden_path: Path, *, update: bool) -> N
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.tier1
+@pytest.mark.slow
 def test_tier1_golden(update_goldens: bool, tmp_path: Path) -> None:
     """
     End-to-end golden test: codeograph-corpus fixture → graph.json must
