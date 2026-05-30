@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import json
 import shutil
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 import click
 
@@ -261,6 +261,51 @@ def render_cli(
 
     click.echo("Rendering … (this will make LLM calls for each selected class)")
     file_map = renderer.render(graph, annotations)
+
+    # Compile-checks sidecar (M4)
+    import hashlib
+    compile_checks = renderer.compile_checks()
+    if compile_checks:
+        sidecar_dict = {
+            "schema_version": "1.0.0",
+            "target": target,
+            "renderer_version": "1.0.0", # Hardcoded for now
+            "checks": [
+                {
+                    "name": c.name,
+                    "cmd": c.cmd,
+                    "workdir": str(c.workdir),
+                    "required_tools": c.required_tools,
+                    "pass_on_exit_codes": c.pass_on_exit_codes,
+                }
+                for c in compile_checks
+            ]
+        }
+        sidecar_bytes = json.dumps(sidecar_dict, indent=2).encode("utf-8")
+        sidecar_rel_path = PurePosixPath(f"evals/compile-checks.{target}.json")
+        file_map[sidecar_rel_path] = sidecar_bytes
+        
+        # Manifest pointer update
+        sidecar_sha256 = hashlib.sha256(sidecar_bytes).hexdigest()
+        manifest_path = from_path / "manifest.json"
+        
+        if manifest_path.exists():
+            with open(manifest_path, encoding="utf-8") as f:
+                manifest_dict = json.load(f)
+            
+            # Bump schema version
+            manifest_dict["schema_version"] = "1.4.0"
+            if "compile_checks" not in manifest_dict["artefacts"]:
+                manifest_dict["artefacts"]["compile_checks"] = {}
+            
+            manifest_dict["artefacts"]["compile_checks"][target] = {
+                "path": str(sidecar_rel_path),
+                "schema_version": "1.0.0",
+                "sha256": sidecar_sha256
+            }
+            
+            with open(manifest_path, "w", encoding="utf-8") as f:
+                json.dump(manifest_dict, f, indent=2)
 
     # --- PackagePrefixGrouping collapse warning (ADR-009 / Issue #7) --------
     # When no explicit domain_mapping was given, auto-grouping ran.  If it

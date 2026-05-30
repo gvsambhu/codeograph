@@ -50,6 +50,20 @@ class Artefacts(BaseModel):
             description="Non-deterministic LLM enrichment layer (out/llm-annotations.json). sha256 is null when produced with --ast-only."
         ),
     ]
+    scorecards: Annotated[
+        dict[str, ArtefactMeta] | None,
+        Field(
+            default=None,
+            description="Eval framework scorecards (added in 1.3.0).",
+        ),
+    ] = None
+    compile_checks: Annotated[
+        dict[str, ArtefactMeta] | None,
+        Field(
+            default=None,
+            description="Compile check sidecars per renderer target (added in 1.4.0).",
+        ),
+    ] = None
 
 
 class CacheStats(BaseModel):
