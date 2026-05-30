@@ -1,0 +1,317 @@
+{
+  "$defs": {
+    "BooleanThreshold": {
+      "properties": {
+        "kind": {
+          "const": "boolean",
+          "default": "boolean",
+          "title": "Kind",
+          "type": "string"
+        },
+        "expected": {
+          "title": "Expected",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "expected"
+      ],
+      "title": "BooleanThreshold",
+      "type": "object"
+    },
+    "CheckResult": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "category": {
+          "enum": [
+            "graph",
+            "code"
+          ],
+          "title": "Category",
+          "type": "string"
+        },
+        "result": {
+          "default": "skip",
+          "enum": [
+            "pass",
+            "fail",
+            "skip"
+          ],
+          "title": "Result",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Value"
+        },
+        "threshold": {
+          "discriminator": {
+            "mapping": {
+              "boolean": "#/$defs/BooleanThreshold",
+              "max_count": "#/$defs/MaxCountThreshold",
+              "min_ratio": "#/$defs/MinRatioThreshold",
+              "score_band": "#/$defs/ScoreBandThreshold"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/BooleanThreshold"
+            },
+            {
+              "$ref": "#/$defs/MinRatioThreshold"
+            },
+            {
+              "$ref": "#/$defs/MaxCountThreshold"
+            },
+            {
+              "$ref": "#/$defs/ScoreBandThreshold"
+            }
+          ],
+          "title": "Threshold"
+        },
+        "rationale": {
+          "title": "Rationale",
+          "type": "string"
+        },
+        "model_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model Version"
+        },
+        "prompt_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prompt Id"
+        },
+        "prompt_content_hash": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prompt Content Hash"
+        },
+        "duration_ms": {
+          "title": "Duration Ms",
+          "type": "integer"
+        },
+        "details": {
+          "additionalProperties": true,
+          "title": "Details",
+          "type": "object"
+        }
+      },
+      "required": [
+        "id",
+        "category",
+        "value",
+        "threshold",
+        "rationale",
+        "duration_ms"
+      ],
+      "title": "CheckResult",
+      "type": "object"
+    },
+    "MaxCountThreshold": {
+      "properties": {
+        "kind": {
+          "const": "max_count",
+          "default": "max_count",
+          "title": "Kind",
+          "type": "string"
+        },
+        "pass_at_or_below": {
+          "title": "Pass At Or Below",
+          "type": "integer"
+        },
+        "fail_above": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fail Above"
+        }
+      },
+      "required": [
+        "pass_at_or_below"
+      ],
+      "title": "MaxCountThreshold",
+      "type": "object"
+    },
+    "MinRatioThreshold": {
+      "properties": {
+        "kind": {
+          "const": "min_ratio",
+          "default": "min_ratio",
+          "title": "Kind",
+          "type": "string"
+        },
+        "pass_at_or_above": {
+          "title": "Pass At Or Above",
+          "type": "number"
+        },
+        "fail_below": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fail Below"
+        }
+      },
+      "required": [
+        "pass_at_or_above"
+      ],
+      "title": "MinRatioThreshold",
+      "type": "object"
+    },
+    "ReproducibilityInfo": {
+      "properties": {
+        "codeograph_version": {
+          "title": "Codeograph Version",
+          "type": "string"
+        },
+        "seed": {
+          "title": "Seed",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "codeograph_version",
+        "seed"
+      ],
+      "title": "ReproducibilityInfo",
+      "type": "object"
+    },
+    "ScoreBandThreshold": {
+      "properties": {
+        "kind": {
+          "const": "score_band",
+          "default": "score_band",
+          "title": "Kind",
+          "type": "string"
+        },
+        "pass_at_or_above": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Pass At Or Above"
+        },
+        "fail_below": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Fail Below"
+        }
+      },
+      "required": [
+        "pass_at_or_above",
+        "fail_below"
+      ],
+      "title": "ScoreBandThreshold",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "schema_version": {
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "kind": {
+      "enum": [
+        "graph",
+        "ts",
+        "go"
+      ],
+      "title": "Kind",
+      "type": "string"
+    },
+    "corpus_id": {
+      "title": "Corpus Id",
+      "type": "string"
+    },
+    "run_timestamp": {
+      "title": "Run Timestamp",
+      "type": "string"
+    },
+    "run_id": {
+      "title": "Run Id",
+      "type": "string"
+    },
+    "reproducibility": {
+      "$ref": "#/$defs/ReproducibilityInfo"
+    },
+    "checks": {
+      "items": {
+        "$ref": "#/$defs/CheckResult"
+      },
+      "title": "Checks",
+      "type": "array"
+    }
+  },
+  "required": [
+    "schema_version",
+    "kind",
+    "corpus_id",
+    "run_timestamp",
+    "run_id",
+    "reproducibility",
+    "checks"
+  ],
+  "title": "Scorecard",
+  "type": "object"
+}
