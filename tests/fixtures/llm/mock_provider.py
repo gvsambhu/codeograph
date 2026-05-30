@@ -1,11 +1,16 @@
-"""Mock LLM Provider for testing."""
+"""Mock LLM Provider for testing (ADR-018 Fork 3).
+
+Import failure-injection error types directly from ``anthropic`` in your tests:
+
+    from anthropic import RateLimitError, APIConnectionError, APITimeoutError, APIStatusError
+    mock = MockLlmProviderBuilder().with_failure(0, RateLimitError(...)).build()
+"""
 
 import hashlib
 import json
 from dataclasses import dataclass, field
 from typing import Any, TypeVar
 
-from anthropic import APIConnectionError, APIStatusError, APITimeoutError, RateLimitError
 from pydantic import BaseModel
 
 from codeograph.llm.provider import LlmProvider
@@ -82,9 +87,9 @@ class MockLlmProvider(LlmProvider):
             parsed = schema(**parsed)
 
         return LlmResult(
-            parsed=parsed,
-            model_used=self.resolve_model(tier, override_model),
-            usage=TokenUsage(input_tokens=10, output_tokens=10),
+            value=parsed,
+            model=self.resolve_model(tier, override_model),
+            usage=TokenUsage(input_tokens=10, output_tokens=10, cached_tokens=0),
             latency_ms=100,
         )
 

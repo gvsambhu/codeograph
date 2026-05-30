@@ -26,7 +26,12 @@ def assert_scorecard_structural(actual: dict[str, Any], *, kind: str) -> None:
         assert "rationale" in check
 
 
-def assert_compile_check_byte_equal(actual: dict[str, Any], expected_checks: list[dict[str, Any]], *, ignore_renderer_version: bool = True) -> None:
+def assert_compile_check_byte_equal(
+    actual: dict[str, Any],
+    expected_checks: list[dict[str, Any]],
+    *,
+    ignore_renderer_version: bool = True,
+) -> None:
     """Assert that a compile_checks sidecar matches expected_checks."""
     assert "checks" in actual
     assert actual["checks"] == expected_checks
