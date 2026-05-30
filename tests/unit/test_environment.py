@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-_REPO_ROOT = Path(__file__).parent.parent
+_REPO_ROOT = Path(__file__).parent.parent.parent
 _IN_CI = bool(os.environ.get("CI"))
 _CI_ONLY = pytest.mark.skipif(not _IN_CI, reason="reproducibility envelope — CI only")
 
