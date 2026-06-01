@@ -1,5 +1,4 @@
 import time
-from typing import Any
 from collections import defaultdict
 
 from codeograph.evals.scorecard_schema import CheckResult, MaxCountThreshold

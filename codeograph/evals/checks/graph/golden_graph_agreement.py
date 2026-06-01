@@ -1,7 +1,6 @@
 import time
-from typing import Any
 
-from codeograph.evals.scorecard_schema import CheckResult, BooleanThreshold
+from codeograph.evals.scorecard_schema import BooleanThreshold, CheckResult
 from codeograph.graph.models.graph_schema import CodeographKnowledgeGraph
 
 

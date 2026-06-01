@@ -66,6 +66,8 @@ ignore = []
 "codeograph/graph/models/*.py" = ["E501"]
 "codeograph/passes/pass1/schemas.py" = ["E501"]
 "codeograph/passes/pass2/schemas.py" = ["E501"]
+# Eval check files contain long ADR-cited rationale strings — same rationale.
+"codeograph/evals/checks/**/*.py" = ["E501"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["codeograph"]
