@@ -1,26 +1,32 @@
 import time
 
 from codeograph.evals.scorecard_schema import CheckResult, MinRatioThreshold
-from codeograph.graph.models.graph_schema import CodeographKnowledgeGraph
+from codeograph.graph.models.graph_schema import (
+    AnnotationTypeNode,
+    ClassNode,
+    CodeographKnowledgeGraph,
+    EnumNode,
+    ExtractionMode,
+    FieldNode,
+    InterfaceNode,
+    MethodNode,
+    RecordNode,
+)
+
+# Nodes that represent source declarations (exclude ModuleNode — not a declaration)
+_DECLARATION_TYPES = (
+    ClassNode,
+    InterfaceNode,
+    EnumNode,
+    RecordNode,
+    AnnotationTypeNode,
+    MethodNode,
+    FieldNode,
+)
 
 
 def check_structural_completeness(graph: CodeographKnowledgeGraph) -> CheckResult:
     start_time = time.perf_counter()
-
-    from codeograph.graph.models.graph_schema import (
-        AnnotationTypeNode,
-        ClassNode,
-        EnumNode,
-        ExtractionMode,
-        FieldNode,
-        InterfaceNode,
-        MethodNode,
-        RecordNode,
-    )
-
-    # Nodes that represent source declarations (exclude ModuleNode — not a declaration)
-    _DECLARATION_TYPES = (ClassNode, InterfaceNode, EnumNode, RecordNode,
-                          AnnotationTypeNode, MethodNode, FieldNode)
 
     total = 0
     ast_extracted = 0
@@ -44,5 +50,5 @@ def check_structural_completeness(graph: CodeographKnowledgeGraph) -> CheckResul
         threshold=MinRatioThreshold(pass_at_or_above=1.0),
         rationale="FR-7a — structural_completeness ensures all parsed source declarations are emitted as nodes in the graph (ADR-017 Fork 3).",
         duration_ms=duration_ms,
-        details={"total_nodes": total, "ast_nodes": ast_extracted},        
+        details={"total_nodes": total, "ast_nodes": ast_extracted},
     )
