@@ -1,13 +1,17 @@
 import time
+from pathlib import Path
+from typing import Any
 
 from codeograph.evals.scorecard_schema import CheckResult, MinRatioThreshold
 
 
-def check_coverage() -> CheckResult:
+def check_coverage(output_dir: Path, target: str) -> CheckResult:
     start_time = time.perf_counter()
 
-    # TODO: learner to implement exact value computation for coverage check
-    # feature coverage derived from ADR-010 Fork 9 audit + matrix
+    # TODO: Read the SelectionResult for this target (either from manifest.json or sidecar)
+    # TODO: Calculate coverage: v1_actually_emitted / v1_translatable
+    #       - Derive from SelectionResult.refused, stub_todos, feature_policies_active
+    # TODO: If denominator is 0, return skip with details.skip_reason="no_v1_translatable_features_in_corpus"
     value: float = 0.0
 
     duration_ms = int((time.perf_counter() - start_time) * 1000)

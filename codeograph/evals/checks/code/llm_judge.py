@@ -1,9 +1,11 @@
 import time
+from pathlib import Path
+from typing import Any
 
 from codeograph.evals.scorecard_schema import CheckResult, ScoreBandThreshold
 
 
-def check_llm_judge() -> CheckResult:
+def check_llm_judge(output_dir: Path, target: str) -> CheckResult:
     start_time = time.perf_counter()
 
     duration_ms = int((time.perf_counter() - start_time) * 1000)
