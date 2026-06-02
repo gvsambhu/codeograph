@@ -85,7 +85,7 @@ class CodeographRunManifest(BaseModel):
         str,
         Field(
             description="Semver of the manifest schema itself (this file). Bump when manifest structure changes.",
-            examples=["1.1.0"],
+            examples=["1.5.0"],
         ),
     ]
     codeograph_version: Annotated[
@@ -93,6 +93,13 @@ class CodeographRunManifest(BaseModel):
         Field(
             description="Version of the codeograph tool that produced this manifest.",
             examples=["0.1.0"],
+        ),
+    ]
+    source_path: Annotated[
+        str,
+        Field(
+            description="Absolute path to the input corpus that produced this output. Used by codeograph eval reproducibility check to re-run --ast-only against the same source. Added in manifest schema 1.5.0.",
+            examples=["/home/user/projects/my-spring-app"],
         ),
     ]
     artefacts: Annotated[

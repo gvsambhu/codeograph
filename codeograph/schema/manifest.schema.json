@@ -4,13 +4,18 @@
   "title": "Codeograph Run Manifest",
   "description": "Entry point for all Codeograph output. Always read manifest.json first — it carries schema versions and sha256 digests for every artefact. Consumers must reject artefacts whose digest does not match.",
   "type": "object",
-  "required": ["schema_version", "codeograph_version", "artefacts"],
+  "required": ["schema_version", "codeograph_version", "artefacts", "source_path"],
   "additionalProperties": false,
   "properties": {
     "schema_version": {
       "type": "string",
       "description": "Semver of the manifest schema itself (this file). Bump when manifest structure changes.",
-      "examples": ["1.1.0"]
+      "examples": ["1.5.0"]
+    },
+    "source_path": {
+      "type": "string",
+      "description": "Absolute path to the input corpus that produced this output. Used by codeograph eval reproducibility check to re-run --ast-only against the same source. Added in manifest schema 1.5.0.",
+      "examples": ["/home/user/projects/my-spring-app"]
     },
     "codeograph_version": {
       "type": "string",

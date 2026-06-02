@@ -50,7 +50,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 GRAPH_SCHEMA_VERSION = "1.0.0"
-MANIFEST_SCHEMA_VERSION = "1.1.0"  # bumped in DC2 to introduce optional cache_stats block
+MANIFEST_SCHEMA_VERSION = "1.5.0"  # 1.1 cache_stats; 1.3 scorecards; 1.4 compile_checks; 1.5 source_path
 
 GRAPH_FILENAME = "graph.json"
 MANIFEST_FILENAME = "manifest.json"
@@ -92,6 +92,8 @@ class GraphWriter:
         self,
         graph: CodeographKnowledgeGraph,
         output_dir: Path,
+        *,
+        source_path: Path | None = None,
     ) -> Path:
         """
         Write graph.json and manifest.json to output_dir.
@@ -101,10 +103,14 @@ class GraphWriter:
         the output directory is safe to write into (enforced by the CLI
         via the --force flag per ADR-006 D3 output-path safety rule).
 
-        :param graph:      assembled CodeographKnowledgeGraph from GraphAssembler.
-        :param output_dir: directory to write artefacts into.
-        :returns:          path to manifest.json (conventional entry point for
-                           downstream consumers).
+        :param graph:        assembled CodeographKnowledgeGraph from GraphAssembler.
+        :param output_dir:   directory to write artefacts into.
+        :param source_path:  absolute path to the input corpus; recorded in
+                             manifest.json for the reproducibility eval check
+                             (ADR-017 Fork 3). Defaults to empty string when
+                             not provided (e.g. in tests).
+        :returns:            path to manifest.json (conventional entry point for
+                             downstream consumers).
         """
         output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -125,7 +131,7 @@ class GraphWriter:
 
         # Write manifest.json
         manifest_path = output_dir / MANIFEST_FILENAME
-        manifest = self._build_manifest(graph_sha256)
+        manifest = self._build_manifest(graph_sha256, source_path=source_path)
         manifest_bytes = self._manifest_bytes(manifest)
         manifest_path.write_bytes(manifest_bytes)
         logger.info("GraphWriter: wrote %s", manifest_path)
@@ -175,7 +181,12 @@ class GraphWriter:
     # Manifest
     # ------------------------------------------------------------------
 
-    def _build_manifest(self, graph_sha256: str) -> CodeographRunManifest:
+    def _build_manifest(
+        self,
+        graph_sha256: str,
+        *,
+        source_path: Path | None = None,
+    ) -> CodeographRunManifest:
         """
         Build the CodeographRunManifest.
 
@@ -186,6 +197,7 @@ class GraphWriter:
         return CodeographRunManifest(
             schema_version=MANIFEST_SCHEMA_VERSION,
             codeograph_version=self._tool_version(),
+            source_path=str(source_path.resolve()) if source_path else "",
             artefacts=Artefacts(
                 graph=ArtefactMeta(
                     path=GRAPH_FILENAME,

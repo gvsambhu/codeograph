@@ -109,7 +109,11 @@ class CorpusAnalyzer:
         assembled = self._assembler.assemble(fragments)
 
         logger.info("CorpusAnalyzer: writing graph to %s", output_dir)
-        manifest_path = self._writer.write(assembled, output_dir)
+        manifest_path = self._writer.write(
+            assembled,
+            output_dir,
+            source_path=corpus.corpus_root,
+        )
 
         logger.info("CorpusAnalyzer: done — manifest at %s", manifest_path)
         return manifest_path
