@@ -50,7 +50,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 GRAPH_SCHEMA_VERSION = "1.0.0"
-MANIFEST_SCHEMA_VERSION = "1.5.0"  # 1.1 cache_stats; 1.3 scorecards; 1.4 compile_checks; 1.5 source_path
+MANIFEST_SCHEMA_VERSION = "1.6.0"  # 1.1 cache_stats; 1.3 scorecards; 1.4 compile_checks; 1.5 source_path; 1.6 corpus_id
 
 GRAPH_FILENAME = "graph.json"
 MANIFEST_FILENAME = "manifest.json"
@@ -94,6 +94,7 @@ class GraphWriter:
         output_dir: Path,
         *,
         source_path: Path | None = None,
+        corpus_id: str = "",
     ) -> Path:
         """
         Write graph.json and manifest.json to output_dir.
@@ -109,6 +110,9 @@ class GraphWriter:
                              manifest.json for the reproducibility eval check
                              (ADR-017 Fork 3). Defaults to empty string when
                              not provided (e.g. in tests).
+        :param corpus_id:    stable identifier for this corpus (root dir name);
+                             recorded in manifest.json for golden_graph_agreement
+                             eval check (ADR-017 Fork 3). Defaults to empty string.
         :returns:            path to manifest.json (conventional entry point for
                              downstream consumers).
         """
@@ -131,7 +135,7 @@ class GraphWriter:
 
         # Write manifest.json
         manifest_path = output_dir / MANIFEST_FILENAME
-        manifest = self._build_manifest(graph_sha256, source_path=source_path)
+        manifest = self._build_manifest(graph_sha256, source_path=source_path, corpus_id=corpus_id)
         manifest_bytes = self._manifest_bytes(manifest)
         manifest_path.write_bytes(manifest_bytes)
         logger.info("GraphWriter: wrote %s", manifest_path)
@@ -186,6 +190,7 @@ class GraphWriter:
         graph_sha256: str,
         *,
         source_path: Path | None = None,
+        corpus_id: str = "",
     ) -> CodeographRunManifest:
         """
         Build the CodeographRunManifest.
@@ -198,6 +203,7 @@ class GraphWriter:
             schema_version=MANIFEST_SCHEMA_VERSION,
             codeograph_version=self._tool_version(),
             source_path=str(source_path.resolve()) if source_path else "",
+            corpus_id=corpus_id,
             artefacts=Artefacts(
                 graph=ArtefactMeta(
                     path=GRAPH_FILENAME,

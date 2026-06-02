@@ -102,6 +102,13 @@ class CodeographRunManifest(BaseModel):
             examples=["/home/user/projects/my-spring-app"],
         ),
     ]
+    corpus_id: Annotated[
+        str,
+        Field(
+            description="Stable identifier for this corpus — the root directory name of the input. Used by codeograph eval golden_graph_agreement check to locate tests/goldens/<corpus_id>/graph.json. Added in manifest schema 1.6.0.",
+            examples=["spring-rest-sample", "spring-blog-api"],
+        ),
+    ]
     artefacts: Annotated[
         Artefacts,
         Field(
