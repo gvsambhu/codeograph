@@ -202,7 +202,7 @@ All seven check definitions are normative; six run in v1; one reserved.
 |---|---|---|---|---|
 | `structural_completeness` | `MinRatioThreshold(pass_at_or_above=1.0)` | `float ∈ [0,1]` | `(class+method+field nodes emitted) / (declarations in source)` | ✅ |
 | `relationship_correctness` | `MinRatioThreshold(pass_at_or_above=1.0)` | `float ∈ [0,1]` | `resolved_edges / (total_edges - unresolved_call_edges)` | ✅ |
-| `schema_validity` | `BooleanThreshold(expected=True)` | `bool` | `graph.json` validates against `evals/graph-schema.json` | ✅ |
+| `schema_validity` | `BooleanThreshold(expected=True)` | `bool` | `graph.json` validates against `codeograph/schema/graph.schema.json` | ✅ |
 | `internal_consistency` | `MaxCountThreshold(pass_at_or_below=0)` | `int ≥ 0` | count of invariant violations across (a) node id uniqueness within kind, (b) class references valid package, (c) method's parent class exists, (d) every ADR-009 domain non-empty, (e) `unresolved_call` edges have origin + target FQCN | ✅ |
 | `semantic_accuracy` | `ScoreBandThreshold(pass_at_or_above=null, fail_below=null)` | `float ∈ [0,1]` when v1.1 populates | reserved — owned by ADR-020 (LLM-judge calibration, v1.1) | LLM-mediated; v1 ships `result: "skip"`, `details: {skip_reason: "deferred_v1.1", owner_adr: "ADR-020"}` |
 | `reproducibility` | `BooleanThreshold(expected=True)` | `bool` | rerun `codeograph run --ast-only` against the recorded source path three times; compare canonical-form sha256 of each run's `graph.json` | ✅ (deterministic across 3 runs is the assertion) |
@@ -699,7 +699,7 @@ The `coverage` slot keeps feature-coverage semantics permanently. When rendered-
 ### Relationships
 
 * **ADR-001** (project skeleton) — `codeograph eval` is the new subcommand under the established Click CLI; pydantic-settings priority chain for any future eval-config fields.
-* **ADR-006** (knowledge graph schema) — manifest schema bumps `1.2.0 → 1.4.0` (additive: `scorecards` field at 1.3.0, `compile_checks` field at 1.4.0); JSON Schema for the graph at `evals/graph-schema.json` is the substrate for `schema_validity`.
+* **ADR-006** (knowledge graph schema) — manifest schema bumps `1.2.0 → 1.4.0` (additive: `scorecards` field at 1.3.0, `compile_checks` field at 1.4.0); JSON Schema for the graph at `codeograph/schema/graph.schema.json` is the substrate for `schema_validity`.
 * **ADR-007** (golden-graph pattern) — `golden_graph_agreement` reuses ADR-007's byte-equal comparison and multi-corpus support; `reproducibility` reuses ADR-007's reproducibility envelope.
 * **ADR-008** (pluggable renderer interface) — `Renderer.compile_checks()` is the contract this ADR consumes; the manifest-export deferral on ADR-008 Fork 3 is resolved by Fork 8 of this ADR.
 * **ADR-009** (rendering budget cap) — `SelectionResult.selected`, `skipped`, `bucket_membership`, `empty_buckets` are direct inputs to graph-quality checks and to `coverage`.
