@@ -1,6 +1,5 @@
 import time
 from pathlib import Path
-from typing import Any
 
 from codeograph.evals.scorecard_schema import CheckResult, MinRatioThreshold
 

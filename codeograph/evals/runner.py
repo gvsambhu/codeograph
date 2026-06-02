@@ -1,24 +1,8 @@
-import json
 import logging
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Any
 
 from codeograph.evals.scorecard_schema import Scorecard
-from codeograph.evals.checks.graph import (
-    check_structural_completeness,
-    check_relationship_correctness,
-    check_schema_validity,
-    check_internal_consistency,
-    check_semantic_accuracy,
-    check_reproducibility,
-    check_golden_graph_agreement,
-)
-from codeograph.evals.checks.code import (
-    check_compile,
-    check_coverage,
-    check_llm_judge,
-)
 
 logger = logging.getLogger(__name__)
 
