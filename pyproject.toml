@@ -23,6 +23,7 @@ classifiers = [
 ]
 
 dependencies = [
+    "jsonschema>=4.0",
     "click>=8.1",
     "pydantic-settings>=2.0",
     "pydantic>=2.0",
