@@ -10,5 +10,18 @@ def report_cmd(output_dirs: Tuple[str, ...]) -> None:
     if not output_dirs:
         raise click.UsageError("At least one OUTPUT_DIR is required.")
         
-    click.echo(f"Generating report for {len(output_dirs)} directories...")
-    # TODO: M6 learner implements Eval Report logic here
+    import sys
+    import json
+    from pathlib import Path
+    from codeograph.evals.report import EvalReport
+
+    # Evaluate all valid output_dirs
+    paths = [Path(p) for p in output_dirs]
+    report = EvalReport.generate(paths)
+    
+    # Render markdown and print
+    md = EvalReport.render_markdown(report)
+    click.echo(md)
+    
+    if report.overall != "pass":
+        sys.exit(1)
