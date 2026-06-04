@@ -247,7 +247,7 @@ class TestConstructorArgs:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.integration
+@pytest.mark.external
 class TestParseRealJar:
     """
     These tests invoke the real parser.jar via a live JVM subprocess.

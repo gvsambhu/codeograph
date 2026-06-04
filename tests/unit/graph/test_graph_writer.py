@@ -14,7 +14,7 @@ Coverage plan:
 
 NOTE: Tests that read a real parser.jar or call a live JVM are NOT here.
       Those belong to the golden-graph integration suite (ADR-007) and are
-      tagged @pytest.mark.integration.
+      tagged @pytest.mark.external.
 """
 
 from __future__ import annotations
