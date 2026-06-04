@@ -7,7 +7,9 @@ import jsonschema
 from codeograph.evals.scorecard_schema import BooleanThreshold, CheckResult
 from codeograph.graph.models.graph_schema import CodeographKnowledgeGraph
 
-_GRAPH_SCHEMA_PATH = Path(__file__).parent.parent.parent.parent.parent / "schema" / "graph.schema.json"
+# schema_validity.py is at codeograph/evals/checks/graph/schema_validity.py
+# parents[3] is codeograph/ (the Python package root containing schema/)
+_GRAPH_SCHEMA_PATH = Path(__file__).parents[3] / "schema" / "graph.schema.json"
 
 
 def check_schema_validity(graph: CodeographKnowledgeGraph) -> CheckResult:
