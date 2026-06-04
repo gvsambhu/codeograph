@@ -1,13 +1,14 @@
 """CLI subcommands for evaluation (M7)."""
 
-import sys
-from pathlib import Path
-import click
 import json
+import sys
 import typing
+from pathlib import Path
 
-from codeograph.evals.runner import EvalRunner, MissingOutputError
+import click
+
 from codeograph.cli.eval_report import report_cmd
+from codeograph.evals.runner import EvalRunner, MissingOutputError
 
 
 class MutuallyExclusiveOption(click.Option):
@@ -19,7 +20,9 @@ class MutuallyExclusiveOption(click.Option):
             kwargs["help"] = help_text + f" (Mutually exclusive with: {ex_str})"
         super().__init__(*args, **kwargs)
 
-    def handle_parse_result(self, ctx: click.Context, opts: typing.Mapping[str, typing.Any], args: typing.List[str]) -> typing.Tuple[typing.Any, typing.List[str]]:
+    def handle_parse_result(
+        self, ctx: click.Context, opts: typing.Mapping[str, typing.Any], args: list[str]
+    ) -> tuple[typing.Any, list[str]]:
         if self.mutually_exclusive.intersection(opts) and self.name in opts:
             raise click.UsageError(
                 f"Illegal usage: `{self.name}` is mutually exclusive with "
@@ -63,9 +66,9 @@ class MutuallyExclusiveOption(click.Option):
 def eval_cli(
     ctx: click.Context, 
     output_dir: str | None, 
-    scorecard: typing.Tuple[str, ...], 
-    check: typing.Tuple[str, ...], 
-    skip_check: typing.Tuple[str, ...], 
+    scorecard: tuple[str, ...], 
+    check: tuple[str, ...], 
+    skip_check: tuple[str, ...], 
     output_json: bool, 
     output_md: bool
 ) -> None:
@@ -83,9 +86,6 @@ def eval_cli(
         if not manifest_path.exists():
             click.echo(f"Error: manifest.json missing in {output_dir}", err=True)
             sys.exit(2)
-            
-        with open(manifest_path, encoding="utf-8") as f:
-            manifest = json.load(f)
             
         # Default to all rendered targets + graph if --scorecard not provided
         if not scorecard:

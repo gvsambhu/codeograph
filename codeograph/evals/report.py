@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-import json
+from collections import defaultdict
 from pathlib import Path
 from typing import Any, Literal
-from collections import defaultdict
 
 from pydantic import BaseModel
 
@@ -40,9 +39,9 @@ class EvalReport:
             if not evals_dir.exists():
                 continue
                 
-            for file_path in evals_dir.glob("scorecard.*.json"):
+            for file_path in evals_dir.glob("*-scorecard.json"):
                 try:
-                    with open(file_path, "r", encoding="utf-8") as f:
+                    with open(file_path, encoding="utf-8") as f:
                         sc = Scorecard.model_validate_json(f.read())
                     scorecards_by_kind[sc.kind][sc.corpus_id] = sc
                 except Exception:
@@ -162,7 +161,7 @@ class EvalReport:
             "mixed": "⚠️"
         }
         
-        lines.append(f"# Evaluation Report")
+        lines.append("# Evaluation Report")
         lines.append(f"**Overall Result:** {emoji_map.get(report.overall, '')} {report.overall.upper()}\n")
         
         for kind, checks in sorted(report.kinds.items()):

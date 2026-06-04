@@ -9,6 +9,7 @@ import click
 
 from codeograph import __version__
 from codeograph.cli.cache import cache_cli
+from codeograph.cli.eval import eval_cli
 from codeograph.cli.render import render_cli
 
 
@@ -20,10 +21,8 @@ def cli() -> None:
 
 
 cli.add_command(cache_cli)
-cli.add_command(render_cli)
-
-from codeograph.cli.eval import eval_cli
 cli.add_command(eval_cli)
+cli.add_command(render_cli)
 
 
 @cli.command()
@@ -293,8 +292,9 @@ def run(input_path: str, out: str, ast_only: bool, force: bool, run_eval: bool) 
         
         if run_eval:
             click.echo("Running evaluation (--eval requested)...")
-            from codeograph.evals.runner import EvalRunner, MissingOutputError
             import sys
+
+            from codeograph.evals.runner import EvalRunner, MissingOutputError
             
             try:
                 runner = EvalRunner()
