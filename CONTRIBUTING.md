@@ -113,3 +113,59 @@ Enforced by NFR-1.
 ## ADRs
 
 Architecture decisions land as ADRs under `docs/adr/`, numbered sequentially. Amendments to an existing ADR go in the same file under an "Amendment" heading with the date and rationale. Don't backfill ADRs to justify code — write the ADR first, then implement.
+
+## Running tests
+
+We use `pytest` for Python tests and Maven for Java tests.
+To run the fast, offline unit tests:
+```bash
+pytest -m "not integration and not external"
+```
+To run all tests including integration tests:
+```bash
+pytest
+```
+
+## Markers and when to use them
+
+We use several `pytest` markers (defined in `pyproject.toml`) to categorize tests:
+- `integration`: Tests that require the JVM subprocess or a real JAR parser.
+- `external`: Tests that depend on external tools like `npx`, `tsc`, or `mvn`.
+- `tier1`, `tier2`, `tier3`: Golden graph tests targeting specific corpus sizes.
+- `slow`: Any test taking longer than a few seconds.
+
+Use these markers explicitly using `@pytest.mark.<marker>` on your test functions.
+
+## Adding fixtures
+
+- **Tiny fixtures**: Place in `tests/fixtures/llm` or `tests/fixtures/render-fixture`.
+- **Integration mini-corpora**: Place small code samples directly in `tests/fixtures/corpora/`.
+- **Golden graphs**: Stored alongside their respective corpora.
+
+## Adding a corpus
+
+When adding a new example corpus to `examples/`:
+1. Include it in the `ci.yml` matrix under the `eval` job.
+2. Ensure it runs deterministically (use fixed versions of dependencies).
+3. Do not check in its `out/` directory; CI will generate it.
+
+## Determinism classification
+
+Determinism is strictly managed across the pipeline. Refer to `tests/helpers/determinism.py` for tools to freeze timestamps and UUIDs during test execution. 
+All tests must pass regardless of the underlying OS or timezone (`TZ=UTC` is enforced in CI).
+
+## Multi-OS extension procedure
+
+To extend CI testing to macOS or Windows:
+1. Open `.github/workflows/ci.yml`.
+2. Locate the `strategy.matrix.os: [ubuntu-latest]` block in the relevant jobs.
+3. Add `windows-latest` or `macos-latest` to the array.
+4. Ensure all paths use `pathlib` or `/` separators.
+
+## CI required checks setup (for repo admins)
+
+Repository administrators must configure branch protection rules on `main` to require the following CI jobs to pass before merging:
+- `Python (unit)`
+- `Python (integration-external)`
+- `Java (mvn test)`
+- `Cross-corpus Eval Report`
