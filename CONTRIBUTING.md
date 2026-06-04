@@ -46,18 +46,18 @@ Every change goes through a PR. Direct pushes to `main` are not used.
 All of these must be green before a PR merges:
 
 ```bash
-make lint                                      # ruff check + format check
-make typecheck                                 # mypy strict
-pytest -m "not integration" --tb=short         # Python unit tests
-pytest -m "tier1"                              # golden tests (skips if no JVM)
-cd codeograph/parser/java && mvn test          # Java parser tests
+make lint                                                    # ruff check + format check
+make typecheck                                               # mypy strict
+pytest -m "not slow and not external and not eval" --tb=short  # Python unit tests
+pytest -m "slow or external" --tb=short                      # JVM + external tests (needs JDK)
+cd codeograph/parser/java && mvn test                        # Java parser tests
 ```
 
 CI enforces these on every push to `dev/**` and on PRs to `main`. See `.github/workflows/ci.yml`.
 
 ## Golden tests
 
-The Tier 1 golden test (`tests/test_golden.py`) compares the emitted `graph.json` against checked-in goldens under `tests/goldens/tier1/`. When a deliberate change affects graph output:
+The golden test (`tests/integration/test_goldens.py`) compares the emitted `graph.json` against checked-in goldens under `tests/goldens/tier1/`. When a deliberate change affects graph output:
 
 1. Run `make golden-update` to regenerate goldens.
 2. Diff the result. Make sure every change in the diff is intended.
@@ -117,24 +117,30 @@ Architecture decisions land as ADRs under `docs/adr/`, numbered sequentially. Am
 ## Running tests
 
 We use `pytest` for Python tests and Maven for Java tests.
-To run the fast, offline unit tests:
-```bash
-pytest -m "not integration and not external"
-```
-To run all tests including integration tests:
+To run the fast, offline unit tests (this is the default — `addopts` in `pyproject.toml` already excludes slow/external/eval):
 ```bash
 pytest
+```
+To run JVM-dependent and other external tests (requires JDK on PATH):
+```bash
+pytest -m "slow or external"
+```
+To run the full suite including eval tests:
+```bash
+pytest -m "slow or external or eval"
 ```
 
 ## Markers and when to use them
 
-We use several `pytest` markers (defined in `pyproject.toml`) to categorize tests:
-- `integration`: Tests that require the JVM subprocess or a real JAR parser.
-- `external`: Tests that depend on external tools like `npx`, `tsc`, or `mvn`.
-- `tier1`, `tier2`, `tier3`: Golden graph tests targeting specific corpus sizes.
-- `slow`: Any test taking longer than a few seconds.
+We use three `pytest` markers (defined in `pyproject.toml`, ADR-018 Fork 1):
 
-Use these markers explicitly using `@pytest.mark.<marker>` on your test functions.
+| Marker | When to use |
+|---|---|
+| `slow` | Tests that take more than a few seconds |
+| `external` | Tests that depend on external tools or resources (JVM, network, `npx`, `tsc`, `mvn`) |
+| `eval` | Scorecard / evaluation tests |
+
+Use these markers explicitly with `@pytest.mark.<marker>` on your test class or function. The default `pytest` invocation (and the CI `unit` job) excludes all three.
 
 ## Adding fixtures
 
