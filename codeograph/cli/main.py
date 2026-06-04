@@ -22,6 +22,9 @@ def cli() -> None:
 cli.add_command(cache_cli)
 cli.add_command(render_cli)
 
+from codeograph.cli.eval import eval_cli
+cli.add_command(eval_cli)
+
 
 @cli.command()
 @click.argument("input_path", metavar="INPUT")
@@ -43,7 +46,14 @@ cli.add_command(render_cli)
     default=False,
     help="Overwrite output directory if it already exists and is non-empty.",
 )
-def run(input_path: str, out: str, ast_only: bool, force: bool) -> None:
+@click.option(
+    "--eval",
+    "run_eval",
+    is_flag=True,
+    default=False,
+    help="Run evaluation automatically after generation completes.",
+)
+def run(input_path: str, out: str, ast_only: bool, force: bool, run_eval: bool) -> None:
     """Run the Codeograph pipeline on INPUT.
 
     INPUT may be a local directory path, a git URL, or a path to a .zip archive.
@@ -280,6 +290,36 @@ def run(input_path: str, out: str, ast_only: bool, force: bool) -> None:
             click.echo(f"Warning: Failed to update manifest.json: {e}")
 
         click.echo("LLM passes complete.")
+        
+        if run_eval:
+            click.echo("Running evaluation (--eval requested)...")
+            from codeograph.evals.runner import EvalRunner, MissingOutputError
+            import sys
+            
+            try:
+                runner = EvalRunner()
+                
+                kinds = ["graph"]
+                for child in out_dir.iterdir():
+                    if child.is_dir() and child.name not in ("evals", ".codeograph"):
+                        kinds.append(child.name)
+                        
+                scorecards = runner.run(
+                    output_dir=out_dir,
+                    scorecard_kinds=kinds,
+                )
+                
+                has_failure = any(
+                    any(c.result == "fail" for c in s.checks) 
+                    for s in scorecards
+                )
+                
+                if has_failure:
+                    click.echo("Evaluation failed overall.")
+                    sys.exit(1)
+            except MissingOutputError as e:
+                click.echo(f"Eval Error: {e}", err=True)
+                sys.exit(2)
 
     finally:
         if corpus is not None:
