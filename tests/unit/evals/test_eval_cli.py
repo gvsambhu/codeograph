@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from click.testing import CliRunner
@@ -87,6 +88,35 @@ def test_eval_report_routed_through_top_level_cli(tmp_path: Path):
     result = runner.invoke(eval_cli, ["report", str(tmp_path)])
     assert result.exit_code == 0, result.output
     assert "Evaluation Report" in result.output
+
+
+def test_report_output_md_writes_file(tmp_path: Path):
+    """--output-md <file> writes a real markdown file (Issue #4)."""
+    from codeograph.cli.eval_report import report_cmd
+    _write_scorecard(tmp_path)
+    md_path = tmp_path / "report.md"
+    runner = CliRunner()
+    result = runner.invoke(report_cmd, [str(tmp_path), "--output-md", str(md_path)])
+    assert result.exit_code == 0, result.output
+    assert md_path.exists(), "--output-md did not create the file"
+    content = md_path.read_text(encoding="utf-8")
+    assert "Evaluation Report" in content
+    assert "placeholder" not in content.lower()
+
+
+def test_report_output_json_writes_valid_json(tmp_path: Path):
+    """--output-json <file> writes valid JSON deserializable to ReportResult (Issue #4)."""
+    from codeograph.cli.eval_report import report_cmd
+    from codeograph.evals.report import ReportResult
+    _write_scorecard(tmp_path)
+    json_path = tmp_path / "report.json"
+    runner = CliRunner()
+    result = runner.invoke(report_cmd, [str(tmp_path), "--output-json", str(json_path)])
+    assert result.exit_code == 0, result.output
+    assert json_path.exists(), "--output-json did not create the file"
+    data = json.loads(json_path.read_text(encoding="utf-8"))
+    report = ReportResult.model_validate(data)
+    assert report.overall in ("pass", "fail", "mixed")
 
 
 def test_eval_run_routed_through_top_level_cli(tmp_path: Path):
