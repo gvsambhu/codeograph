@@ -69,7 +69,7 @@ def test_assert_compile_check_byte_equal():
     expected_checks = [{"name": "tsc"}]
     # Should not raise
     assert_compile_check_byte_equal(actual, expected_checks)
-    
+
     with pytest.raises(AssertionError):
         assert_compile_check_byte_equal(actual, [{"name": "different"}])
 
@@ -79,12 +79,12 @@ def test_assert_log_contains(caplog):
     logger = logging.getLogger("test_logger")
     logger.setLevel(logging.INFO)
     logger.info("Found 3 components in module.")
-    
+
     assert_log_contains(caplog, "3 components", level=logging.INFO)
-    
+
     with pytest.raises(AssertionError):
         assert_log_contains(caplog, "4 components", level=logging.INFO)
-        
+
     with pytest.raises(AssertionError):
         assert_log_contains(caplog, "3 components", level=logging.ERROR)
 
@@ -93,10 +93,10 @@ def test_assert_iso8601():
     """Test timestamp regex."""
     assert_iso8601("2026-05-28T14:32:11Z")
     assert_iso8601("2026-05-28T14:32:11.123456Z")
-    
+
     with pytest.raises(AssertionError):
         assert_iso8601("2026-05-28 14:32:11")
-    
+
     with pytest.raises(AssertionError):
         assert_iso8601("Not a date")
 
@@ -105,9 +105,9 @@ def test_assert_sha256():
     """Test sha256 regex."""
     valid_hash = "a" * 64
     assert_sha256(valid_hash)
-    
+
     with pytest.raises(AssertionError):
         assert_sha256("short")
-        
+
     with pytest.raises(AssertionError):
         assert_sha256("z" * 64)  # invalid hex character

@@ -74,20 +74,24 @@ def check_reproducibility(output_dir: Path) -> CheckResult:
                 text=True,
             )
             if result.returncode != 0:
-                failed_runs.append({
-                    "run": run_index + 1,
-                    "returncode": result.returncode,
-                    "stderr_tail": result.stderr[-500:] if result.stderr else "",
-                })
+                failed_runs.append(
+                    {
+                        "run": run_index + 1,
+                        "returncode": result.returncode,
+                        "stderr_tail": result.stderr[-500:] if result.stderr else "",
+                    }
+                )
                 continue
 
             run_manifest_path = Path(tmp) / "manifest.json"
             if not run_manifest_path.exists():
-                failed_runs.append({
-                    "run": run_index + 1,
-                    "returncode": result.returncode,
-                    "stderr_tail": "manifest.json not found after --ast-only run",
-                })
+                failed_runs.append(
+                    {
+                        "run": run_index + 1,
+                        "returncode": result.returncode,
+                        "stderr_tail": "manifest.json not found after --ast-only run",
+                    }
+                )
                 continue
 
             run_manifest = json.loads(run_manifest_path.read_text(encoding="utf-8"))

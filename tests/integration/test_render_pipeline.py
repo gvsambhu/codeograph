@@ -256,5 +256,3 @@ class TestRoleFileSuffix:
 
         controller_files = [p for p in file_map if p.name.endswith(".controller.ts")]
         assert controller_files
-
-

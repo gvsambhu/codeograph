@@ -71,30 +71,42 @@ def _make_skip_check(check_id: str, category: str = "graph") -> CheckResult:
 
 # Patch target for all graph checks (they're imported into runner namespace)
 _GRAPH_CHECK_PATCHES = {
-    "codeograph.evals.runner.check_golden_graph_agreement":   lambda od: _make_pass_check("golden_graph_agreement"),
-    "codeograph.evals.runner.check_internal_consistency":     lambda g: _make_pass_check("internal_consistency"),
+    "codeograph.evals.runner.check_golden_graph_agreement": lambda od: _make_pass_check("golden_graph_agreement"),
+    "codeograph.evals.runner.check_internal_consistency": lambda g: _make_pass_check("internal_consistency"),
     "codeograph.evals.runner.check_relationship_correctness": lambda g: _make_pass_check("relationship_correctness"),
-    "codeograph.evals.runner.check_reproducibility":          lambda od: _make_skip_check("reproducibility"),
-    "codeograph.evals.runner.check_schema_validity":          lambda g: _make_pass_check("schema_validity"),
-    "codeograph.evals.runner.check_semantic_accuracy":        lambda g: _make_skip_check("semantic_accuracy"),
-    "codeograph.evals.runner.check_structural_completeness":  lambda g: _make_pass_check("structural_completeness"),
+    "codeograph.evals.runner.check_reproducibility": lambda od: _make_skip_check("reproducibility"),
+    "codeograph.evals.runner.check_schema_validity": lambda g: _make_pass_check("schema_validity"),
+    "codeograph.evals.runner.check_semantic_accuracy": lambda g: _make_skip_check("semantic_accuracy"),
+    "codeograph.evals.runner.check_structural_completeness": lambda g: _make_pass_check("structural_completeness"),
 }
 
 _CODE_CHECK_PATCHES = {
-    "codeograph.evals.runner.check_compile":   lambda od, t: CheckResult(
-        id="compile", category="code", value=1.0,
-        threshold=MinRatioThreshold(pass_at_or_above=1.0), rationale="test", duration_ms=1,
+    "codeograph.evals.runner.check_compile": lambda od, t: CheckResult(
+        id="compile",
+        category="code",
+        value=1.0,
+        threshold=MinRatioThreshold(pass_at_or_above=1.0),
+        rationale="test",
+        duration_ms=1,
     ),
-    "codeograph.evals.runner.check_coverage":  lambda od, t: CheckResult(
-        id="coverage", category="code", result="skip", value=None,
+    "codeograph.evals.runner.check_coverage": lambda od, t: CheckResult(
+        id="coverage",
+        category="code",
+        result="skip",
+        value=None,
         threshold=MinRatioThreshold(pass_at_or_above=0.95, fail_below=0.85),
-        rationale="test", duration_ms=0,
+        rationale="test",
+        duration_ms=0,
         details={"skip_reason": "no_v1_translatable_features_in_corpus"},
     ),
     "codeograph.evals.runner.check_llm_judge": lambda od, t: CheckResult(
-        id="llm_judge", category="code", result="skip", value=None,
+        id="llm_judge",
+        category="code",
+        result="skip",
+        value=None,
         threshold=ScoreBandThreshold(pass_at_or_above=None, fail_below=None),
-        rationale="test", duration_ms=0,
+        rationale="test",
+        duration_ms=0,
         details={"skip_reason": "deferred_v1.1"},
     ),
 }

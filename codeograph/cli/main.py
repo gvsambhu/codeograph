@@ -294,25 +294,22 @@ def run(input_path: str, out: str, ast_only: bool, force: bool, run_eval: bool) 
             import sys
 
             from codeograph.evals.runner import EvalRunner, MissingOutputError
-            
+
             try:
                 runner = EvalRunner()
-                
+
                 kinds = ["graph"]
                 for child in out_dir.iterdir():
                     if child.is_dir() and child.name not in ("evals", ".codeograph"):
                         kinds.append(child.name)
-                        
+
                 scorecards = runner.run(
                     output_dir=out_dir,
                     scorecard_kinds=kinds,
                 )
-                
-                has_failure = any(
-                    any(c.result == "fail" for c in s.checks) 
-                    for s in scorecards
-                )
-                
+
+                has_failure = any(any(c.result == "fail" for c in s.checks) for s in scorecards)
+
                 if has_failure:
                     click.echo("Evaluation failed overall.")
                     sys.exit(1)

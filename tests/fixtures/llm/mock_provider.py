@@ -18,8 +18,10 @@ from codeograph.llm.types import LlmResult, Message, Tier, TokenUsage
 
 T = TypeVar("T", bound=BaseModel)
 
+
 class MockLlmProviderError(Exception):
     """Base error for MockLlmProvider failures."""
+
     pass
 
 

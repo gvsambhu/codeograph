@@ -57,12 +57,14 @@ class TestDetectInputType:
 class TestLocalAcquirer:
     def test_raises_on_nonexistent_path(self, tmp_path: Path):
         from codeograph.input.source_discoverer import SourceDiscoverer
+
         acquirer = LocalAcquirer(SourceDiscoverer())
         with pytest.raises(AcquisitionError, match="does not exist"):
             acquirer.acquire(str(tmp_path / "nonexistent"))
 
     def test_raises_on_file_not_directory(self, tmp_path: Path):
         from codeograph.input.source_discoverer import SourceDiscoverer
+
         f = tmp_path / "file.txt"
         f.write_text("content", encoding="utf-8")
         acquirer = LocalAcquirer(SourceDiscoverer())
@@ -71,6 +73,7 @@ class TestLocalAcquirer:
 
     def test_acquires_empty_directory(self, tmp_path: Path):
         from codeograph.input.source_discoverer import SourceDiscoverer
+
         acquirer = LocalAcquirer(SourceDiscoverer())
         corpus = acquirer.acquire(str(tmp_path))
         assert corpus.acquisition_source == AcquisitionSource.LOCAL
@@ -79,6 +82,7 @@ class TestLocalAcquirer:
 
     def test_acquires_directory_with_java_files(self, tmp_path: Path):
         from codeograph.input.source_discoverer import SourceDiscoverer
+
         src = tmp_path / "src" / "main" / "java" / "com" / "example"
         src.mkdir(parents=True)
         (src / "Foo.java").write_text("public class Foo {}", encoding="utf-8")

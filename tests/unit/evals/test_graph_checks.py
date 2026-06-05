@@ -82,12 +82,14 @@ def _empty_graph() -> CodeographKnowledgeGraph:
 class TestStructuralCompleteness:
     def test_empty_graph_returns_one(self):
         from codeograph.evals.checks.graph.structural_completeness import check_structural_completeness
+
         result = check_structural_completeness(_empty_graph())
         assert result.value == 1.0
         assert result.result == "pass"
 
     def test_all_ast_nodes_returns_one(self):
         from codeograph.evals.checks.graph.structural_completeness import check_structural_completeness
+
         graph = CodeographKnowledgeGraph(
             nodes=[_class_node("com.example.A", "ast"), _class_node("com.example.B", "ast")],
             edges=[],
@@ -98,6 +100,7 @@ class TestStructuralCompleteness:
 
     def test_regex_node_lowers_value(self):
         from codeograph.evals.checks.graph.structural_completeness import check_structural_completeness
+
         graph = CodeographKnowledgeGraph(
             nodes=[
                 _class_node("com.example.A", "ast"),
@@ -111,6 +114,7 @@ class TestStructuralCompleteness:
 
     def test_details_contain_counts(self):
         from codeograph.evals.checks.graph.structural_completeness import check_structural_completeness
+
         graph = CodeographKnowledgeGraph(nodes=[_class_node()], edges=[])
         result = check_structural_completeness(graph)
         assert "total_nodes" in result.details
@@ -126,12 +130,14 @@ class TestStructuralCompleteness:
 class TestRelationshipCorrectness:
     def test_empty_graph_returns_one(self):
         from codeograph.evals.checks.graph.relationship_correctness import check_relationship_correctness
+
         result = check_relationship_correctness(_empty_graph())
         assert result.value == 1.0
         assert result.result == "pass"
 
     def test_resolved_edge_returns_one(self):
         from codeograph.evals.checks.graph.relationship_correctness import check_relationship_correctness
+
         graph = CodeographKnowledgeGraph(
             nodes=[_class_node("com.example.A"), _class_node("com.example.B")],
             edges=[_depends_on_edge("com.example.A", "com.example.B")],
@@ -143,6 +149,7 @@ class TestRelationshipCorrectness:
         # A calls_resolved edge pointing to a missing target lowers the ratio.
         # (depends_on edges with missing targets are not scored — only calls_resolved.)
         from codeograph.evals.checks.graph.relationship_correctness import check_relationship_correctness
+
         graph = CodeographKnowledgeGraph(
             nodes=[_class_node("com.example.A")],
             edges=[_calls_resolved_edge("com.example.A", "com.example.Missing")],
@@ -154,6 +161,7 @@ class TestRelationshipCorrectness:
     def test_depends_on_edge_with_missing_target_does_not_lower_value(self):
         # depends_on edges are excluded from the call-resolution ratio.
         from codeograph.evals.checks.graph.relationship_correctness import check_relationship_correctness
+
         graph = CodeographKnowledgeGraph(
             nodes=[_class_node("com.example.A")],
             edges=[_depends_on_edge("com.example.A", "com.example.Missing")],
@@ -164,6 +172,7 @@ class TestRelationshipCorrectness:
 
     def test_details_contain_edge_counts(self):
         from codeograph.evals.checks.graph.relationship_correctness import check_relationship_correctness
+
         graph = CodeographKnowledgeGraph(
             nodes=[_class_node("com.example.A"), _class_node("com.example.B")],
             edges=[_calls_resolved_edge("com.example.A", "com.example.B")],
@@ -182,12 +191,14 @@ class TestRelationshipCorrectness:
 class TestInternalConsistency:
     def test_empty_graph_zero_violations(self):
         from codeograph.evals.checks.graph.internal_consistency import check_internal_consistency
+
         result = check_internal_consistency(_empty_graph())
         assert result.value == 0
         assert result.result == "pass"
 
     def test_valid_graph_zero_violations(self):
         from codeograph.evals.checks.graph.internal_consistency import check_internal_consistency
+
         graph = CodeographKnowledgeGraph(
             nodes=[_class_node("com.example.Foo"), _method_node("com.example.Foo#bar()")],
             edges=[],
@@ -197,6 +208,7 @@ class TestInternalConsistency:
 
     def test_method_with_missing_parent_class_is_violation(self):
         from codeograph.evals.checks.graph.internal_consistency import check_internal_consistency
+
         # Method whose parent FQCN does not exist in the graph
         graph = CodeographKnowledgeGraph(
             nodes=[_method_node("com.example.Orphan#doSomething()")],
@@ -207,6 +219,7 @@ class TestInternalConsistency:
 
     def test_violations_listed_in_details(self):
         from codeograph.evals.checks.graph.internal_consistency import check_internal_consistency
+
         graph = CodeographKnowledgeGraph(
             nodes=[_method_node("com.example.Ghost#run()")],
             edges=[],
@@ -223,6 +236,7 @@ class TestInternalConsistency:
 
 def test_semantic_accuracy_always_skips():
     from codeograph.evals.checks.graph.semantic_accuracy import check_semantic_accuracy
+
     result = check_semantic_accuracy(_empty_graph())
     assert result.result == "skip"
     assert result.details.get("skip_reason") == "deferred_v1.1"
@@ -236,6 +250,7 @@ def test_semantic_accuracy_always_skips():
 
 def test_schema_validity_passes_for_valid_graph():
     from codeograph.evals.checks.graph.schema_validity import check_schema_validity
+
     result = check_schema_validity(_empty_graph())
     assert result.result == "pass"
     assert result.value is True
@@ -248,6 +263,7 @@ def test_schema_validity_passes_for_valid_graph():
 
 def test_reproducibility_skips_when_source_path_empty(tmp_path: Path):
     from codeograph.evals.checks.graph.reproducibility import check_reproducibility
+
     manifest = {
         "schema_version": "1.6.0",
         "codeograph_version": "0.1.0",
@@ -271,6 +287,7 @@ def test_reproducibility_skips_when_source_path_empty(tmp_path: Path):
 
 def test_golden_graph_agreement_skips_when_no_golden(tmp_path: Path):
     from codeograph.evals.checks.graph.golden_graph_agreement import check_golden_graph_agreement
+
     manifest = {
         "schema_version": "1.6.0",
         "codeograph_version": "0.1.0",

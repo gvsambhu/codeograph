@@ -77,10 +77,18 @@ def test_compile_skip_when_sha256_mismatch(tmp_path: Path):
 
 def test_compile_skip_all_preflight(tmp_path: Path):
     """All checks need a tool that's not on PATH → slot skip preflight_missing_tool."""
-    _, sha = _write_sidecar(tmp_path, [
-        {"name": "tsc", "cmd": ["npx", "tsc"], "workdir": ".",
-         "required_tools": ["definitely-not-on-path-xyz"], "pass_on_exit_codes": [0]},
-    ])
+    _, sha = _write_sidecar(
+        tmp_path,
+        [
+            {
+                "name": "tsc",
+                "cmd": ["npx", "tsc"],
+                "workdir": ".",
+                "required_tools": ["definitely-not-on-path-xyz"],
+                "pass_on_exit_codes": [0],
+            },
+        ],
+    )
     _write_manifest(tmp_path, {"path": "evals/compile-checks.ts.json", "sha256": sha})
     result = check_compile(tmp_path, "ts")
     assert result.result == "skip"
@@ -94,8 +102,10 @@ def test_compile_skip_all_preflight(tmp_path: Path):
 
 def _make_completed(returncode: int, stdout: str = "", stderr: str = "") -> object:
     """Return a mock CompletedProcess-like object."""
+
     class _R:
         pass
+
     r = _R()
     r.returncode = returncode  # type: ignore[attr-defined]
     r.stdout = stdout  # type: ignore[attr-defined]
@@ -105,10 +115,18 @@ def _make_completed(returncode: int, stdout: str = "", stderr: str = "") -> obje
 
 def test_compile_pass_when_all_checks_pass(tmp_path: Path):
     """All checks return exit code 0 → value=1.0."""
-    _, sha = _write_sidecar(tmp_path, [
-        {"name": "tsc", "cmd": ["tsc", "--noEmit"], "workdir": ".",
-         "required_tools": [], "pass_on_exit_codes": [0]},
-    ])
+    _, sha = _write_sidecar(
+        tmp_path,
+        [
+            {
+                "name": "tsc",
+                "cmd": ["tsc", "--noEmit"],
+                "workdir": ".",
+                "required_tools": [],
+                "pass_on_exit_codes": [0],
+            },
+        ],
+    )
     _write_manifest(tmp_path, {"path": "evals/compile-checks.ts.json", "sha256": sha})
     with patch("subprocess.run", return_value=_make_completed(0, "OK", "")):
         result = check_compile(tmp_path, "ts")
@@ -118,12 +136,13 @@ def test_compile_pass_when_all_checks_pass(tmp_path: Path):
 
 def test_compile_fail_when_check_fails(tmp_path: Path):
     """A check returns non-zero → value < 1.0, result fail."""
-    _, sha = _write_sidecar(tmp_path, [
-        {"name": "tsc", "cmd": ["tsc"], "workdir": ".",
-         "required_tools": [], "pass_on_exit_codes": [0]},
-        {"name": "lint", "cmd": ["lint"], "workdir": ".",
-         "required_tools": [], "pass_on_exit_codes": [0]},
-    ])
+    _, sha = _write_sidecar(
+        tmp_path,
+        [
+            {"name": "tsc", "cmd": ["tsc"], "workdir": ".", "required_tools": [], "pass_on_exit_codes": [0]},
+            {"name": "lint", "cmd": ["lint"], "workdir": ".", "required_tools": [], "pass_on_exit_codes": [0]},
+        ],
+    )
     _write_manifest(tmp_path, {"path": "evals/compile-checks.ts.json", "sha256": sha})
 
     side_effects = [_make_completed(0), _make_completed(1, stderr="error")]
@@ -135,12 +154,19 @@ def test_compile_fail_when_check_fails(tmp_path: Path):
 
 def test_compile_pass_with_mixed_preflight_skip_and_run(tmp_path: Path):
     """One check runs and passes; one is preflight-skipped → pass, value from ran checks."""
-    _, sha = _write_sidecar(tmp_path, [
-        {"name": "tsc", "cmd": ["tsc"], "workdir": ".",
-         "required_tools": [], "pass_on_exit_codes": [0]},
-        {"name": "go_build", "cmd": ["go", "build"], "workdir": ".",
-         "required_tools": ["definitely-not-on-path-xyz"], "pass_on_exit_codes": [0]},
-    ])
+    _, sha = _write_sidecar(
+        tmp_path,
+        [
+            {"name": "tsc", "cmd": ["tsc"], "workdir": ".", "required_tools": [], "pass_on_exit_codes": [0]},
+            {
+                "name": "go_build",
+                "cmd": ["go", "build"],
+                "workdir": ".",
+                "required_tools": ["definitely-not-on-path-xyz"],
+                "pass_on_exit_codes": [0],
+            },
+        ],
+    )
     _write_manifest(tmp_path, {"path": "evals/compile-checks.ts.json", "sha256": sha})
     with patch("subprocess.run", return_value=_make_completed(0)):
         result = check_compile(tmp_path, "ts")
@@ -152,10 +178,13 @@ def test_compile_pass_with_mixed_preflight_skip_and_run(tmp_path: Path):
 def test_compile_timeout_counts_as_fail(tmp_path: Path):
     """Subprocess timeout → check fails with timeout flag."""
     import subprocess as sp
-    _, sha = _write_sidecar(tmp_path, [
-        {"name": "tsc", "cmd": ["tsc"], "workdir": ".",
-         "required_tools": [], "pass_on_exit_codes": [0]},
-    ])
+
+    _, sha = _write_sidecar(
+        tmp_path,
+        [
+            {"name": "tsc", "cmd": ["tsc"], "workdir": ".", "required_tools": [], "pass_on_exit_codes": [0]},
+        ],
+    )
     _write_manifest(tmp_path, {"path": "evals/compile-checks.ts.json", "sha256": sha})
     exc = sp.TimeoutExpired(cmd=["tsc"], timeout=120)
     exc.stdout = b""

@@ -102,6 +102,7 @@ def mock_llm_provider() -> MockLlmProvider:
 @pytest.fixture
 def make_mock_provider():
     from tests.fixtures.llm.mock_provider import MockLlmProviderBuilder
+
     return MockLlmProviderBuilder
 
 

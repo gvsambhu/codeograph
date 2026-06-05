@@ -39,10 +39,7 @@ def assert_compile_check_byte_equal(
 
 def assert_log_contains(caplog: Any, message_substring: str, *, level: int = logging.INFO) -> None:
     """Assert that a given string appears in the captured logs at the specified level."""
-    found = any(
-        message_substring in record.message and record.levelno == level
-        for record in caplog.records
-    )
+    found = any(message_substring in record.message and record.levelno == level for record in caplog.records)
     assert found, f"Expected substring '{message_substring}' not found in logs at level {level}"
 
 

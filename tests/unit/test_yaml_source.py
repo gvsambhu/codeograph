@@ -11,6 +11,7 @@ def test_yaml_source_returns_empty_when_no_file(tmp_path: Path, monkeypatch: pyt
     """No config.yaml → _load() returns {}."""
     monkeypatch.chdir(tmp_path)
     from codeograph.config.yaml_source import YamlConfigSource
+
     assert YamlConfigSource._load() == {}
 
 
@@ -21,6 +22,7 @@ def test_yaml_source_reads_values(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
     from importlib import reload
 
     import codeograph.config.yaml_source as ys_mod
+
     reload(ys_mod)  # re-evaluate _CONFIG_YAML relative to new cwd
     data = ys_mod.YamlConfigSource._load()
     assert data.get("llm_provider") == "anthropic"
@@ -33,5 +35,6 @@ def test_yaml_source_returns_empty_for_non_dict(tmp_path: Path, monkeypatch: pyt
     from importlib import reload
 
     import codeograph.config.yaml_source as ys_mod
+
     reload(ys_mod)
     assert ys_mod.YamlConfigSource._load() == {}

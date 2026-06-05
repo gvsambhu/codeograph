@@ -26,7 +26,11 @@ def check_internal_consistency(graph: CodeographKnowledgeGraph) -> CheckResult:
                 violations.append(f"Class node '{n.id}' does not reference a valid package")
 
     # (c) method's parent class exists
-    class_ids = {node.root.id for node in graph.nodes if node.root.kind in ("class", "interface", "enum", "record", "annotation_type")}
+    class_ids = {
+        node.root.id
+        for node in graph.nodes
+        if node.root.kind in ("class", "interface", "enum", "record", "annotation_type")
+    }
     for node in graph.nodes:
         n = node.root
         if n.kind == "method":
@@ -35,9 +39,9 @@ def check_internal_consistency(graph: CodeographKnowledgeGraph) -> CheckResult:
                 violations.append(f"Method '{n.id}' parent class '{parent_fqcn}' does not exist in graph")
 
     # (d) every ADR-009 domain non-empty
-    # TODO: learner to verify domain mapping logic. As domains are computed in the rendering step, 
+    # TODO: learner to verify domain mapping logic. As domains are computed in the rendering step,
     # the invariant check might require a different approach or analyzing class package prefixes.
-    pass 
+    pass
 
     # (e) unresolved_call edges have origin + target FQCN
     for edge in graph.edges:

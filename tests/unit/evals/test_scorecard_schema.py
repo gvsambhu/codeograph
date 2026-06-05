@@ -169,12 +169,15 @@ class TestScoreBandThreshold:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("threshold", [
-    pytest.param(BooleanThreshold(expected=True), id="boolean"),
-    pytest.param(MinRatioThreshold(pass_at_or_above=0.95), id="min_ratio"),
-    pytest.param(MaxCountThreshold(pass_at_or_below=0), id="max_count"),
-    pytest.param(ScoreBandThreshold(pass_at_or_above=0.80, fail_below=0.50), id="score_band"),
-])
+@pytest.mark.parametrize(
+    "threshold",
+    [
+        pytest.param(BooleanThreshold(expected=True), id="boolean"),
+        pytest.param(MinRatioThreshold(pass_at_or_above=0.95), id="min_ratio"),
+        pytest.param(MaxCountThreshold(pass_at_or_below=0), id="max_count"),
+        pytest.param(ScoreBandThreshold(pass_at_or_above=0.80, fail_below=0.50), id="score_band"),
+    ],
+)
 def test_none_value_always_skips(threshold):
     r = _check(threshold, value=None)
     assert r.result == "skip"
@@ -220,7 +223,7 @@ def test_check_result_json_round_trip():
     dumped = original.model_dump()
     restored = CheckResult.model_validate(dumped)
     assert restored.id == original.id
-    assert restored.result == "pass"   # derived from value=True, expected=True
+    assert restored.result == "pass"  # derived from value=True, expected=True
     assert restored.duration_ms == 42
 
 

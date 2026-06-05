@@ -117,11 +117,13 @@ def check_compile(output_dir: Path, target: str) -> CheckResult:
         missing_tools = [t for t in required_tools if shutil.which(t) is None]
         if missing_tools:
             preflight_skips.append(name)
-            check_results.append({
-                "name": name,
-                "status": "preflight_skip",
-                "missing_tools": missing_tools,
-            })
+            check_results.append(
+                {
+                    "name": name,
+                    "status": "preflight_skip",
+                    "missing_tools": missing_tools,
+                }
+            )
             continue
 
         # Execute with timeout; continue regardless of result (Fork 6)
@@ -157,15 +159,17 @@ def check_compile(output_dir: Path, target: str) -> CheckResult:
         stdout_tail = "\n".join(stdout.splitlines()[-_TAIL_LINES:])
         stderr_tail = "\n".join(stderr.splitlines()[-_TAIL_LINES:])
 
-        check_results.append({
-            "name": name,
-            "status": "pass" if passed else "fail",
-            "exit_code": exit_code,
-            "timeout": timed_out,
-            "stdout_tail": stdout_tail,
-            "stderr_tail": stderr_tail,
-            "log_path": str(log_path),
-        })
+        check_results.append(
+            {
+                "name": name,
+                "status": "pass" if passed else "fail",
+                "exit_code": exit_code,
+                "timeout": timed_out,
+                "stdout_tail": stdout_tail,
+                "stderr_tail": stderr_tail,
+                "log_path": str(log_path),
+            }
+        )
 
     # ------------------------------------------------------------------ #
     # 4. Aggregate per ADR-017 Fork 4 rules

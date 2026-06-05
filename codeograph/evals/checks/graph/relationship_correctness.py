@@ -19,7 +19,7 @@ def check_relationship_correctness(graph: CodeographKnowledgeGraph) -> CheckResu
 
     total_edges = 0
     unresolved_call_edges = 0
-    resolved_call_edges = 0        # calls_resolved with both endpoints in graph
+    resolved_call_edges = 0  # calls_resolved with both endpoints in graph
     broken_resolved_call_edges = 0  # calls_resolved with a missing endpoint
 
     for edge_wrapper in graph.edges:

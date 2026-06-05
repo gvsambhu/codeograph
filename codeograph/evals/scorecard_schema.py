@@ -107,6 +107,7 @@ class Scorecard(BaseModel):
     reproducibility: ReproducibilityInfo
     checks: list[CheckResult]
 
+
 __all__ = [
     "BooleanThreshold",
     "MinRatioThreshold",
