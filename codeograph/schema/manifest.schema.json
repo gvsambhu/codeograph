@@ -10,7 +10,7 @@
     "schema_version": {
       "type": "string",
       "description": "Semver of the manifest schema itself (this file). Bump when manifest structure changes.",
-      "examples": ["1.6.0"]
+      "examples": ["1.7.0"]
     },
     "source_path": {
       "type": "string",
@@ -21,6 +21,11 @@
       "type": "string",
       "description": "Stable identifier for this corpus — the root directory name of the input. Used by codeograph eval golden_graph_agreement check to locate tests/goldens/<corpus_id>/graph.json. Added in manifest schema 1.6.0.",
       "examples": ["spring-rest-sample", "spring-blog-api"]
+    },
+    "run_id": {
+      "type": ["string", "null"],
+      "description": "UUID4 generated at write time; correlates graph-scorecard, ts-scorecard, and telemetry JSONL records for one producing run. Added in manifest schema 1.7.0.",
+      "examples": ["a1b2c3d4-e5f6-7890-abcd-ef1234567890"]
     },
     "codeograph_version": {
       "type": "string",
