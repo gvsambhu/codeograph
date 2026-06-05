@@ -71,3 +71,40 @@ def test_report_cmd_requires_at_least_one_dir():
     runner = CliRunner()
     result = runner.invoke(report_cmd, [])
     assert result.exit_code != 0
+
+
+def test_eval_report_routed_through_top_level_cli(tmp_path: Path):
+    """eval report must be reachable via the top-level eval group (Issue #1).
+
+    Previously `codeograph eval report <dir>` parsed 'report' as the
+    OUTPUT_DIR positional arg on the group, making the subcommand unreachable.
+    This test goes through eval_cli (not report_cmd directly) to catch
+    any future routing regression.
+    """
+    from codeograph.cli.eval import eval_cli
+    _write_scorecard(tmp_path)
+    runner = CliRunner()
+    result = runner.invoke(eval_cli, ["report", str(tmp_path)])
+    assert result.exit_code == 0, result.output
+    assert "Evaluation Report" in result.output
+
+
+def test_eval_run_routed_through_top_level_cli(tmp_path: Path):
+    """eval run must be reachable and produce JSON scorecard output (Issue #1)."""
+    from unittest.mock import MagicMock, patch
+
+    from codeograph.cli.eval import eval_cli
+
+    # Write a minimal manifest so the run_cmd manifest check passes
+    (tmp_path / "manifest.json").write_text("{}", encoding="utf-8")
+
+    mock_sc = MagicMock()
+    mock_sc.model_dump_json.return_value = '{"kind":"graph"}'
+    mock_sc.checks = []
+
+    with patch("codeograph.cli.eval.EvalRunner") as MockRunner:
+        MockRunner.return_value.run.return_value = [mock_sc]
+        runner = CliRunner()
+        result = runner.invoke(eval_cli, ["run", str(tmp_path)])
+
+    assert result.exit_code == 0, result.output
