@@ -33,6 +33,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import uuid
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
@@ -50,7 +51,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 GRAPH_SCHEMA_VERSION = "1.0.0"
-MANIFEST_SCHEMA_VERSION = "1.6.0"  # 1.1 cache_stats; 1.3 scorecards; 1.4 compile_checks; 1.5 source_path; 1.6 corpus_id
+MANIFEST_SCHEMA_VERSION = "1.7.0"  # 1.1 cache_stats; 1.3 scorecards; 1.4 compile_checks; 1.5 source_path; 1.6 corpus_id; 1.7 run_id
 
 GRAPH_FILENAME = "graph.json"
 MANIFEST_FILENAME = "manifest.json"
@@ -204,6 +205,7 @@ class GraphWriter:
             codeograph_version=self._tool_version(),
             source_path=str(source_path.resolve()) if source_path else "",
             corpus_id=corpus_id,
+            run_id=str(uuid.uuid4()),
             artefacts=Artefacts(
                 graph=ArtefactMeta(
                     path=GRAPH_FILENAME,

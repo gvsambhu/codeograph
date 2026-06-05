@@ -109,6 +109,14 @@ class CodeographRunManifest(BaseModel):
             examples=["spring-rest-sample", "spring-blog-api"],
         ),
     ]
+    run_id: Annotated[
+        str | None,
+        Field(
+            default=None,
+            description="UUID4 generated at write time; correlates graph-scorecard, ts-scorecard, and telemetry JSONL records for one producing run. Added in manifest schema 1.7.0.",
+            examples=["a1b2c3d4-e5f6-7890-abcd-ef1234567890"],
+        ),
+    ] = None
     artefacts: Annotated[
         Artefacts,
         Field(

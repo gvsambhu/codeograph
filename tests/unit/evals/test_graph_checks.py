@@ -14,6 +14,7 @@ from pathlib import Path
 import pytest
 
 from codeograph.graph.models.graph_schema import (
+    CallsResolvedEdge,
     ClassNode,
     CodeographKnowledgeGraph,
     DependsOnEdge,
@@ -63,6 +64,10 @@ def _method_node(fqcn: str = "com.example.Foo#bar()") -> Node:
 
 def _depends_on_edge(source: str, target: str) -> Edge:
     return Edge(root=DependsOnEdge(source=source, target=target, kind="depends_on"))
+
+
+def _calls_resolved_edge(source: str, target: str) -> Edge:
+    return Edge(root=CallsResolvedEdge(source=source, target=target, kind="calls_resolved", call_count=1))
 
 
 def _empty_graph() -> CodeographKnowledgeGraph:
@@ -134,25 +139,39 @@ class TestRelationshipCorrectness:
         result = check_relationship_correctness(graph)
         assert result.value == 1.0
 
-    def test_dangling_edge_lowers_value(self):
+    def test_dangling_calls_resolved_edge_lowers_value(self):
+        # A calls_resolved edge pointing to a missing target lowers the ratio.
+        # (depends_on edges with missing targets are not scored — only calls_resolved.)
+        from codeograph.evals.checks.graph.relationship_correctness import check_relationship_correctness
+        graph = CodeographKnowledgeGraph(
+            nodes=[_class_node("com.example.A")],
+            edges=[_calls_resolved_edge("com.example.A", "com.example.Missing")],
+        )
+        result = check_relationship_correctness(graph)
+        assert result.value < 1.0
+        assert result.result == "fail"
+
+    def test_depends_on_edge_with_missing_target_does_not_lower_value(self):
+        # depends_on edges are excluded from the call-resolution ratio.
         from codeograph.evals.checks.graph.relationship_correctness import check_relationship_correctness
         graph = CodeographKnowledgeGraph(
             nodes=[_class_node("com.example.A")],
             edges=[_depends_on_edge("com.example.A", "com.example.Missing")],
         )
         result = check_relationship_correctness(graph)
-        assert result.value < 1.0
-        assert result.result == "fail"
+        assert result.value == 1.0  # no calls_resolved edges → default 1.0
+        assert result.result == "pass"
 
     def test_details_contain_edge_counts(self):
         from codeograph.evals.checks.graph.relationship_correctness import check_relationship_correctness
         graph = CodeographKnowledgeGraph(
             nodes=[_class_node("com.example.A"), _class_node("com.example.B")],
-            edges=[_depends_on_edge("com.example.A", "com.example.B")],
+            edges=[_calls_resolved_edge("com.example.A", "com.example.B")],
         )
         result = check_relationship_correctness(graph)
         assert "total_edges" in result.details
-        assert "resolved_edges" in result.details
+        assert "resolved_call_edges" in result.details
+        assert "broken_resolved_call_edges" in result.details
 
 
 # ---------------------------------------------------------------------------

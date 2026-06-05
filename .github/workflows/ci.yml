@@ -198,7 +198,7 @@ jobs:
         run: |
           if [ -d "examples/${{ matrix.corpus }}" ]; then
             codeograph run examples/${{ matrix.corpus }} --out /tmp/${{ matrix.corpus }}-out --ast-only
-            codeograph eval /tmp/${{ matrix.corpus }}-out
+            codeograph eval run /tmp/${{ matrix.corpus }}-out
           else
             echo "Skipping — examples/${{ matrix.corpus }} does not exist yet."
             mkdir -p /tmp/${{ matrix.corpus }}-out/evals

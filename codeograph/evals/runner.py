@@ -71,7 +71,7 @@ class EvalRunner:
     """
 
     def __init__(self) -> None:
-        self.thread_pool = ThreadPoolExecutor(max_workers=4)
+        pass  # No long-lived resources; ThreadPoolExecutor is scoped to run()
 
     def run(
         self,
@@ -230,7 +230,8 @@ class EvalRunner:
             )
 
         if code_targets:
-            results = list(self.thread_pool.map(_eval_target, code_targets))
+            with ThreadPoolExecutor(max_workers=4) as pool:
+                results = list(pool.map(_eval_target, code_targets))
             scorecards.extend(results)
 
         # ---------------------------------------------------------------- #

@@ -86,13 +86,9 @@ addopts = "-m 'not slow and not external and not eval' --cov=codeograph --cov-re
 asyncio_mode = "auto"
 # Use --update-goldens to refresh golden files in tests/test_golden.py
 markers = [
-    "integration: marks tests that require JVM subprocess or real JAR (deselect with -m 'not integration')",
-    "tier1: Tier 1 golden tests — surgical fixture, run on every CI push",
-    "tier2: Tier 2 golden tests — PetClinic real-world corpus, run on every CI push",
-    "tier3: Tier 3 golden tests — scale corpus, nightly only (deselect with -m 'not tier3')",
-    "slow: marks slow tests",
-    "external: marks tests that depend on external resources",
-    "eval: marks evaluation tests",
+    "slow: marks slow tests (deselect with -m 'not slow')",
+    "external: marks tests that depend on external tools or resources (JVM, network, etc.)",
+    "eval: marks evaluation/scorecard tests (deselect with -m 'not eval')",
 ]
 
 [tool.coverage.run]

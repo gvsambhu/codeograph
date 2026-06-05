@@ -82,18 +82,18 @@
           "description": "Primary Spring stereotype (ADR-003 §9, DECISION-1 resolved). Short name, no @ prefix. Null if no stereotype annotation is present."
         },
         "annotations": {
-          "type": "array",
+          "type": ["array", "null"],
           "items": { "type": "string" },
-          "description": "ALL annotation simple names present on this class, including those not in the interpreted list. e.g. [\"Service\", \"Transactional\", \"Validated\"]. Superset of stereotype."
+          "description": "ALL annotation simple names present on this class, including those not in the interpreted list. e.g. [\"Service\", \"Transactional\", \"Validated\"]. Null when no annotations present."
         },
         "superclass": {
           "type": ["string", "null"],
           "description": "FQCN of the superclass, or null if extends Object implicitly."
         },
         "implements": {
-          "type": "array",
+          "type": ["array", "null"],
           "items": { "type": "string" },
-          "description": "FQCNs of implemented interfaces."
+          "description": "FQCNs of implemented interfaces. Null when none."
         },
         "is_inner_class": {
           "type": "boolean",
@@ -151,14 +151,14 @@
           "items": { "type": "string", "enum": ["public", "protected", "private", "abstract", "static"] }
         },
         "annotations": {
-          "type": "array",
+          "type": ["array", "null"],
           "items": { "type": "string" },
-          "description": "Annotation simple names on this interface."
+          "description": "Annotation simple names on this interface. Null when none."
         },
         "extends_interfaces": {
-          "type": "array",
+          "type": ["array", "null"],
           "items": { "type": "string" },
-          "description": "FQCNs of extended interfaces."
+          "description": "FQCNs of extended interfaces. Null when none."
         },
         "source_file": { "type": "string", "description": "Path relative to the repository root (DECISION-2 resolved)." },
         "line_range": {
@@ -188,14 +188,14 @@
           "description": "Enum constant names in declaration order."
         },
         "annotations": {
-          "type": "array",
+          "type": ["array", "null"],
           "items": { "type": "string" },
-          "description": "Annotation simple names on this enum."
+          "description": "Annotation simple names on this enum. Null when none."
         },
         "implements": {
-          "type": "array",
+          "type": ["array", "null"],
           "items": { "type": "string" },
-          "description": "FQCNs of implemented interfaces."
+          "description": "FQCNs of implemented interfaces. Null when none."
         },
         "source_file": { "type": "string", "description": "Path relative to the repository root (DECISION-2 resolved)." },
         "line_range": {
@@ -221,14 +221,14 @@
           "description": "Record components in declaration order."
         },
         "annotations": {
-          "type": "array",
+          "type": ["array", "null"],
           "items": { "type": "string" },
-          "description": "Annotation simple names on this record."
+          "description": "Annotation simple names on this record. Null when none."
         },
         "implements": {
-          "type": "array",
+          "type": ["array", "null"],
           "items": { "type": "string" },
-          "description": "FQCNs of implemented interfaces."
+          "description": "FQCNs of implemented interfaces. Null when none."
         },
         "source_file": { "type": "string", "description": "Path relative to the repository root (DECISION-2 resolved)." },
         "line_range": {
@@ -290,9 +290,9 @@
           "items": { "type": "string", "enum": ["public", "protected", "private", "abstract", "final", "static", "synchronized", "native"] }
         },
         "annotations": {
-          "type": "array",
+          "type": ["array", "null"],
           "items": { "type": "string" },
-          "description": "ALL annotation simple names on this method. e.g. [\"GetMapping\", \"ResponseBody\", \"Override\"]."
+          "description": "ALL annotation simple names on this method. e.g. [\"GetMapping\", \"ResponseBody\", \"Override\"]. Null when no annotations present."
         },
         "is_constructor": { "type": "boolean" },
         "line_range": {
@@ -314,24 +314,24 @@
           "description": "Method lines of code excluding blank lines and comments (ADR-004). Null if ClassNode.extraction_mode != 'ast'."
         },
         "http_metadata": {
-          "$ref": "#/$defs/HttpMetadata",
-          "description": "HTTP mapping details if this method carries a mapping annotation (@GetMapping etc.). Null/absent if not a request handler."
+          "oneOf": [{ "$ref": "#/$defs/HttpMetadata" }, { "type": "null" }],
+          "description": "HTTP mapping details if this method carries a mapping annotation (@GetMapping etc.). Null when not a request handler."
         },
         "exception_handler": {
-          "type": "boolean",
-          "description": "True if this method carries @ExceptionHandler (ADR-003 §9 — REST exception flow category)."
+          "type": ["boolean", "null"],
+          "description": "True if this method carries @ExceptionHandler (ADR-003 §9 — REST exception flow category). Null when not present."
         },
         "response_status": {
           "type": ["integer", "null"],
           "description": "HTTP status code from @ResponseStatus(value=...) or @ResponseStatus(code=...), or null if not present."
         },
         "response_body": {
-          "type": "boolean",
-          "description": "True if this method is annotated with @ResponseBody (or is on a @RestController class, which implies it)."
+          "type": ["boolean", "null"],
+          "description": "True if this method is annotated with @ResponseBody (or is on a @RestController class, which implies it). Null when not applicable."
         },
         "is_bean_factory": {
-          "type": "boolean",
-          "description": "True if this method carries @Bean (ADR-003 §9 — Boot bootstrap category). Triggers a BeanFactoryEdge from this method to the return type."
+          "type": ["boolean", "null"],
+          "description": "True if this method carries @Bean (ADR-003 §9 — Boot bootstrap category). Null when not present."
         }
       }
     },
@@ -351,16 +351,16 @@
           "items": { "type": "string", "enum": ["public", "protected", "private", "final", "static", "transient", "volatile"] }
         },
         "annotations": {
-          "type": "array",
+          "type": ["array", "null"],
           "items": { "type": "string" },
-          "description": "ALL annotation simple names on this field. e.g. [\"Autowired\", \"NotNull\", \"Column\"]."
+          "description": "ALL annotation simple names on this field. e.g. [\"Autowired\", \"NotNull\", \"Column\"]. Null when no annotations present."
         },
         "is_autowired": {
-          "type": "boolean",
+          "type": ["boolean", "null"],
           "description": "True if this field carries @Autowired, @Inject, or equivalent (DECISION-4 resolved: include). Redundant with the AutowiresEdge but simplifies renderer queries without edge traversal."
         },
         "is_id": {
-          "type": "boolean",
+          "type": ["boolean", "null"],
           "description": "True if this field carries @Id (ADR-003 §9 — JPA core category). Primary key field."
         },
         "generation": {
@@ -369,13 +369,13 @@
           "description": "GenerationType from @GeneratedValue(strategy=...), or null if @GeneratedValue is absent or field is not @Id."
         },
         "column": {
-          "$ref": "#/$defs/ColumnMetadata",
-          "description": "Column mapping from @Column, if present. Null/absent if no @Column annotation."
+          "oneOf": [{ "$ref": "#/$defs/ColumnMetadata" }, { "type": "null" }],
+          "description": "Column mapping from @Column, if present. Null when no @Column annotation."
         },
         "constraints": {
-          "type": "array",
+          "type": ["array", "null"],
           "items": { "type": "string" },
-          "description": "Bean Validation constraint annotation simple names on this field (ADR-003 §9 — basic validation category). e.g. [\"NotNull\", \"Size\", \"Email\"]. Does not include JPA or Spring annotations — those have dedicated fields."
+          "description": "Bean Validation constraint annotation simple names on this field (ADR-003 §9 — basic validation category). e.g. [\"NotNull\", \"Size\", \"Email\"]. Null when none present."
         }
       }
     },
@@ -412,8 +412,8 @@
         "target":     { "type": "string", "description": "Called method ID — resolved to a known node in this graph." },
         "kind":       { "type": "string", "const": "calls_resolved" },
         "call_count": {
-          "type": "integer",
-          "description": "How many times this method calls the target within its body."
+          "type": ["integer", "null"],
+          "description": "How many times this method calls the target within its body. Null when not computed."
         }
       }
     },
@@ -507,17 +507,17 @@
         "name": { "type": "string", "description": "Parameter name as declared in source." },
         "type": { "type": "string", "description": "Parameter type as a string. e.g. Long, UserDTO, HttpServletRequest." },
         "binding": {
-          "$ref": "#/$defs/ParameterBinding",
-          "description": "Spring binding metadata if a binding annotation is present (@PathVariable, @RequestParam, @RequestBody, @RequestHeader, @ModelAttribute). Absent if no binding annotation."
+          "oneOf": [{ "$ref": "#/$defs/ParameterBinding" }, { "type": "null" }],
+          "description": "Spring binding metadata if a binding annotation is present. Null when no binding annotation."
         },
-        "validate": {
-          "type": "boolean",
-          "description": "True if @Valid or @Validated is present on this parameter."
+        "validate_": {
+          "type": ["boolean", "null"],
+          "description": "True if @Valid or @Validated is present on this parameter. Serialised as 'validate_' (Python field name) per model_dump output."
         },
         "constraints": {
-          "type": "array",
+          "type": ["array", "null"],
           "items": { "type": "string" },
-          "description": "Bean Validation constraint annotation simple names applied directly to this parameter. e.g. [\"NotNull\", \"Size\"]."
+          "description": "Bean Validation constraint annotation simple names applied directly to this parameter. Null when none present."
         }
       }
     },
