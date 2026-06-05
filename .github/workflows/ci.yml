@@ -148,7 +148,10 @@ jobs:
 
       - name: Test (pytest — slow + external markers)
         shell: bash
-        run: pytest -m "slow or external" --tb=short
+        # --no-cov: coverage is gated in the unit job; running only the slow/external
+        # marker subset (~2 tests) would produce ~37% coverage and fail the 80% gate
+        # baked into pyproject.toml addopts. Coverage is not meaningful here.
+        run: pytest -m "slow or external" --tb=short --no-cov
 
   # ---------------------------------------------------------------------------
   # Eval — run codeograph eval per example corpus
