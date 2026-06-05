@@ -586,6 +586,7 @@ class Edge(
 class ParameterFact(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
+        populate_by_name=True,  # accept both "validate_" (Python name) and "validate" (alias) on deserialization
     )
     name: Annotated[str, Field(description="Parameter name as declared in source.")]
     type: Annotated[
