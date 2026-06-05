@@ -51,7 +51,8 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 GRAPH_SCHEMA_VERSION = "1.0.0"
-MANIFEST_SCHEMA_VERSION = "1.7.0"  # 1.1 cache_stats; 1.3 scorecards; 1.4 compile_checks; 1.5 source_path; 1.6 corpus_id; 1.7 run_id
+MANIFEST_SCHEMA_VERSION = "1.7.0"
+# History: 1.1 cache_stats; 1.3 scorecards; 1.4 compile_checks; 1.5 source_path; 1.6 corpus_id; 1.7 run_id
 
 GRAPH_FILENAME = "graph.json"
 MANIFEST_FILENAME = "manifest.json"
