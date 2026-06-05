@@ -90,9 +90,7 @@ class JavaFileParser:
         try:
             result = subprocess.run(command, capture_output=True, text=True, check=False, timeout=30)
         except subprocess.TimeoutExpired as exc:
-            raise JavaParseError(
-                f"Java parser timed out after 30 s parsing {java_file}"
-            ) from exc
+            raise JavaParseError(f"Java parser timed out after 30 s parsing {java_file}") from exc
 
         if result.returncode != 0:
             stderr = (result.stderr or "").strip()
