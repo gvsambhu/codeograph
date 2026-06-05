@@ -13,32 +13,33 @@ env:
   LC_ALL: C.UTF-8
   PYTHONHASHSEED: "0"
 
+concurrency:
+  group: ${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   # ---------------------------------------------------------------------------
-  # Python — lint, type-check, test
+  # Lint — ruff + mypy + banned-terms + prompt freshness
+  # Fast-fail target: ~30s signal on trivial errors
   # ---------------------------------------------------------------------------
-  python:
-    name: Python (lint + typecheck + pytest)
-    # Pin OS for reproducibility (ADR-007 §8 reproducibility envelope).
-    runs-on: ubuntu-22.04
-
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python 3.12
+      - name: Set up Python 3.14
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.14"
           cache: pip
 
       - name: Install dependencies
+        shell: bash
         run: pip install -e ".[dev]"
 
       - name: Prompt artefact freshness (ADR-014)
-        # Regenerate _prompts_generated.py and re-pin every prompt's content_hash_pin.
-        # If a contributor edited a prompt without running pre-commit (or bypassed
-        # hooks), the working tree will diff and this step fails. Catches stale
-        # generated code and stale hash pins before they reach main.
+        shell: bash
         run: |
           python scripts/gen_prompt_constants.py
           for f in codeograph/prompts/*/*.md; do
@@ -51,52 +52,223 @@ jobs:
           git diff --exit-code
 
       - name: Lint (ruff)
+        shell: bash
         run: ruff check . && ruff format --check .
 
       - name: Banned-terms scan (NFR-1)
-        # Full-tree scan honouring .banned-terms-allowlist.txt and per-line
-        # `banned-terms: ok` pragmas. Catches leaks that bypass the local
-        # pre-commit hook (e.g., contributor without hooks installed, or a
-        # term added via a tool that doesn't run pre-commit like gh web UI).
+        shell: bash
         run: python scripts/check_banned_terms.py --repo
 
       - name: Type-check (mypy)
+        shell: bash
         run: mypy codeograph/
 
-      - name: Test (pytest — unit only)
-        # Exclude integration tests: those require a live JVM + parser.jar
-        # and run in the separate 'java' job below.
-        run: pytest -m "not integration" --tb=short
-
-      - name: Golden tests (Tier 1)
-        # Surgical fixture — regex-fallback mode (no JVM needed here).
-        # Fails only when _assert_golden is implemented (Issue #6 M11 TODO).
-        # Run after unit tests so a unit failure surfaces first.
-        run: pytest -m "tier1" --tb=short
-
   # ---------------------------------------------------------------------------
-  # Java — compile and test the parser JAR
+  # Unit — pytest fast suite (excludes slow/external/eval markers)
+  # strategy.matrix.os: [ubuntu-latest] — extension hook for multi-OS (v1.1)
+  # To extend to Windows/macOS: add 'windows-latest'/'macos-latest' to matrix.
+  # Prereqs: verify .gitattributes eol=lf; verify encoding="utf-8" in tests.
   # ---------------------------------------------------------------------------
-  java:
-    name: Java (mvn test)
-    runs-on: ubuntu-22.04
-
+  unit:
+    name: Unit (${{ matrix.os }})
+    needs: lint
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        # To extend to Windows / macOS:
+        # 1. Add 'windows-latest' and/or 'macos-latest' here.
+        # 2. Verify .gitattributes carries 'eol=lf' on text fixtures.
+        # 3. Verify every test uses encoding='utf-8' on read_text/write_text.
+        # 4. integration-external and eval jobs stay Linux-only until contributor demand.
     steps:
       - uses: actions/checkout@v4
+
+      - name: Set up Python 3.14
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+
+      - name: Install dependencies
+        shell: bash
+        run: pip install -e ".[dev]"
+
+      - name: Test (pytest — unit, coverage gated at 80%)
+        shell: bash
+        run: pytest -m "not slow and not external and not eval" --tb=short
+
+  # ---------------------------------------------------------------------------
+  # Integration-external — pytest slow + external markers + parser JAR tests
+  # Requires JDK 17 + Node 20; always Linux-only per ADR-018 Fork 6
+  # ---------------------------------------------------------------------------
+  integration-external:
+    name: Integration (external)
+    needs: unit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.14
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
-          # Cache Maven's local repository so JUnit + JavaParser deps aren't
-          # re-downloaded on every run.
           cache: maven
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        shell: bash
+        run: pip install -e ".[dev]"
+
+      - name: Compile parser JAR
+        working-directory: codeograph/parser/java
+        shell: bash
+        run: mvn clean package -DskipTests --batch-mode --no-transfer-progress
 
       - name: Format check (spotless)
         working-directory: codeograph/parser/java
+        shell: bash
         run: mvn spotless:check --batch-mode --no-transfer-progress
 
       - name: Test (mvn)
         working-directory: codeograph/parser/java
+        shell: bash
         run: mvn test --batch-mode --no-transfer-progress
+
+      - name: Test (pytest — slow + external markers)
+        shell: bash
+        # --no-cov: coverage is gated in the unit job; running only the slow/external
+        # marker subset (~2 tests) would produce ~37% coverage and fail the 80% gate
+        # baked into pyproject.toml addopts. Coverage is not meaningful here.
+        run: pytest -m "slow or external" --tb=short --no-cov
+
+  # ---------------------------------------------------------------------------
+  # Eval — run codeograph eval per example corpus
+  # Depends on unit + integration-external (avoids wasted cost on test failure)
+  # strategy.matrix.corpus: committed example corpora
+  # ---------------------------------------------------------------------------
+  eval:
+    name: Eval (${{ matrix.corpus }})
+    needs: [unit, integration-external]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        corpus: [spring-rest-sample, spring-blog-api]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.14
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        shell: bash
+        run: pip install -e ".[dev]"
+
+      - name: Compile parser JAR
+        working-directory: codeograph/parser/java
+        shell: bash
+        run: mvn clean package -DskipTests --batch-mode --no-transfer-progress
+
+      - name: Run codeograph (render + eval)
+        shell: bash
+        run: |
+          if [ -d "examples/${{ matrix.corpus }}" ]; then
+            codeograph run examples/${{ matrix.corpus }} --out /tmp/${{ matrix.corpus }}-out --ast-only
+            codeograph eval run /tmp/${{ matrix.corpus }}-out
+          else
+            echo "Skipping — examples/${{ matrix.corpus }} does not exist yet."
+            mkdir -p /tmp/${{ matrix.corpus }}-out/evals
+          fi
+
+      - name: Upload scorecard artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scorecards-${{ matrix.corpus }}
+          path: /tmp/${{ matrix.corpus }}-out/evals/
+          if-no-files-found: ignore
+
+  # ---------------------------------------------------------------------------
+  # Report — cross-corpus aggregation (ADR-017 Fork 7)
+  # Runs after both eval matrix entries complete
+  # ---------------------------------------------------------------------------
+  report:
+    name: Cross-corpus Report
+    needs: eval
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.14
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+
+      - name: Install dependencies
+        shell: bash
+        run: pip install -e ".[dev]"
+
+      - name: Download scorecard artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: scorecards-*
+          path: /tmp/scorecards/
+          merge-multiple: false
+
+      - name: Run cross-corpus report
+        shell: bash
+        run: |
+          # Reconstruct output-dir-style structure for each corpus
+          # Each downloaded artifact is at /tmp/scorecards/scorecards-<corpus>/
+          OUT_DIRS=""
+          for corpus in spring-rest-sample spring-blog-api; do
+            SRC="/tmp/scorecards/scorecards-${corpus}"
+            if [ -d "$SRC" ]; then
+              DST="/tmp/report-dirs/${corpus}"
+              mkdir -p "${DST}/evals"
+              cp -r "${SRC}/." "${DST}/evals/"
+              OUT_DIRS="${OUT_DIRS} ${DST}"
+            fi
+          done
+          if [ -n "${OUT_DIRS}" ]; then
+            codeograph eval report ${OUT_DIRS} > /tmp/eval-report.md
+            cat /tmp/eval-report.md
+          else
+            echo "No scorecard artifacts found — skipping report."
+          fi
+
+      - name: Upload report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cross-corpus-report
+          path: /tmp/eval-report.md
+          if-no-files-found: ignore

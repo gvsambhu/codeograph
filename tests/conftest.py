@@ -100,6 +100,13 @@ def mock_llm_provider() -> MockLlmProvider:
 
 
 @pytest.fixture
+def make_mock_provider():
+    from tests.fixtures.llm.mock_provider import MockLlmProviderBuilder
+
+    return MockLlmProviderBuilder
+
+
+@pytest.fixture
 def tmp_cache_db(tmp_path: Path):
     from codeograph.llm.cache.sqlite_backend import SQLiteCacheBackend
 

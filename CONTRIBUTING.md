@@ -46,18 +46,18 @@ Every change goes through a PR. Direct pushes to `main` are not used.
 All of these must be green before a PR merges:
 
 ```bash
-make lint                                      # ruff check + format check
-make typecheck                                 # mypy strict
-pytest -m "not integration" --tb=short         # Python unit tests
-pytest -m "tier1"                              # golden tests (skips if no JVM)
-cd codeograph/parser/java && mvn test          # Java parser tests
+make lint                                                    # ruff check + format check
+make typecheck                                               # mypy strict
+pytest -m "not slow and not external and not eval" --tb=short  # Python unit tests
+pytest -m "slow or external" --tb=short                      # JVM + external tests (needs JDK)
+cd codeograph/parser/java && mvn test                        # Java parser tests
 ```
 
 CI enforces these on every push to `dev/**` and on PRs to `main`. See `.github/workflows/ci.yml`.
 
 ## Golden tests
 
-The Tier 1 golden test (`tests/test_golden.py`) compares the emitted `graph.json` against checked-in goldens under `tests/goldens/tier1/`. When a deliberate change affects graph output:
+The golden test (`tests/integration/test_goldens.py`) compares the emitted `graph.json` against checked-in goldens under `tests/goldens/tier1/`. When a deliberate change affects graph output:
 
 1. Run `make golden-update` to regenerate goldens.
 2. Diff the result. Make sure every change in the diff is intended.
@@ -113,3 +113,65 @@ Enforced by NFR-1.
 ## ADRs
 
 Architecture decisions land as ADRs under `docs/adr/`, numbered sequentially. Amendments to an existing ADR go in the same file under an "Amendment" heading with the date and rationale. Don't backfill ADRs to justify code — write the ADR first, then implement.
+
+## Running tests
+
+We use `pytest` for Python tests and Maven for Java tests.
+To run the fast, offline unit tests (this is the default — `addopts` in `pyproject.toml` already excludes slow/external/eval):
+```bash
+pytest
+```
+To run JVM-dependent and other external tests (requires JDK on PATH):
+```bash
+pytest -m "slow or external"
+```
+To run the full suite including eval tests:
+```bash
+pytest -m "slow or external or eval"
+```
+
+## Markers and when to use them
+
+We use three `pytest` markers (defined in `pyproject.toml`, ADR-018 Fork 1):
+
+| Marker | When to use |
+|---|---|
+| `slow` | Tests that take more than a few seconds |
+| `external` | Tests that depend on external tools or resources (JVM, network, `npx`, `tsc`, `mvn`) |
+| `eval` | Scorecard / evaluation tests |
+
+Use these markers explicitly with `@pytest.mark.<marker>` on your test class or function. The default `pytest` invocation (and the CI `unit` job) excludes all three.
+
+## Adding fixtures
+
+- **Tiny fixtures**: Place in `tests/fixtures/llm` or `tests/fixtures/render-fixture`.
+- **Integration mini-corpora**: Place small code samples directly in `tests/fixtures/corpora/`.
+- **Golden graphs**: Stored alongside their respective corpora.
+
+## Adding a corpus
+
+When adding a new example corpus to `examples/`:
+1. Include it in the `ci.yml` matrix under the `eval` job.
+2. Ensure it runs deterministically (use fixed versions of dependencies).
+3. Do not check in its `out/` directory; CI will generate it.
+
+## Determinism classification
+
+Determinism is strictly managed across the pipeline. Refer to `tests/helpers/determinism.py` for tools to freeze timestamps and UUIDs during test execution. 
+All tests must pass regardless of the underlying OS or timezone (`TZ=UTC` is enforced in CI).
+
+## Multi-OS extension procedure
+
+To extend CI testing to macOS or Windows:
+1. Open `.github/workflows/ci.yml`.
+2. Locate the `strategy.matrix.os: [ubuntu-latest]` block in the relevant jobs.
+3. Add `windows-latest` or `macos-latest` to the array.
+4. Ensure all paths use `pathlib` or `/` separators.
+
+## CI required checks setup (for repo admins)
+
+Repository administrators must configure branch protection rules on `main` to require the following CI jobs to pass before merging:
+- `Python (unit)`
+- `Python (integration-external)`
+- `Java (mvn test)`
+- `Cross-corpus Eval Report`

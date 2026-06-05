@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import json
 import shutil
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 import click
 
@@ -262,6 +262,39 @@ def render_cli(
     click.echo("Rendering … (this will make LLM calls for each selected class)")
     file_map = renderer.render(graph, annotations)
 
+    # Compile-checks sidecar (M4 — ADR-017 Fork 8)
+    # Build the sidecar in memory and stage it in file_map alongside rendered TS
+    # files. The manifest pointer is updated AFTER file_map is flushed to disk
+    # so the sidecar always exists on disk before the pointer references it.
+    import hashlib
+
+    from codeograph import __version__ as _codeograph_version
+
+    _compile_checks = renderer.compile_checks()
+    _sidecar_rel_path: PurePosixPath | None = None
+    _sidecar_sha256: str | None = None
+
+    if _compile_checks:
+        _sidecar_dict = {
+            "schema_version": "1.0.0",
+            "target": target,
+            "renderer_version": _codeograph_version,
+            "checks": [
+                {
+                    "name": c.name,
+                    "cmd": list(c.cmd),
+                    "workdir": str(c.workdir),
+                    "required_tools": list(c.required_tools),
+                    "pass_on_exit_codes": list(c.pass_on_exit_codes),
+                }
+                for c in _compile_checks
+            ],
+        }
+        _sidecar_bytes = json.dumps(_sidecar_dict, indent=2).encode("utf-8")
+        _sidecar_rel_path = PurePosixPath(f"evals/compile-checks.{target}.json")
+        _sidecar_sha256 = hashlib.sha256(_sidecar_bytes).hexdigest()
+        file_map[_sidecar_rel_path] = _sidecar_bytes
+
     # --- PackagePrefixGrouping collapse warning (ADR-009 / Issue #7) --------
     # When no explicit domain_mapping was given, auto-grouping ran.  If it
     # collapsed all classes into a single group from a large class set, the
@@ -289,6 +322,7 @@ def render_cli(
             )
 
     # --- write output files -----------------------------------------------
+    # Phase 1: flush all rendered files + sidecar to disk.
     out_path.mkdir(parents=True, exist_ok=True)
     written = 0
     for rel_path, content in file_map.items():
@@ -296,6 +330,24 @@ def render_cli(
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_bytes(content)
         written += 1
+
+    # Phase 2: update manifest pointer now that sidecar is on disk
+    # (ADR-017 Fork 8 — "sidecar written first; manifest pointer written after").
+    if _sidecar_rel_path is not None and _sidecar_sha256 is not None:
+        manifest_path = from_path / "manifest.json"
+        if manifest_path.exists():
+            with open(manifest_path, encoding="utf-8") as f:
+                manifest_dict = json.load(f)
+            manifest_dict["schema_version"] = "1.4.0"
+            if "compile_checks" not in manifest_dict.get("artefacts", {}):
+                manifest_dict.setdefault("artefacts", {})["compile_checks"] = {}
+            manifest_dict["artefacts"]["compile_checks"][target] = {
+                "path": str(_sidecar_rel_path),
+                "schema_version": "1.0.0",
+                "sha256": _sidecar_sha256,
+            }
+            with open(manifest_path, "w", encoding="utf-8") as f:
+                json.dump(manifest_dict, f, indent=2)
 
     emitter.close()
     click.echo(f"Done. Wrote {written} file(s) to {out_path}.")

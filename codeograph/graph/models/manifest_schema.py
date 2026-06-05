@@ -50,6 +50,20 @@ class Artefacts(BaseModel):
             description="Non-deterministic LLM enrichment layer (out/llm-annotations.json). sha256 is null when produced with --ast-only."
         ),
     ]
+    scorecards: Annotated[
+        dict[str, ArtefactMeta] | None,
+        Field(
+            default=None,
+            description="Eval framework scorecards (added in 1.3.0).",
+        ),
+    ] = None
+    compile_checks: Annotated[
+        dict[str, ArtefactMeta] | None,
+        Field(
+            default=None,
+            description="Compile check sidecars per renderer target (added in 1.4.0).",
+        ),
+    ] = None
 
 
 class CacheStats(BaseModel):
@@ -71,7 +85,7 @@ class CodeographRunManifest(BaseModel):
         str,
         Field(
             description="Semver of the manifest schema itself (this file). Bump when manifest structure changes.",
-            examples=["1.1.0"],
+            examples=["1.5.0"],
         ),
     ]
     codeograph_version: Annotated[
@@ -81,6 +95,28 @@ class CodeographRunManifest(BaseModel):
             examples=["0.1.0"],
         ),
     ]
+    source_path: Annotated[
+        str,
+        Field(
+            description="Absolute path to the input corpus that produced this output. Used by codeograph eval reproducibility check to re-run --ast-only against the same source. Added in manifest schema 1.5.0.",
+            examples=["/home/user/projects/my-spring-app"],
+        ),
+    ]
+    corpus_id: Annotated[
+        str,
+        Field(
+            description="Stable identifier for this corpus — the root directory name of the input. Used by codeograph eval golden_graph_agreement check to locate tests/goldens/<corpus_id>/graph.json. Added in manifest schema 1.6.0.",
+            examples=["spring-rest-sample", "spring-blog-api"],
+        ),
+    ]
+    run_id: Annotated[
+        str | None,
+        Field(
+            default=None,
+            description="UUID4 generated at write time; correlates graph-scorecard, ts-scorecard, and telemetry JSONL records for one producing run. Added in manifest schema 1.7.0.",
+            examples=["a1b2c3d4-e5f6-7890-abcd-ef1234567890"],
+        ),
+    ] = None
     artefacts: Annotated[
         Artefacts,
         Field(
