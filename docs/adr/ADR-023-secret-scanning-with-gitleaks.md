@@ -73,22 +73,33 @@ Absorbed by Fork 1's sub-rule lock (`pre-commit` Python package; https://pre-com
 
 Two layers, independent, with the CI gate enforcing FR-21 and the pre-commit hook providing cheaper local prevention.
 
-**CI gate** (already shipped; ADR-023 ratifies):
+**CI gate** (shipped structure preserved; Fork 2 adds the `GITLEAKS_VERSION` env pin as the only modification this ADR introduces):
 
 ```yaml
-# .github/workflows/secrets-scan.yml — UNCHANGED from current shipped state
+# .github/workflows/secrets-scan.yml
 name: Secret scan
-on: [push, pull_request]
+
+on:
+  push:
+    branches: [main, "dev/**"]
+  pull_request:
+    branches: [main]
+
 jobs:
   gitleaks:
-    runs-on: ubuntu-latest
+    name: gitleaks
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
-        with: { fetch-depth: 0 }
-      - uses: gitleaks/gitleaks-action@v2
+        with:
+          # Full history required so gitleaks can scan every commit,
+          # not just the files changed in this push.
+          fetch-depth: 0
+      - name: Run gitleaks
+        uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITLEAKS_VERSION: "8.18.2"    # Fork 2 pin
+          GITLEAKS_VERSION: "8.18.2"    # Fork 2 pin — added by ADR-023
 ```
 
 **Pre-commit hook** (NEW, opt-in):

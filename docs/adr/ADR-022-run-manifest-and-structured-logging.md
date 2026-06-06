@@ -10,7 +10,7 @@ informed: future contributors
 
 ## Context and Problem Statement
 
-The manifest file (`<out>/manifest.json`) is the canonical run artefact — every other ADR consuming the output assumes a stable manifest shape. Three additive schema bumps have already shipped in v1 (`1.0` → `1.1` via DC2's `cache_stats`, → `1.3` via ADR-017 Fork 1's `scorecards`, → `1.4` via ADR-017 Fork 8's `compile_checks`) without an explicit codified rule. The next contributor adding a field has no normative guidance, and the rapid cadence creates risk that a structural change slips in.
+The manifest file (`<out>/manifest.json`) is the canonical run artefact — every other ADR consuming the output assumes a stable manifest shape. Six additive schema bumps have already shipped in v1 (`1.0` → `1.1` via DC2's `cache_stats`; → `1.3` via ADR-017 Fork 1's `scorecards`; → `1.4` via ADR-017 Fork 8's `compile_checks`; → `1.5` via the eval reproducibility `source_path` scalar; → `1.6` via the `golden_graph_agreement` `corpus_id` scalar; → `1.7` via the eval-correlation `run_id` scalar) without an explicit codified rule. The next contributor adding a field has no normative guidance, and the rapid cadence creates risk that a structural change slips in.
 
 Structured logging is similarly underspecified. FR-20 calls for `logs.jsonl` in a per-run directory; the implementation shipped a plaintext-only console pattern. ADR-015's telemetry JSONL handles per-LLM-call records; there is no parallel substrate for per-pipeline-event records (orchestrator INFO/WARN/ERROR lines, eval check execution traces, render progress, classifier decisions). Without one, eval framework lifecycle events, render progress, and the future LLM-judge invocations (v1.1 ADR-020) all reach stderr ad hoc and disappear when the terminal scrolls.
 
@@ -114,7 +114,7 @@ Every manifest field belongs to one of three categories:
 
 | Category | Shape | Decision criterion | v1 locked examples |
 |---|---|---|---|
-| **Scalar metadata** | Single primitive value at top level: `field_name: value` | "Single value describing the run as a whole" | `schema_version`, `run_id`, `run_timestamp`, `source_path`, `codeograph_version`, `corpus_id` |
+| **Scalar metadata** | Single primitive value at top level: `field_name: value` | "Single value describing the run as a whole" | `schema_version`, `codeograph_version`, `source_path`, `corpus_id`, `run_id` |
 | **Aggregate metadata** | Small typed nested object: `field_name: {sub_key: ...}`; ≤ 20 sub-fields total; never grows linearly with corpus size | "Small structured rollup tightly coupled to this run; no independent external consumer" | `cache_stats: {pass1: {hits, misses, hit_rate}, pass2: {...}}` |
 | **Payload pointer** | `field_name.<discriminator>: {path: str, sha256: str, ...one_optional_extra}`; the file lives at `path` relative to manifest | "File payload that grows linearly with corpus / target, OR is independently consumed by external tooling, OR needs tamper-evidence" | `artefacts.<name>`, `scorecards.<kind>`, `compile_checks.<target>` |
 
@@ -136,14 +136,16 @@ class ManifestPointer(BaseModel):
     sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     # subclasses MAY add ONE optional extra field (single bool or single short str)
 
-class CacheStatsPass(ManifestAggregate):
-    hits: int
-    misses: int
-    hit_rate: float
-
 class CacheStats(ManifestAggregate):
-    pass1: Optional[CacheStatsPass] = None
-    pass2: Optional[CacheStatsPass] = None
+    """One per LLM pass; aggregate metric block for cache behavior.
+       Shape preserved from shipped `codeograph/graph/models/manifest_schema.py`
+       per Fork 1 strict-additive rule. Field set is locked; future changes
+       are additive only within `1.x.x`."""
+    calls: int
+    hits: int
+    hit_rate: float
+    saved_usd_est: float
+    incurred_usd_est: float
 
 class ArtefactPointer(ManifestPointer):
     pass                                     # no extras
@@ -158,13 +160,12 @@ class Manifest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     # scalars
     schema_version: str
-    run_id: str
-    run_timestamp: str
-    source_path: str
     codeograph_version: str
+    source_path: str
     corpus_id: str
+    run_id: Optional[str] = None             # str | None preserved from shipped state (1.7.0)
     # aggregates
-    cache_stats: Optional[CacheStats] = None
+    cache_stats: Optional[dict[str, CacheStats]] = None  # keyed by pass name, e.g. "pass_1"
     # pointers
     artefacts: dict[str, ArtefactPointer] = Field(default_factory=dict)
     scorecards: Optional[dict[str, ScorecardPointer]] = None
@@ -204,6 +205,8 @@ RUN_ID_PATTERN = r"^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}Z-[0-9a-f]{6}$"
 | Cache-key stable | Generated once; never regenerated mid-run |
 
 **Generation moment** — at pipeline start, in `codeograph run`'s orchestrator. Recorded on the first manifest write. Never regenerated.
+
+**Relationship to the shipped `run_id` field** — manifest schema `1.7.0` (shipped DC4) introduced `run_id: str | None` carrying UUID4 values. This ADR locks the new timestamp+suffix format going forward; the field type (`str | None`) is unchanged. This is a value-level format change, not a structural change, so it requires no `schema_version` bump under Fork 1. Existing committed manifests in `examples/` are refreshed to the new format as part of DC5 implementation.
 
 **`codeograph eval`** reads the existing manifest's `run_id` to correlate eval-emitted scorecards with the original run. Does NOT generate a new run id.
 
@@ -481,13 +484,13 @@ The shipped pattern of overwriting `<out>` on re-run (Fork 5) is the user-facing
 3. Running `python -m codeograph.manifest.schema_cli --check` on a clean repo exits 0; modifying `Manifest` source without regenerating `codeograph/_generated/manifest.schema.json` causes the same command to exit non-zero (verified by integration test).
 4. `generate_run_id()` produces a string matching the regex `^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}Z-[0-9a-f]{6}$` (verified by parametrized unit test).
 5. Two calls to `generate_run_id()` in rapid succession produce different strings (collision check; verified by unit test that calls 1000 times and asserts uniqueness).
-6. Running `codeograph run ./fixture --out ./out` produces `./out/manifest.json` containing all six locked scalar fields plus an `artefacts.graph` pointer with valid sha256 hex (verified by integration test).
+6. Running `codeograph run ./fixture --out ./out` produces `./out/manifest.json` containing all five locked scalar fields (`schema_version`, `codeograph_version`, `source_path`, `corpus_id`, `run_id`) plus an `artefacts.graph` pointer with valid sha256 hex (verified by integration test).
 7. The same run produces `./out/logs.jsonl` containing at least one record per pipeline phase (Pass 0, Pass 1, Pass 2), each record matching the JSONL schema (verified by integration test loading the JSONL).
 8. Running with `--log-level DEBUG` produces console output containing at least one record at the DEBUG level; running with default `--log-level INFO` produces console output containing no DEBUG records (verified by CLI integration test using `caplog`).
 9. Running with `-v` is equivalent to `--log-level DEBUG`; running with `-qq` is equivalent to `--log-level ERROR`; running with both `-v` and `-q` exits non-zero with a Click `UsageError` (verified by three CLI tests).
 10. `codeograph eval ./out` reads the manifest's `run_id` and writes scorecards whose schema includes that same `run_id`; running eval does NOT change the manifest's `run_id` (verified by integration test).
 11. The committed `codeograph/_generated/manifest.schema.json` validates against the JSON Schema 2020-12 meta-schema and declares `$schema: "https://json-schema.org/draft/2020-12/schema"` (verified by lint).
-12. A manifest written by a hypothetical future codeograph version (`schema_version: 1.5.0` with an additional `eval_stats: {...}` field) is read successfully by the current codeograph; the unknown `eval_stats` field is dropped with a DEBUG log; the strict-additive contract holds across versions (verified by a fixture-based forward-compat test).
+12. A manifest written by a hypothetical future codeograph version (`schema_version: 1.9.0` with an additional `eval_stats: {...}` field) is read successfully by the current codeograph; the unknown `eval_stats` field is dropped with a DEBUG log; the strict-additive contract holds across versions (verified by a fixture-based forward-compat test).
 
 ## Pros and Cons of the Considered Options
 
