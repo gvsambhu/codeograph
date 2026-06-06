@@ -49,8 +49,8 @@ For someone new to the project who wants to understand the design end-to-end, re
 - [`ADR-018 — Test strategy with pytest`](ADR-018-test-strategy-with-pytest.md)
 
 ### 7. Cross-cutting
-- `ADR-022 — Run manifest + structured logging` ⬜
-- `ADR-023 — Secret scanning (gitleaks)` ⬜
+- [`ADR-022 — Run manifest and structured logging`](ADR-022-run-manifest-and-structured-logging.md)
+- [`ADR-023 — Secret scanning with gitleaks`](ADR-023-secret-scanning-with-gitleaks.md)
 
 ### 8. Deferred to v1.1 / post-v1 ⏸️
 - `ADR-011 — Spring → Go mapping`
@@ -88,8 +88,8 @@ For someone new to the project who wants to understand the design end-to-end, re
 | 019 | Snapshot + negative tests | ⏸️ | Deferred (v1.1) |
 | 020 | LLM-judge calibration | ⏸️ | Deferred (v1.1) |
 | 021 | Determinism contract | ⏸️ | Deferred (v1.1) |
-| 022 | Run manifest + structured logging | ⬜ | Cross-cutting |
-| 023 | Secret scanning (gitleaks) | ⬜ | Cross-cutting |
+| 022 | Run manifest and structured logging | ✅ | Cross-cutting |
+| 023 | Secret scanning with gitleaks | ✅ | Cross-cutting |
 | 024 | Prompt-injection / output-path safety | ⏸️ | Deferred (v1.1) |
 
 ---
