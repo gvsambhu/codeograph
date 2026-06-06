@@ -134,7 +134,15 @@ cli.add_command(render_cli)
     default=False,
     help="Run evaluation automatically after generation completes.",
 )
-def run(input_path: str, out: str, ast_only: bool, force: bool, run_eval: bool) -> None:
+@click.pass_context
+def run(
+    ctx: click.Context,
+    input_path: str,
+    out: str,
+    ast_only: bool,
+    force: bool,
+    run_eval: bool,
+) -> None:
     """Run the Codeograph pipeline on INPUT.
 
     INPUT may be a local directory path, a git URL, or a path to a .zip archive.
@@ -151,7 +159,7 @@ def run(input_path: str, out: str, ast_only: bool, force: bool, run_eval: bool) 
     # emitted into the same directory the run writes its other
     # artefacts to. The group callback installed the console handler
     # only; this call adds the JSONL file handler (idempotent rebuild).
-    log_level = click.get_current_context().obj.get("log_level", "INFO")
+    log_level = ctx.obj.get("log_level", "INFO")
     configure_logging(console_level=log_level, out_dir=out_dir)
 
     # Lazy imports keep startup fast and isolate heavy dependencies from the
