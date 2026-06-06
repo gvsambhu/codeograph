@@ -1,0 +1,200 @@
+{
+  "$defs": {
+    "ArtefactPointer": {
+      "additionalProperties": false,
+      "description": "Pointer to a corpus-sized artefact (graph.json, llm-annotations.json).",
+      "properties": {
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "sha256"
+      ],
+      "title": "ArtefactPointer",
+      "type": "object"
+    },
+    "CacheStats": {
+      "additionalProperties": false,
+      "description": "Per-LLM-pass cache behaviour rollup.\n\nShape preserved verbatim from shipped\n``codeograph/graph/models/manifest_schema.py`` per ADR-022 Fork 1's\nstrict-additive rule. Five flat fields, keyed by pass name\n(``\"pass_1\"``, ``\"pass_2\"``) at the ``Manifest.cache_stats`` level.",
+      "properties": {
+        "calls": {
+          "title": "Calls",
+          "type": "integer"
+        },
+        "hits": {
+          "title": "Hits",
+          "type": "integer"
+        },
+        "hit_rate": {
+          "title": "Hit Rate",
+          "type": "number"
+        },
+        "saved_usd_est": {
+          "title": "Saved Usd Est",
+          "type": "number"
+        },
+        "incurred_usd_est": {
+          "title": "Incurred Usd Est",
+          "type": "number"
+        }
+      },
+      "required": [
+        "calls",
+        "hits",
+        "hit_rate",
+        "saved_usd_est",
+        "incurred_usd_est"
+      ],
+      "title": "CacheStats",
+      "type": "object"
+    },
+    "CompileChecksPointer": {
+      "additionalProperties": false,
+      "description": "Pointer to a compile-check sidecar log per renderer target.",
+      "properties": {
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "sha256"
+      ],
+      "title": "CompileChecksPointer",
+      "type": "object"
+    },
+    "ScorecardPointer": {
+      "additionalProperties": false,
+      "description": "Pointer to a scorecard JSON file written by ``codeograph eval``.",
+      "properties": {
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "overall": {
+          "pattern": "^(pass|fail|skip|mixed)$",
+          "title": "Overall",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "sha256",
+        "overall"
+      ],
+      "title": "ScorecardPointer",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Top-level run manifest.\n\nFields grouped by ADR-022 Fork 2 category:\n\n* **Scalar metadata** — single primitive values describing the run as a\n  whole (``schema_version``, ``codeograph_version``, ``source_path``,\n  ``corpus_id``, ``run_id``).\n* **Aggregate metadata** — small typed rollups tightly coupled to this\n  run (``cache_stats`` keyed by pass name).\n* **Payload pointers** — references to files that grow with the corpus\n  or are independently consumed (``artefacts``, ``scorecards``,\n  ``compile_checks``).",
+  "properties": {
+    "schema_version": {
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "codeograph_version": {
+      "title": "Codeograph Version",
+      "type": "string"
+    },
+    "source_path": {
+      "title": "Source Path",
+      "type": "string"
+    },
+    "corpus_id": {
+      "title": "Corpus Id",
+      "type": "string"
+    },
+    "run_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Run Id"
+    },
+    "cache_stats": {
+      "anyOf": [
+        {
+          "additionalProperties": {
+            "$ref": "#/$defs/CacheStats"
+          },
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Cache Stats"
+    },
+    "artefacts": {
+      "additionalProperties": {
+        "$ref": "#/$defs/ArtefactPointer"
+      },
+      "title": "Artefacts",
+      "type": "object"
+    },
+    "scorecards": {
+      "anyOf": [
+        {
+          "additionalProperties": {
+            "$ref": "#/$defs/ScorecardPointer"
+          },
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Scorecards"
+    },
+    "compile_checks": {
+      "anyOf": [
+        {
+          "additionalProperties": {
+            "$ref": "#/$defs/CompileChecksPointer"
+          },
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Compile Checks"
+    }
+  },
+  "required": [
+    "schema_version",
+    "codeograph_version",
+    "source_path",
+    "corpus_id"
+  ],
+  "title": "Manifest",
+  "type": "object"
+}
