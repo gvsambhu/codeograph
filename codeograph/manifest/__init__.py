@@ -10,6 +10,7 @@ schema within ``1.x.x`` — no remove, rename, type-change, or required/
 optional flip without a ``2.0.0`` major bump + superseding ADR.
 """
 
+from codeograph.manifest.run_id import RUN_ID_PATTERN, generate_run_id
 from codeograph.manifest.schema import (
     ArtefactPointer,
     CacheStats,
@@ -27,5 +28,7 @@ __all__ = [
     "Manifest",
     "ManifestAggregate",
     "ManifestPointer",
+    "RUN_ID_PATTERN",
     "ScorecardPointer",
+    "generate_run_id",
 ]
