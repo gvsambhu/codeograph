@@ -1,7 +1,7 @@
 # Manifest Version Evolution Log
 
 This document records every schema version bump for the run manifest at
-`<out>/manifest.json`. Per [ADR-022](../adr/ADR-022-run-manifest-and-structured-logging.md)
+`<out>/manifest.json`. Per [ADR-022](adr/ADR-022-run-manifest-and-structured-logging.md)
 Fork 1, the manifest evolves **strict-additively** within `1.x.x` —
 no field removal, rename, type change, or required/optional flip.
 Breaking changes require a `2.0.0` major bump + superseding ADR.
@@ -52,9 +52,9 @@ bump date. Per ADR-022 Fork 7, every bump requires:
 
 ## References
 
-- [ADR-022 — Run Manifest and Structured Logging](../adr/ADR-022-run-manifest-and-structured-logging.md)
+- [ADR-022 — Run Manifest and Structured Logging](adr/ADR-022-run-manifest-and-structured-logging.md)
   (the load-bearing design ADR; Forks 1 + 2 + 7 govern this log)
-- [ADR-006 — Knowledge Graph Schema](../adr/ADR-006-knowledge-graph-schema.md)
+- [ADR-006 — Knowledge Graph Schema](adr/ADR-006-knowledge-graph-schema.md)
   (the base manifest shape; canonical-form sha256 substrate)
-- [ADR-017 — Eval Framework](../adr/ADR-017-eval-framework.md)
+- [ADR-017 — Eval Framework](adr/ADR-017-eval-framework.md)
   (consuming ADR for the `scorecards` + `compile_checks` pointer collections and the `source_path` / `corpus_id` / `run_id` scalars)

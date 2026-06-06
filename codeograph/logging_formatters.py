@@ -31,7 +31,15 @@ class PlaintextFormatter(logging.Formatter):
     on the handler that uses this formatter) so a logger that did not
     supply an ``area`` in its ``extra`` falls back to the last dot-
     separated segment of the logger name.
+
+    The ``converter = time.gmtime`` class attribute is load-bearing: the
+    hardcoded ``"Z"`` suffix in the datefmt claims UTC, but Python's
+    :class:`logging.Formatter` defaults to ``time.localtime``. Without
+    this override, console timestamps would be local time falsely
+    labelled as UTC (DC5-FIXUP-01 Issue #1).
     """
+
+    converter = __import__("time").gmtime
 
 
 class JsonlFormatter(logging.Formatter):
