@@ -99,7 +99,7 @@ jobs:
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITLEAKS_VERSION: "8.18.2"    # Fork 2 pin — added by ADR-023
+          GITLEAKS_VERSION: "8.30.1"    # Fork 2 pin — added by ADR-023
 ```
 
 **Pre-commit hook** (NEW, opt-in):
@@ -108,7 +108,7 @@ jobs:
 # .pre-commit-config.yaml at repo root
 repos:
   - repo: https://github.com/gitleaks/gitleaks
-    rev: v8.18.2                        # Fork 2: same exact pin as CI
+    rev: v8.30.1                        # Fork 2: same exact pin as CI
     hooks:
       - id: gitleaks
 ```
@@ -145,8 +145,8 @@ pre-commit install                      # one-time; installs the git hook
 
 | Location | Field | Format |
 |---|---|---|
-| `.github/workflows/secrets-scan.yml` | `env.GITLEAKS_VERSION` | `"8.18.2"` (exact; no `v` prefix per action convention) |
-| `.pre-commit-config.yaml` | `repos[].rev` | `v8.18.2` (exact; `v` prefix per gitleaks tag convention) |
+| `.github/workflows/secrets-scan.yml` | `env.GITLEAKS_VERSION` | `"8.30.1"` (exact; no `v` prefix per action convention) |
+| `.pre-commit-config.yaml` | `repos[].rev` | `v8.30.1` (exact; `v` prefix per gitleaks tag convention) |
 
 **Pin parity CI check** — added to the `lint` job (parallel to ADR-014 / ADR-017 / ADR-022 freshness gates):
 
@@ -245,7 +245,7 @@ jobs:
         with: { fetch-depth: 0 }
       - uses: gitleaks/gitleaks-action@v2
         env:
-          GITLEAKS_VERSION: "8.18.2"
+          GITLEAKS_VERSION: "8.30.1"
         with:
           args: detect --source . --no-banner --redact
       - if: failure()
