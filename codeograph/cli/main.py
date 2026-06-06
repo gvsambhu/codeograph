@@ -11,13 +11,95 @@ from codeograph import __version__
 from codeograph.cli.cache import cache_cli
 from codeograph.cli.eval import eval_cli
 from codeograph.cli.render import render_cli
+from codeograph.logging_config import configure_logging
+
+LOG_LEVELS = ("DEBUG", "INFO", "WARNING", "ERROR")
+
+
+def _resolve_log_level(
+    log_level: str | None,
+    verbose: int,
+    quiet: int,
+) -> str:
+    """Resolve the effective console log level from --log-level / -v / -q.
+
+    Precedence (most specific wins):
+
+    * ``--log-level X`` — explicit value; wins over any flag.
+    * ``-v`` (count) — DEBUG. Counts greater than 1 are accepted but collapse
+      to DEBUG (no V=INFO/D=DEBUG ladder; the kickoff locks -v → DEBUG).
+    * ``-q`` (count) — 1× = WARNING, 2× = ERROR. Higher counts clamp to
+      ERROR (no FATAL level in stdlib).
+    * default — INFO.
+
+    ``-v`` and ``-q`` together is a usage error. ``-v`` together with
+    ``--log-level`` is allowed (the explicit value wins); the user
+    typo'd themselves if they specified both, but the resolution is
+    deterministic.
+    """
+    if log_level is not None and (verbose or quiet):
+        # Explicit level trumps flag heuristics, but raise a warning so
+        # the user notices the conflict.
+        click.echo(
+            f"--log-level overrides -v/-q (using {log_level!r}; -v={verbose}, -q={quiet} ignored)",
+            err=True,
+        )
+    if log_level is not None:
+        return log_level.upper()
+    if verbose and quiet:
+        raise click.UsageError("Cannot specify both -v and -q")
+    if verbose:
+        return "DEBUG"
+    if quiet == 1:
+        return "WARNING"
+    if quiet >= 2:
+        return "ERROR"
+    return "INFO"
 
 
 @click.group()
 @click.version_option(version=__version__, prog_name="codeograph")
-def cli() -> None:
+@click.option(
+    "--log-level",
+    default=None,
+    type=click.Choice(LOG_LEVELS, case_sensitive=False),
+    help=(
+        "Console log level. Mutually exclusive with -v/-q in spirit but "
+        "--log-level wins on conflict (with a warning to stderr). "
+        "Default: INFO."
+    ),
+)
+@click.option(
+    "-v",
+    "--verbose",
+    count=True,
+    help="Set console log level to DEBUG.",
+)
+@click.option(
+    "-q",
+    "--quiet",
+    count=True,
+    help="Set console log level to WARNING (-q) or ERROR (-qq).",
+)
+@click.pass_context
+def cli(
+    ctx: click.Context,
+    log_level: str | None,
+    verbose: int,
+    quiet: int,
+) -> None:
     """Ingest a Java/Spring Boot codebase; emit a knowledge graph and migration scaffold."""
-    pass
+    resolved = _resolve_log_level(log_level=log_level, verbose=verbose, quiet=quiet)
+    # Initial configure_logging with out_dir=None installs the console
+    # handler only. Subcommands that have an --out option (currently
+    # only `run`) re-call configure_logging with the resolved out_dir
+    # to attach the JSONL file handler. configure_logging is idempotent
+    # and rebuilds the config from scratch each call.
+    configure_logging(console_level=resolved, out_dir=None)
+    # Stash for subcommands that need to re-configure with their own
+    # out_dir, or that want to log via RunIdLoggerAdapter.
+    ctx.ensure_object(dict)
+    ctx.obj["log_level"] = resolved
 
 
 cli.add_command(cache_cli)
@@ -64,6 +146,13 @@ def run(input_path: str, out: str, ast_only: bool, force: bool, run_eval: bool) 
             raise click.UsageError(
                 f"Output directory '{out_dir}' already exists and is non-empty. Use --force to overwrite."
             )
+
+    # Re-configure logging with the resolved out_dir so logs.jsonl is
+    # emitted into the same directory the run writes its other
+    # artefacts to. The group callback installed the console handler
+    # only; this call adds the JSONL file handler (idempotent rebuild).
+    log_level = click.get_current_context().obj.get("log_level", "INFO")
+    configure_logging(console_level=log_level, out_dir=out_dir)
 
     # Lazy imports keep startup fast and isolate heavy dependencies from the
     # CLI layer — only loaded when `run` is actually invoked.
