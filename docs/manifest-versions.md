@@ -22,20 +22,28 @@ a CI freshness gate.
 | 1.4.0 | 2026-05-30 | `compile_checks` pointer collection | ADR-017 Fork 8 | Compile-check sidecar per renderer target. |
 | 1.5.0 | 2026-06-06 | `source_path` scalar | ADR-017 Fork 3 | Eval reproducibility check re-runs `--ast-only` against the same source. |
 | 1.6.0 | 2026-06-06 | `corpus_id` scalar | ADR-017 Fork 3 | `golden_graph_agreement` check locates `tests/goldens/<corpus_id>/graph.json`. |
-| 1.7.0 | 2026-06-06 | `run_id` scalar (Optional) | ADR-017 Fork 3 + ADR-015 | Eval-correlation `run_id` carrying UUID4 values at ship time. **Format change to timestamp+hex coming in DC5 M7** (value-level only, no schema bump per ADR-022 Fork 1). |
+| 1.7.0 | 2026-06-06 | `run_id` scalar (Optional) | ADR-017 Fork 3 + ADR-015 | Eval-correlation `run_id` carrying UUID4 values at ship time. |
+| **2.0.0** | 2026-06-07 | (restructure — **major bump**) | **ADR-025** | **Breaking.** Flat layout: `scorecards`/`compile_checks` promoted to top-level (peers of `artefacts`); per-artefact `schema_version` retained; `sha256` **required** + top-level `llm_skipped` flag (omit `llm_annotations` on `--ast-only`); `run_id` now **required**; `cache_stats` cost fields (`saved/incurred_usd_est`) dropped — re-add additively when a cost model lands; `run_id` format = `YYYY-MM-DDTHH-MM-SSZ-<6 hex>`. Supersedes ADR-022 manifest forks (1/2/7) + ADR-015 Fork 6 `cache_stats` shape. Strict-additive resumes within `2.x`. |
 
 ## DC5 (current development)
 
 DC5 introduces a new manifest package at `codeograph/codeograph/manifest/`
-with the same field set as `1.7.0`. The `Manifest` Pydantic class replaces
-the auto-generated `codeograph/graph/models/manifest_schema.py`; the
-`CacheStats` shape is preserved verbatim per ADR-022 Fork 1's strict-additive
-rule. The `run_id` format change (UUID4 → `YYYY-MM-DDTHH-MM-SSZ-<6 hex>`) is
-value-level only, so no `schema_version` bump is required.
+and ships the manifest at **`2.0.0`** per [ADR-025](adr/ADR-025-manifest-schema-flat-layout.md)
+— a deliberate restructure (flat layout) of the shipped `1.7.0` nested shape.
+The `Manifest` Pydantic class (hand-written, source of truth) replaces the
+auto-generated `codeograph/graph/models/manifest_schema.py`, which is deleted.
 
-**Locked target:** `1.7.0` at DC5 ship. The Pydantic source of truth lives
-at `codeograph/codeograph/manifest/schema.py`; the committed JSON Schema
-artefact is regenerated from it.
+`2.0.0` changes vs `1.7.0`: `scorecards`/`compile_checks` move to the top level;
+`sha256` becomes required (with a top-level `llm_skipped` flag + omission of the
+`llm_annotations` pointer on `--ast-only`); `run_id` becomes required and adopts
+the `YYYY-MM-DDTHH-MM-SSZ-<6 hex>` format; per-artefact `schema_version` is
+retained; `cache_stats` carries `{calls, hits, hit_rate}` only (cost fields
+deferred until a cost model exists). Strict-additive evolution resumes within
+`2.x.x`.
+
+**Locked target:** `2.0.0` at DC5 ship. The Pydantic source of truth lives at
+`codeograph/codeograph/manifest/schema.py`; the committed JSON Schema artefact
+at `codeograph/_generated/manifest.schema.json` is regenerated from it.
 
 ## Future bumps (v1.1+)
 
