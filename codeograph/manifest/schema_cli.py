@@ -75,6 +75,7 @@ def main(generate: bool, check: bool) -> None:
         GENERATED_SCHEMA_PATH.write_text(
             json.dumps(current, indent=2, ensure_ascii=False) + "\n",
             encoding="utf-8",
+            newline="",
         )
         click.echo(f"wrote {GENERATED_SCHEMA_PATH}")
 
