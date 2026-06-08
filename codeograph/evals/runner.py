@@ -30,6 +30,9 @@ from codeograph.evals.scorecard_schema import (
     ReproducibilityInfo,
     Scorecard,
 )
+from codeograph.manifest.io import read as manifest_io_read
+from codeograph.manifest.io import write as manifest_io_write
+from codeograph.manifest.schema import ScorecardPointer
 
 logger = logging.getLogger(__name__)
 
@@ -241,7 +244,7 @@ class EvalRunner:
         evals_dir = output_dir / "evals"
         evals_dir.mkdir(parents=True, exist_ok=True)
 
-        scorecard_pointers: dict[str, dict[str, str]] = {}
+        scorecard_pointers: dict[str, ScorecardPointer] = {}
 
         for scorecard in scorecards:
             if scorecard.kind == "graph":
@@ -257,24 +260,24 @@ class EvalRunner:
             # Derive overall: "pass" iff every check passes; skips don't fail overall
             overall = "pass" if all(c.result in ("pass", "skip") for c in scorecard.checks) else "fail"
 
-            scorecard_pointers[scorecard.kind] = {
-                "path": f"evals/{filename}",
-                "sha256": sha256,
-                "overall": overall,
-            }
+            scorecard_pointers[scorecard.kind] = ScorecardPointer(
+                path=f"evals/{filename}",
+                sha256=sha256,
+                overall=overall,
+            )
             logger.info("Wrote scorecard: %s (overall=%s)", filepath, overall)
 
         # ---------------------------------------------------------------- #
-        # 6. Patch manifest.artefacts.scorecards (dict keyed by kind)
+        # 6. Patch manifest with top-level scorecards pointer (2.0.0 schema)
         # ---------------------------------------------------------------- #
-        with open(manifest_path, encoding="utf-8") as f:
-            manifest_out = json.load(f)
-
-        manifest_out.setdefault("artefacts", {})["scorecards"] = scorecard_pointers
-
-        with open(manifest_path, "w", encoding="utf-8") as f:
-            json.dump(manifest_out, f, indent=2)
-
+        # Per the ADR-025 write-protocol amendment: this is the standalone
+        # `codeograph eval` case — a previously-terminal manifest is
+        # transformed into another valid terminal manifest by adding a
+        # top-level `scorecards` pointer. `artefacts` and `llm_skipped` are
+        # never modified.
+        manifest = manifest_io_read(manifest_path)
+        manifest.scorecards = scorecard_pointers
+        manifest_io_write(manifest, manifest_path)
         logger.info("Patched manifest scorecards pointer at %s", manifest_path)
 
         return scorecards
