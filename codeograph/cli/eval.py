@@ -23,6 +23,7 @@ import click
 
 from codeograph.cli.eval_report import report_cmd
 from codeograph.evals.runner import EvalRunner, MissingOutputError
+from codeograph.manifest.io import read as manifest_io_read
 
 
 class MutuallyExclusiveOption(click.Option):
@@ -84,6 +85,19 @@ def run_cmd(
         if not manifest_path.exists():
             click.echo(f"Error: manifest.json missing in {output_dir}", err=True)
             sys.exit(2)
+
+        # Read the manifest via manifest_io (lenient on unknown top-level
+        # fields, strict on present fields). The run_id is surfaced in the
+        # log so the user can correlate the eval result with the original
+        # run that produced the manifest (ADR-022 Fork 4 contract).
+        # EvalRunner re-reads the manifest internally for its own use; the
+        # read here is for log visibility, not for passing data.
+        try:
+            manifest = manifest_io_read(manifest_path)
+        except Exception as exc:
+            click.echo(f"Error: could not read manifest.json ({exc})", err=True)
+            sys.exit(2)
+        click.echo(f"Evaluating run {manifest.run_id}...")
 
         # Default to all rendered targets + graph if --scorecard not provided
         if not scorecard:

@@ -105,12 +105,10 @@ class EvalRunner:
         if not output_dir.exists() or not manifest_path.exists():
             raise MissingOutputError(f"no rendered output at {output_dir}; run `codeograph run` first.")
 
-        with open(manifest_path, encoding="utf-8") as f:
-            manifest = json.load(f)
-
-        corpus_id = manifest.get("corpus_id", "unknown")
-        codeograph_version = manifest.get("codeograph_version", "unknown")
-        run_id = manifest.get("run_id", "unknown")
+        manifest = manifest_io_read(manifest_path)
+        corpus_id = manifest.corpus_id
+        codeograph_version = manifest.codeograph_version
+        run_id = manifest.run_id
         run_ts = datetime.datetime.now(datetime.UTC).isoformat()
 
         # ---------------------------------------------------------------- #
