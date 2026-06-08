@@ -137,6 +137,9 @@ def render_cli(
     from codeograph.llm.prompts.loader import PromptLoader
     from codeograph.llm.providers.anthropic_provider import AnthropicProvider
     from codeograph.llm.types import CallContext, ProviderType, Purpose, Tier
+    from codeograph.manifest.io import read as manifest_io_read
+    from codeograph.manifest.io import write as manifest_io_write
+    from codeograph.manifest.schema import CompileChecksPointer
     from codeograph.renderers import RendererRegistry
     from codeograph.telemetry.emitter import JsonlEmitter
 
@@ -333,21 +336,22 @@ def render_cli(
 
     # Phase 2: update manifest pointer now that sidecar is on disk
     # (ADR-017 Fork 8 — "sidecar written first; manifest pointer written after").
+    # Uses manifest_io for strict-on-write + lenient-on-read (per ADR-022
+    # Fork 7; the ADR-025 write-protocol amendment codifies this as "transforms
+    # one valid terminal manifest into another"). `compile_checks` is a
+    # TOP-LEVEL pointer in the 2.0.0 schema (not nested under `artefacts`
+    # as in the 1.4.0 nested shape).
     if _sidecar_rel_path is not None and _sidecar_sha256 is not None:
         manifest_path = from_path / "manifest.json"
         if manifest_path.exists():
-            with open(manifest_path, encoding="utf-8") as f:
-                manifest_dict = json.load(f)
-            manifest_dict["schema_version"] = "1.4.0"
-            if "compile_checks" not in manifest_dict.get("artefacts", {}):
-                manifest_dict.setdefault("artefacts", {})["compile_checks"] = {}
-            manifest_dict["artefacts"]["compile_checks"][target] = {
-                "path": str(_sidecar_rel_path),
-                "schema_version": "1.0.0",
-                "sha256": _sidecar_sha256,
-            }
-            with open(manifest_path, "w", encoding="utf-8") as f:
-                json.dump(manifest_dict, f, indent=2)
+            manifest = manifest_io_read(manifest_path)
+            if manifest.compile_checks is None:
+                manifest.compile_checks = {}
+            manifest.compile_checks[target] = CompileChecksPointer(
+                path=str(_sidecar_rel_path),
+                sha256=_sidecar_sha256,
+            )
+            manifest_io_write(manifest, manifest_path)
 
     emitter.close()
     click.echo(f"Done. Wrote {written} file(s) to {out_path}.")

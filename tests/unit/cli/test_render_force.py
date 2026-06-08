@@ -20,11 +20,37 @@ from codeograph.cli.render import render_cli
 
 
 def _minimal_from_dir(tmp_path: Path) -> Path:
-    """Create a minimal --from directory with graph.json + llm-annotations.json."""
+    """Create a minimal --from directory with a valid 2.0.0 manifest.
+
+    The render command reads the existing manifest via ``manifest_io.read``
+    and adds the ``compile_checks`` top-level pointer. Before B5 the
+    manifest block was a no-op for tests (no manifest existed) and the
+    post-render manifest-update path was never exercised; after B5 the
+    helper provides the manifest so the path runs end-to-end.
+    """
     from_dir = tmp_path / "from"
     from_dir.mkdir()
     (from_dir / "graph.json").write_text(json.dumps({"nodes": [], "edges": []}), encoding="utf-8")
     (from_dir / "llm-annotations.json").write_text("{}", encoding="utf-8")
+    manifest = {
+        "schema_version": "2.0.0",
+        "codeograph_version": "test",
+        "source_path": str(from_dir),
+        "corpus_id": "test",
+        "run_id": "2026-06-08T00-00-00Z-000000",
+        "llm_skipped": False,
+        "artefacts": {
+            "graph": {"path": "graph.json", "schema_version": "1.0.0", "sha256": "a" * 64},
+            "llm_annotations": {
+                "path": "llm-annotations.json",
+                "schema_version": "1.0.0",
+                "sha256": "a" * 64,
+            },
+        },
+    }
+    (from_dir / "manifest.json").write_text(
+        json.dumps(manifest), encoding="utf-8", newline=""
+    )
     return from_dir
 
 
