@@ -146,8 +146,15 @@ def run(
     """Run the Codeograph pipeline on INPUT.
 
     INPUT may be a local directory path, a git URL, or a path to a .zip archive.
+
+    The manifest is written **exactly once** at a terminal checkpoint, per
+    the ADR-025 terminal-write protocol amendment (see
+    ``codeograph.manifest.assembler``). The pipeline collects all run-state
+    fragments (graph, optional llm-annotations, optional cache_stats, optional
+    scorecards) and hands them to the assembler for a single build; strict-on-
+    write Pydantic validation is the boundary check.
     """
-    # Resolve output directory and enforce output-path safety (FR-27).
+    # --- Output directory resolution + safety (FR-27) --------------------
     out_dir = Path(out).resolve()
     if out_dir.exists() and any(out_dir.iterdir()):
         if not force:
@@ -155,24 +162,27 @@ def run(
                 f"Output directory '{out_dir}' already exists and is non-empty. Use --force to overwrite."
             )
 
-    # Re-configure logging with the resolved out_dir so logs.jsonl is
-    # emitted into the same directory the run writes its other
-    # artefacts to. The group callback installed the console handler
-    # only; this call adds the JSONL file handler (idempotent rebuild).
+    # --- Logging re-configuration with the resolved out_dir --------------
     log_level = ctx.obj.get("log_level", "INFO")
     configure_logging(console_level=log_level, out_dir=out_dir)
 
-    # Lazy imports keep startup fast and isolate heavy dependencies from the
-    # CLI layer — only loaded when `run` is actually invoked.
+    # --- Lazy imports (keep CLI startup fast) ----------------------------
     from codeograph.analyzer.corpus_analyzer import CorpusAnalyzer
     from codeograph.graph.graph_assembler import GraphAssembler
     from codeograph.graph.graph_builder import GraphBuilder
     from codeograph.graph.graph_writer import GraphWriter
     from codeograph.input.acquirers.base_acquirer import AcquisitionError
     from codeograph.input.input_acquirer import InputAcquirer
+    from codeograph.manifest import ManifestAssembler
+    from codeograph.manifest.artefact import GraphArtefact
+    from codeograph.manifest.run_id import generate_run_id
+    from codeograph.manifest.schema import CacheStats, ScorecardPointer
     from codeograph.parser.file_parser_dispatcher import FileParserDispatcher
     from codeograph.parser.java_file_parser import JavaFileParser
     from codeograph.parser.regex_fallback import RegexFallback
+
+    # --- Per-run data (generated once, threaded into the assembler) ------
+    run_id = generate_run_id()
 
     acquirer = InputAcquirer()
     corpus = None
@@ -187,6 +197,8 @@ def run(
         total_files = sum(len(m.java_files) for m in corpus.modules)
         click.echo(f"Discovered {len(corpus.modules)} module(s), {total_files} Java file(s).")
 
+        corpus_id = corpus.modules[0].name if corpus.modules else "default-corpus"
+
         analyzer = CorpusAnalyzer(
             dispatcher=FileParserDispatcher(
                 java_parser=JavaFileParser(),
@@ -197,13 +209,22 @@ def run(
             writer=GraphWriter(),
         )
 
-        manifest_path = analyzer.analyze(corpus, out_dir)
-        click.echo(f"Done Pass 0. Manifest: {manifest_path}")
+        # --- Pass 0: deterministic graph (graph_writer returns a GraphArtefact).
+        # The graph_writer never writes the manifest (per the ADR-025 amendment);
+        # the assembler consumes the GraphArtefact at the terminal write.
+        graph_artefact: GraphArtefact = analyzer.analyze(corpus, out_dir)
+        click.echo(
+            f"Done Pass 0. Graph: {graph_artefact.path} "
+            f"(sha256={graph_artefact.sha256[:12]}…)"
+        )
 
-        if ast_only:
-            click.echo("AST-only mode requested. Skipping LLM passes.")
-        else:
+        # --- LLM passes (full run only) ------------------------------------
+        llm_annotations_artefact: GraphArtefact | None = None
+        cache_stats: dict[str, CacheStats] | None = None
+
+        if not ast_only:
             import datetime
+            import hashlib
             import json
 
             from codeograph.config.settings import Settings
@@ -220,7 +241,10 @@ def run(
 
             settings = Settings()
             if not settings.anthropic_api_key:
-                click.echo("WARNING: CODEOGRAPH_ANTHROPIC_API_KEY is not set. LLM passes will fail unless mocked.")
+                click.echo(
+                    "WARNING: CODEOGRAPH_ANTHROPIC_API_KEY is not set. "
+                    "LLM passes will fail unless mocked."
+                )
 
             # Setup Cache & Telemetry
             settings.cache_dir.mkdir(parents=True, exist_ok=True)
@@ -229,7 +253,6 @@ def run(
             telemetry_dir.mkdir(parents=True, exist_ok=True)
 
             run_ts = datetime.datetime.now(datetime.UTC).strftime("%Y%m%dT%H%M%SZ")
-            corpus_id = corpus.modules[0].name if corpus.modules else "default-corpus"
             emitter_path = telemetry_dir / f"run-{corpus_id}-{run_ts}.jsonl"
             emitter = JsonlEmitter(emitter_path)
 
@@ -248,7 +271,9 @@ def run(
             match settings.llm_provider:
                 case ProviderType.ANTHROPIC:
                     base_provider = AnthropicProvider(
-                        api_key=settings.anthropic_api_key.get_secret_value() if settings.anthropic_api_key else "",
+                        api_key=settings.anthropic_api_key.get_secret_value()
+                        if settings.anthropic_api_key
+                        else "",
                         tier_map=tier_map,
                     )
                 case ProviderType.OLLAMA:
@@ -272,8 +297,7 @@ def run(
             prompt_loader = PromptLoader(Path(__file__).parent.parent / "prompts")
 
             # Load graph from Pass 0
-            graph_path = out_dir / "graph.json"
-            with open(graph_path, encoding="utf-8") as f:
+            with open(graph_artefact.path, encoding="utf-8") as f:
                 graph_data = json.load(f)
             nodes = graph_data.get("nodes", [])
 
@@ -288,13 +312,13 @@ def run(
                 corpus_id=corpus_id,
                 provider_name=settings.llm_provider,
             )
-            provider_p1 = build_default_stack(base_provider, retry_policy, cache_backend, emitter, ctx_p1)
-            annotator = NodeAnnotator(provider_p1, prompt_loader, out_dir, settings.llm_concurrency)
-            try:
-                annotations = annotator.annotate(nodes)
-            except Exception as e:
-                click.echo(f"Pass 1 failed: {e}")
-                raise
+            provider_p1 = build_default_stack(
+                base_provider, retry_policy, cache_backend, emitter, ctx_p1
+            )
+            annotator = NodeAnnotator(
+                provider_p1, prompt_loader, out_dir, settings.llm_concurrency
+            )
+            annotations = annotator.annotate(nodes)
 
             # --- Pass 2: Synthesize Corpus ---
             click.echo("Running Pass 2 (Corpus Synthesis)...")
@@ -307,85 +331,76 @@ def run(
                 corpus_id=corpus_id,
                 provider_name=settings.llm_provider,
             )
-            provider_p2 = build_default_stack(base_provider, retry_policy, cache_backend, emitter, ctx_p2)
+            provider_p2 = build_default_stack(
+                base_provider, retry_policy, cache_backend, emitter, ctx_p2
+            )
             synthesizer = CorpusSynthesizer(provider_p2, prompt_loader, out_dir)
-            try:
-                # Pass 2 consumes Pass 1's in-memory annotations + the Pass 0 graph dict
-                # (per CorpusSynthesizer.synthesize signature).
-                synthesizer.synthesize(annotations, graph_data)
-            except Exception as e:
-                click.echo(f"Pass 2 failed: {e}")
-                raise
+            # Pass 2 consumes Pass 1's in-memory annotations + the Pass 0 graph dict
+            # (per CorpusSynthesizer.synthesize signature).
+            synthesizer.synthesize(annotations, graph_data)
 
             # Flush telemetry so the JSONL is readable for per-pass aggregation.
             emitter.close()
-
-            # Update manifest.json: stamp llm_annotations sha256 + populate per-pass
-            # cache_stats from the telemetry JSONL.  manifest schema_version is 1.1.0
-            # (bumped in DC2); cache_stats is keyed by pass_1 / pass_2 per the schema.
-            import hashlib
-
-            from codeograph.graph.models.manifest_schema import CacheStats, CodeographRunManifest
-            from codeograph.llm.types import Purpose
-
-            try:
-                # Load existing manifest via the pydantic model so writes round-trip
-                # cleanly through the schema and reject any drift from contract.
-                with open(manifest_path, encoding="utf-8") as f:
-                    manifest = CodeographRunManifest.model_validate_json(f.read())
-
-                # Stamp llm-annotations sha256 (Pass 0 wrote sha256=None).
-                annotations_path = out_dir / "llm-annotations.json"
-                if annotations_path.exists():
-                    with open(annotations_path, "rb") as bfh:
-                        manifest.artefacts.llm_annotations.sha256 = hashlib.sha256(bfh.read()).hexdigest()
-
-                # Aggregate telemetry JSONL by Purpose → pass label.  Each record is one
-                # complete_structured call; cache_hit is True when CachingLlmProvider
-                # short-circuited.  cost_usd_est is 0.0 in v1 (cost model deferred to v1.1
-                # per ADR-016); saved_usd_est and incurred_usd_est therefore default to 0.0.
-                purpose_to_pass = {Purpose.ANNOTATE.value: "pass_1", Purpose.SYNTHESIZE.value: "pass_2"}
-                per_pass: dict[str, list[dict[str, Any]]] = {"pass_1": [], "pass_2": []}
-                if emitter_path.exists():
-                    with open(emitter_path, encoding="utf-8") as tf:
-                        for line in tf:
-                            line = line.strip()
-                            if not line:
-                                continue
-                            rec = json.loads(line)
-                            pass_label = purpose_to_pass.get(rec.get("purpose"))
-                            if pass_label:
-                                per_pass[pass_label].append(rec)
-
-                cache_stats: dict[str, CacheStats] = {}
-                for pass_label, recs in per_pass.items():
-                    if not recs:
-                        continue
-                    calls = len(recs)
-                    hits = sum(1 for r in recs if r.get("cache_hit"))
-                    hit_rate = (hits / calls) if calls else 0.0
-                    incurred = sum(float(r.get("cost_usd_est", 0.0)) for r in recs if not r.get("cache_hit"))
-                    saved = sum(float(r.get("cost_usd_est", 0.0)) for r in recs if r.get("cache_hit"))
-                    cache_stats[pass_label] = CacheStats(
-                        calls=calls,
-                        hits=hits,
-                        hit_rate=round(hit_rate, 4),
-                        saved_usd_est=round(saved, 4),
-                        incurred_usd_est=round(incurred, 4),
-                    )
-
-                if cache_stats:
-                    manifest.cache_stats = cache_stats
-
-                with open(manifest_path, "w", encoding="utf-8") as f:
-                    f.write(manifest.model_dump_json(indent=2))
-
-            except Exception as e:
-                click.echo(f"Warning: Failed to update manifest.json: {e}")
-
             click.echo("LLM passes complete.")
 
-        # --- Eval (runs for both ast-only and full-LLM paths) ---
+            # --- Compute the llm-annotations artefact from the just-written file.
+            # The assembler requires this when llm_skipped=False; an LLM pass
+            # completing without producing the file is a producer bug.
+            annotations_path = out_dir / "llm-annotations.json"
+            if not annotations_path.exists():
+                raise click.ClickException(
+                    f"LLM passes completed but {annotations_path} was not produced. "
+                    f"This is a producer bug; the manifest cannot be assembled "
+                    f"without it (per ADR-025 §Invariants)."
+                )
+            llm_annotations_artefact = GraphArtefact(
+                path=annotations_path,
+                schema_version=graph_artefact.schema_version,  # same version as graph in v1
+                sha256=hashlib.sha256(annotations_path.read_bytes()).hexdigest(),
+            )
+
+            # --- Aggregate cache_stats from telemetry.
+            # 2.0.0 schema: only {calls, hits, hit_rate}; cost fields
+            # (saved_usd_est / incurred_usd_est) deferred to a v1.1 minor
+            # bump when a cost model lands (ADR-025 Fork 5).
+            purpose_to_pass = {
+                Purpose.ANNOTATE.value: "pass_1",
+                Purpose.SYNTHESIZE.value: "pass_2",
+            }
+            per_pass: dict[str, list[dict[str, Any]]] = {"pass_1": [], "pass_2": []}
+            if emitter_path.exists():
+                with open(emitter_path, encoding="utf-8") as tf:
+                    for line in tf:
+                        line = line.strip()
+                        if not line:
+                            continue
+                        rec = json.loads(line)
+                        pass_label = purpose_to_pass.get(rec.get("purpose"))
+                        if pass_label:
+                            per_pass[pass_label].append(rec)
+
+            aggregated: dict[str, CacheStats] = {}
+            for pass_label, recs in per_pass.items():
+                if not recs:
+                    continue
+                calls = len(recs)
+                hits = sum(1 for r in recs if r.get("cache_hit"))
+                hit_rate = round((hits / calls) if calls else 0.0, 4)
+                aggregated[pass_label] = CacheStats(
+                    calls=calls,
+                    hits=hits,
+                    hit_rate=hit_rate,
+                )
+            if aggregated:
+                cache_stats = aggregated
+        else:
+            click.echo("AST-only mode requested. Skipping LLM passes.")
+
+        # --- Eval (runs for both ast-only and full-LLM paths).
+        # Eval runs BEFORE the manifest write so the scorecards can be
+        # included in the single terminal manifest write. Standalone
+        # `codeograph eval` (B6) reads+adds+writes the manifest separately.
+        scorecards: dict[str, ScorecardPointer] | None = None
         if run_eval:
             click.echo("Running evaluation (--eval requested)...")
             import sys
@@ -394,25 +409,76 @@ def run(
 
             try:
                 runner = EvalRunner()
-
                 kinds = ["graph"]
                 for child in out_dir.iterdir():
                     if child.is_dir() and child.name not in ("evals", ".codeograph"):
                         kinds.append(child.name)
-
-                scorecards = runner.run(
+                scorecard_models = runner.run(
                     output_dir=out_dir,
                     scorecard_kinds=kinds,
                 )
 
-                has_failure = any(any(c.result == "fail" for c in s.checks) for s in scorecards)
+                # Build ScorecardPointer dict from the written scorecard files
+                # so the assembler has the (path, sha256, overall) tuple per kind.
+                import hashlib  # local import keeps the no-LLM-pass path slim
 
+                scorecards = {}
+                for sc in scorecard_models:
+                    sc_filename = (
+                        "graph-scorecard.json"
+                        if sc.kind == "graph"
+                        else f"{sc.kind}-scorecard.json"
+                    )
+                    sc_path = out_dir / "evals" / sc_filename
+                    if sc_path.exists():
+                        sc_sha = hashlib.sha256(sc_path.read_bytes()).hexdigest()
+                    else:
+                        # EvalRunner should always have written the file; this
+                        # is defensive against a future refactor mistake.
+                        sc_sha = "0" * 64
+                    overall = (
+                        "pass"
+                        if all(c.result in ("pass", "skip") for c in sc.checks)
+                        else "fail"
+                    )
+                    scorecards[sc.kind] = ScorecardPointer(
+                        path=f"evals/{sc_filename}",
+                        sha256=sc_sha,
+                        overall=overall,
+                    )
+
+                has_failure = any(
+                    c.result == "fail"
+                    for sc in scorecard_models
+                    for c in sc.checks
+                )
                 if has_failure:
                     click.echo("Evaluation failed overall.")
                     sys.exit(1)
             except MissingOutputError as e:
                 click.echo(f"Eval Error: {e}", err=True)
                 sys.exit(2)
+
+        # --- Terminal manifest write ----------------------------------------
+        # Per the ADR-025 terminal-write protocol: the manifest is written
+        # exactly once per command, at this terminal checkpoint. Every
+        # referenced file is final, every sha256 is computable, the
+        # §Invariants hold. No intermediate manifest ever exists on disk.
+        assembler = ManifestAssembler()
+        manifest = assembler.assemble(
+            run_id=run_id,
+            codeograph_version=__version__,
+            source_path=str(corpus.corpus_root.resolve()),
+            corpus_id=corpus_id,
+            llm_skipped=ast_only,
+            graph_artefact=graph_artefact,
+            llm_annotations_artefact=llm_annotations_artefact,
+            cache_stats=cache_stats,
+            scorecards=scorecards,
+            compile_checks=None,  # render command adds these in B5
+        )
+        manifest_path = assembler.write_to(manifest, out_dir)
+        click.echo(f"Done. Manifest: {manifest_path}")
 
     finally:
         if corpus is not None:
