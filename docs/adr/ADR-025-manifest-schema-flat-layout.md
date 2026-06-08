@@ -362,3 +362,66 @@ ADR (the cost-control CLI ADR, or an amendment that lands the price table) cites
 * SemVer 2.0.0 — https://semver.org
 * JSON Schema 2020-12 — https://json-schema.org/draft/2020-12/schema
 * Pydantic v2 — https://docs.pydantic.dev/
+
+## Amendments
+
+### 2026-06-08 — Manifest write protocol (temporal dimension)
+
+The decision above locks the *shape* of the terminal manifest (Forks 1–5) and the *categorical* run
+state (`llm_skipped`: a full run vs an `--ast-only` run). It does not state the *temporal* dimension —
+**when** the manifest is written, by which component, and how many times. That was left implicit, and it
+matters because Fork 3 (required `sha256`) removed the previous schema's nullable-`sha256`
+"not-yet-computed" marker, on which the pipeline's two-phase write had implicitly relied.
+
+Without a stated protocol, one intermediate state is both unrepresentable and invalid: a full run, after
+the deterministic graph pass but before the LLM pass has produced `llm-annotations.json`, would carry a
+present `llm_annotations` pointer with no `sha256` while `llm_skipped` is `false` — violating the
+§Invariants. This amendment removes the ambiguity by fixing the write protocol so that state never
+reaches disk.
+
+**Decision — single terminal write.** The manifest is assembled in memory and written to disk **exactly
+once per command, at a terminal checkpoint** — never in an intermediate state.
+
+* `codeograph run`, `--ast-only`: the manifest is written once, after the graph pass. The LLM pass does
+  not run, so that point is terminal (`llm_skipped: true`, `llm_annotations` omitted).
+* `codeograph run`, full: the manifest is written once, after the LLM pass — at which point every
+  referenced file is final, every `sha256` is computable, and `cache_stats` is rolled up. The graph pass
+  writes `graph.json` and returns its pointer (`{path, schema_version, sha256}`) to the run orchestrator;
+  the graph pass does **not** write the manifest.
+* `codeograph eval` / `codeograph render`: each reads an already-terminal manifest, adds **only** a
+  top-level optional pointer (`scorecards` / `compile_checks` respectively), and writes it back.
+  `artefacts` and `llm_skipped` are never modified, so each write transforms one valid terminal manifest
+  into another valid terminal manifest.
+
+**Strengthened invariant (additive to §Invariants).** A `manifest.json` present on disk **always**
+satisfies the §Invariants: *its presence means the producing command reached a terminal checkpoint,
+which means the invariants hold.* If a run fails before its terminal checkpoint, **no manifest is
+written** — the absence is the signal, and `<out>/logs.jsonl` carries the failure detail. This mirrors
+the omission philosophy of Fork 3: an absent output is explicit and unambiguous, never a half-written or
+integrity-soft file. (This is the write-on-success marker pattern, e.g. the `_SUCCESS` sentinel used by
+batch data tools.)
+
+**Alternatives considered and rejected.**
+
+* *Write the intermediate manifest and document "consumers must not read it mid-run."* Rejected: this
+  re-admits exactly the soft, untrustworthy on-disk state that Fork 3 eliminated — merely relocated from
+  a nullable field to a transiently-invalid file. It also offers only a documentation caveat, not a
+  testable guarantee.
+* *Write a placeholder `sha256` during the in-progress window.* Rejected for the same reason: a present
+  pointer would not match its file, weakening the integrity contract Fork 3 made hard.
+* *Add a temporal `status` field (e.g. `in_progress` / `complete`).* Rejected for v1: it conflates the
+  producer's process state with the manifest's product description — the same category mix that Fork 2
+  removed by separating evaluation outputs from artefacts — and it would ship a field that is always
+  `complete` by the time any v1 consumer reads it (no component reads a manifest mid-run). It becomes a
+  clean additive `2.x` field if and when a mid-run consumer (e.g. resumable or streamed runs) is
+  introduced; until then it is unused surface area.
+
+**Scope.** This amendment adds the write protocol and the presence-implies-valid invariant. It does not
+change any Fork 1–5 decision or the manifest shape. The decision status remains `accepted`.
+
+**Confirmation (additive to the list above).**
+
+10. A full run interrupted after the graph pass — before the LLM pass writes `llm-annotations.json` —
+    leaves **no** `manifest.json` on disk (`graph.json` may exist; the manifest appears only at the
+    terminal write). Equivalently: at no point during a run does an on-disk manifest violate the
+    §Invariants (integration test).
