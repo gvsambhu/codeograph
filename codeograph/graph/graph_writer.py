@@ -35,10 +35,10 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-from dataclasses import dataclass
 from pathlib import Path
 
 from codeograph.graph.models.graph_schema import CodeographKnowledgeGraph
+from codeograph.manifest.artefact import GraphArtefact
 
 logger = logging.getLogger(__name__)
 
@@ -63,39 +63,6 @@ _SORTABLE_NODE_ARRAYS = frozenset(
         "constraints",
     }
 )
-
-
-# ---------------------------------------------------------------------------
-# Public types
-# ---------------------------------------------------------------------------
-
-
-@dataclass(frozen=True)
-class GraphArtefact:
-    """Result of writing the deterministic graph (Pass 0).
-
-    Consumed by the manifest assembler (``codeograph.manifest.assembler``)
-    when it builds the terminal 2.0.0 manifest. The manifest is never
-    written by this module per the ADR-025 write-protocol amendment (the
-    "terminal-write" pattern): an intermediate manifest is never written,
-    so the strict invariants in ADR-025 §Invariants are never transiently
-    violated on disk.
-
-    Attributes:
-        path:           Path to the just-written ``graph.json`` on disk.
-        schema_version: The graph file's schema version. Currently always
-                        :data:`GRAPH_SCHEMA_VERSION`; the field exists so
-                        the manifest pointer (``ArtefactPointer.schema_version``)
-                        can be populated by the assembler without inspecting
-                        the file.
-        sha256:         Hex SHA-256 of the canonical bytes that were
-                        written, suitable for the manifest's ``graph``
-                        ``ArtefactPointer.sha256``.
-    """
-
-    path: Path
-    schema_version: str
-    sha256: str
 
 
 # ---------------------------------------------------------------------------

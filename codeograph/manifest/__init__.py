@@ -13,6 +13,8 @@ shipped ``1.7.0`` nested layout was a deliberate ``2.0.0`` restructure
 structured-logging decisions are unaffected).
 """
 
+from codeograph.manifest.artefact import GraphArtefact
+from codeograph.manifest.assembler import ManifestAssembler
 from codeograph.manifest.io import read, write
 from codeograph.manifest.run_id import RUN_ID_PATTERN, generate_run_id
 from codeograph.manifest.schema import (
@@ -27,7 +29,9 @@ __all__ = [
     "ArtefactPointer",
     "CacheStats",
     "CompileChecksPointer",
+    "GraphArtefact",
     "Manifest",
+    "ManifestAssembler",
     "RUN_ID_PATTERN",
     "ScorecardPointer",
     "generate_run_id",
