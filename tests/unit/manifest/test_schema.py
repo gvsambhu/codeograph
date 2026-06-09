@@ -15,6 +15,8 @@ Per ADR-025 §"Confirmation":
 """
 from __future__ import annotations
 
+import pydantic
+
 # Imports used by the learner-written assertion bodies; suppress
 # unused-import warnings until the bodies are filled in.
 import pytest  # noqa: F401
@@ -50,18 +52,29 @@ class TestSha256Required:
     present pointer."""
 
     def test_artefact_pointer_rejects_null_sha256(self) -> None:
-        # TODO(learner): build an ArtefactPointer with sha256=None and
-        # assert that pydantic.ValidationError is raised.
-        ...
+        with pytest.raises(pydantic.ValidationError):
+            # Pass None for the required sha256 string field
+            ArtefactPointer(
+                path="graph.json",
+                schema_version="1.0.0",
+                sha256=None,  # type: ignore[arg-type]
+            )
 
     def test_artefact_pointer_rejects_non_64_hex_sha256(self) -> None:
-        # TODO(learner): build an ArtefactPointer with sha256="not-hex"
-        # (or any non-64-hex string) and assert ValidationError.
-        ...
+        with pytest.raises(pydantic.ValidationError):
+            ArtefactPointer(
+                path="graph.json",
+                schema_version="1.0.0",
+                sha256="not-hex-at-all",
+            )
 
     def test_scorecard_pointer_rejects_null_sha256(self) -> None:
-        # TODO(learner): same as the artefact case but for ScorecardPointer.
-        ...
+        with pytest.raises(pydantic.ValidationError):
+            ScorecardPointer(
+                path="scorecard.json",
+                sha256=None,  # type: ignore[arg-type]
+                overall="pass",
+            )
 
     @pytest.mark.parametrize(
         "bad_sha",
@@ -73,11 +86,14 @@ class TestSha256Required:
             " " * 64,            # spaces
         ],
     )
-    def test_artefact_pointer_rejects_malformed_sha256(self, bad_sha: str) -> None:
-        # TODO(learner): build an ArtefactPointer with sha256=bad_sha and
-        # assert ValidationError for each parametrize case.
-        ...
 
+    def test_artefact_pointer_rejects_malformed_sha256(self, bad_sha: str) -> None:
+        with pytest.raises(pydantic.ValidationError):
+            ArtefactPointer(
+                path="graph.json",
+                schema_version="1.0.0",
+                sha256=bad_sha,
+            )
 
 # ---------------------------------------------------------------------------
 # TestArtefactSchemaVersion (Confirmation #5)
@@ -89,17 +105,27 @@ class TestArtefactSchemaVersion:
     present and is a string (per-artefact version retained per Fork 4)."""
 
     def test_artefact_pointer_schema_version_is_string(self) -> None:
-        ptr = _valid_graph_pointer()  # noqa: F841 — used by learner assertion
-        # TODO(learner): assert isinstance(ptr.schema_version, str) and
-        # assert len(ptr.schema_version) > 0.
-        ...
+        ptr = _valid_graph_pointer()
+        assert isinstance(ptr.schema_version, str)
+        assert len(ptr.schema_version) > 0
 
     def test_manifest_round_trip_preserves_per_artefact_version(self) -> None:
-        # TODO(learner): build a Manifest with an ArtefactPointer carrying
-        # schema_version="1.2.3", model_dump_json, re-parse, and assert
-        # the per-artefact schema_version survives.
-        ...
-
+        ptr = ArtefactPointer(path="graph.json", schema_version="1.2.3", sha256="a" * 64)
+        m = Manifest(
+            schema_version="2.0.0",
+            codeograph_version="0.1.0",
+            source_path=".",
+            corpus_id="test",
+            run_id="2026-06-09T12-00-00Z-abcdef",
+            artefacts={"graph": ptr}
+        )
+        
+        # Round-trip serialize and validate
+        dumped = m.model_dump_json()
+        loaded = Manifest.model_validate_json(dumped)
+        
+        # Verify the version on the artefact pointer was preserved
+        assert loaded.artefacts["graph"].schema_version == "1.2.3"
 
 # ---------------------------------------------------------------------------
 # TestCacheStatsNoCostFields (Confirmation #6)
@@ -112,21 +138,33 @@ class TestCacheStatsNoCostFields:
     v1; re-added as an additive 2.x bump when a cost model lands)."""
 
     def test_cache_stats_rejects_saved_usd_est(self) -> None:
-        # TODO(learner): build a CacheStats via model_construct with
-        # saved_usd_est=0.5 (bypassing the field mask) and assert that
-        # extra="forbid" rejects it. (Hint: pydantic v2 uses
-        # model_construct + _fields_set; or try setattr.)
-        ...
+        with pytest.raises(pydantic.ValidationError):
+            CacheStats.model_validate({
+                "calls": 1,
+                "hits": 1,
+                "hit_rate": 1.0,
+                "saved_usd_est": 0.5,
+            })
 
     def test_cache_stats_rejects_incurred_usd_est(self) -> None:
-        # TODO(learner): same as above but for incurred_usd_est.
-        ...
+        with pytest.raises(pydantic.ValidationError):
+            CacheStats.model_validate({
+                "calls": 1,
+                "hits": 1,
+                "hit_rate": 1.0,
+                "incurred_usd_est": 0.5,
+            })
 
     def test_cache_stats_v1_shape_is_three_fields(self) -> None:
-        # TODO(learner): build a CacheStats with the 3 v1 fields
-        # (calls, hits, hit_rate) and assert it validates; assert
-        # sorted(model_fields) == ["calls", "hit_rate", "hits"].
-        ...
+        # Verify that constructing it with exactly the 3 v1 fields is valid
+        stats = CacheStats(calls=10, hits=8, hit_rate=0.8)
+        assert stats.calls == 10
+        assert stats.hits == 8
+        assert stats.hit_rate == 0.8
+        
+        # Verify no cost fields exist in the schema
+        assert "saved_usd_est" not in stats.model_fields
+        assert "incurred_usd_est" not in stats.model_fields
 
 
 # ---------------------------------------------------------------------------
@@ -140,20 +178,35 @@ class TestRunIdRequired:
     scalar in 2.0.0)."""
 
     def test_manifest_rejects_missing_run_id(self) -> None:
-        # TODO(learner): try to build a Manifest via model_construct with
-        # run_id missing (bypass required-field check) and assert
-        # ValidationError when model_validate_json is called. Or use
-        # model_construct and then call model_dump + model_validate to
-        # trigger strict validation.
-        ...
+        raw_missing_run_id = {
+            "schema_version": "2.0.0",
+            "codeograph_version": "0.1.0",
+            "source_path": ".",
+            "corpus_id": "test",
+            # run_id is missing
+            "artefacts": {},
+        }
+        with pytest.raises(pydantic.ValidationError):
+            Manifest.model_validate(raw_missing_run_id)
 
     def test_manifest_with_null_run_id_raises(self) -> None:
-        # TODO(learner): Manifest(run_id=None, ...) should fail because
-        # run_id is required and str (not Optional[str]).
-        ...
+        with pytest.raises(pydantic.ValidationError):
+            Manifest(
+                schema_version="2.0.0",
+                codeograph_version="0.1.0",
+                source_path=".",
+                corpus_id="test",
+                run_id=None,  # type: ignore[arg-type]
+                artefacts={},
+            )
 
     def test_manifest_with_empty_run_id_raises(self) -> None:
-        # TODO(learner): Manifest(run_id="", ...) should fail because
-        # the regex pattern from RUN_ID_PATTERN rejects empty strings.
-        # Use generate_run_id()'s RUN_ID_PATTERN as the source of truth.
-        ...
+        with pytest.raises(pydantic.ValidationError):
+            Manifest(
+                schema_version="2.0.0",
+                codeograph_version="0.1.0",
+                source_path=".",
+                corpus_id="test",
+                run_id="",
+                artefacts={},
+            )

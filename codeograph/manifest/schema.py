@@ -28,6 +28,7 @@ unaffected.
 from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, Field
+from codeograph.manifest.run_id import RUN_ID_PATTERN
 
 # ---------------------------------------------------------------------------
 # Pointer classes — one per payload-pointer kind (ADR-025 Fork 2)
@@ -139,7 +140,7 @@ class Manifest(BaseModel):
     codeograph_version: str
     source_path: str
     corpus_id: str
-    run_id: str  # required in 2.0.0 (ADR-025 Invariants)
+    run_id: str = Field(pattern=RUN_ID_PATTERN)  # required in 2.0.0 (ADR-025 Invariants)
     llm_skipped: bool = False  # ADR-025 Fork 3
 
     # --- aggregate metadata ---
