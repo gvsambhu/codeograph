@@ -41,9 +41,64 @@ Rules:
 
 Every change goes through a PR. Direct pushes to `main` are not used.
 
+## Development Setup
+
+Choose the setup section corresponding to your execution environment:
+
+### Option A — Windows (PowerShell)
+
+1. Install the package in editable mode with development dependencies:
+   ```powershell
+   python -m pip install -e ".[dev]"
+   ```
+2. Install the git pre-commit hooks:
+   ```powershell
+   python -m pre_commit install --hook-type pre-commit --hook-type commit-msg
+   ```
+   This configures both the gitleaks secret scanning and the banned-terms scanners to run automatically on commit.
+
+### Option B — Linux / WSL (bash)
+
+1. Install system Python packages (if missing, required on Debian/Ubuntu systems):
+   ```bash
+   sudo apt-get update && sudo apt-get install -y python3-pip python3-venv
+   ```
+2. Install the package in editable mode with development dependencies:
+   ```bash
+   python3 -m pip install -e ".[dev]"
+   ```
+3. Install the git pre-commit hooks:
+   ```bash
+   pre-commit install --hook-type pre-commit --hook-type commit-msg
+   ```
+
 ## Pre-merge checklist
 
 All of these must be green before a PR merges:
+
+### Windows (PowerShell)
+
+```powershell
+# lint + formatting
+ruff check .
+ruff format --check .
+
+# typecheck
+mypy codeograph/
+
+# Python unit tests
+python -m pytest -m "not slow and not external and not eval" --tb=short
+
+# JVM + external tests (requires JDK to be on system PATH)
+python -m pytest -m "slow or external" --tb=short
+
+# Java parser tests
+cd codeograph/parser/java
+mvn test
+cd ../../..
+```
+
+### Linux / WSL (bash)
 
 ```bash
 make lint                                                    # ruff check + format check
@@ -175,3 +230,48 @@ Repository administrators must configure branch protection rules on `main` to re
 - `Python (integration-external)`
 - `Java (mvn test)`
 - `Cross-corpus Eval Report`
+- `Java (mvn test)`
+
+## Responding to a gitleaks finding
+
+When the gitleaks check fails on your PR or in the nightly scan, follow this procedure. Do not improvise.
+
+### Step 1 — Confirm whether this is a real secret
+
+Real secrets:
+- Live API keys, tokens, passwords, OAuth client secrets, private keys
+- Database connection strings with embedded credentials
+- Webhook URLs containing authentication tokens
+- Anything that grants access to a system
+
+Common false positives:
+- Mock / fake credentials in test fixtures
+- Placeholder values in `.env.example` files (e.g., `JWT_SECRET=replace-me`)
+- Documentation examples ("here is what an AWS access key looks like")
+- Generated hashes / fingerprints that coincidentally match credential patterns
+
+### Step 2A — If REAL: rotate the credential FIRST
+
+1. Treat the credential as compromised from the moment it was committed.
+2. Generate a new credential at the provider (rotate the API key, regenerate the token, change the password, etc.).
+3. Update wherever the old credential is used (env vars, deployed services, teammate machines).
+4. Revoke the old credential at the provider if possible.
+5. File an incident issue using `.github/ISSUE_TEMPLATE/secret-leak-incident.md` describing what was exposed and the rotation steps taken. NEVER include the rotated value in the issue.
+6. Remove the value from your branch — use a placeholder, env var reference, or `.env` file (not committed).
+7. Push the fix.
+
+For nightly-scan detections, ALSO check whether the secret has been pushed to remote in the last 24 hours — the exposure window matters.
+
+### Step 2B — If FALSE POSITIVE: add allowlist entry with reason
+
+1. Prefer inline: add `# gitleaks:allow reason=<short-rationale>` on the line.
+2. For binary / generated files: add a `.gitleaksignore` entry with a `# reason: <why>` line immediately above.
+3. The PR must explain in its description why this is a false positive and what the value actually is.
+
+### Step 3 — Do NOT do these things
+
+- Do NOT amend the commit to hide the value (history still contains it).
+- Do NOT add an allowlist entry without confirming it is a false positive.
+- Do NOT bypass the gitleaks check via admin override (the repository ruleset prohibits bypass).
+- Do NOT push the same credential to a different file (still exposed).
+- Do NOT delete the incident issue before rotation is verified.

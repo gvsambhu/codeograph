@@ -25,3 +25,21 @@ jobs:
         run: |
           echo "Tier 3 (JHipster corpus) deferred to v1.1."
           echo "This job will be populated when the JHipster fixture lands."
+
+  gitleaks-full-history:
+    name: Gitleaks Full History Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Run gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_VERSION: "8.30.1"
+        with:
+          args: detect --source . --no-banner --redact
+      - if: failure()
+        run: |
+          echo "::error::Full-history gitleaks scan detected secrets — see CONTRIBUTING.md 'Responding to a gitleaks finding'"
