@@ -1,12 +1,20 @@
-# Architecture — current snapshot (DC1)
+# Architecture — current snapshot (v1 / DC1–DC5)
 
 This page describes what is implemented **today**. It is updated as each delivery chunk (DC) lands. The decision flow that led here lives in [`docs/adr/`](adr/); this page is the snapshot.
 
-## What DC1 delivers
+## What each DC delivered
 
-A deterministic pipeline that reads a Java/Spring Boot corpus and emits a canonical knowledge graph (`graph.json`) plus a run manifest (`manifest.json`). AST-only; no LLM enrichment in DC1.
+| DC | Deliverable |
+|---|---|
+| DC1 | Deterministic AST pipeline → `graph.json` + initial `manifest.json` |
+| DC2 | LLM enrichment passes (Pass 1 annotator, Pass 2 synthesizer) → `llm-annotations.json`; response cache; telemetry JSONL |
+| DC3 | TypeScript/NestJS renderer; pluggable renderer registry (ADR-008/010) |
+| DC4 | Eval framework — scorecards, compile checks, golden-graph regression (ADR-017/018) |
+| DC5 | Run manifest v2.0.0 (ADR-025 flat layout); structured logging (JSONL + plaintext); gitleaks secret scanning (ADR-022/023) |
 
-## Pipeline
+## DC1 — Deterministic graph pipeline
+
+### Pipeline
 
 ```
 INPUT  →  ACQUIRE  →  DISCOVER  →  PARSE  →  BUILD  →  ASSEMBLE  →  WRITE  →  OUTPUT
@@ -26,7 +34,7 @@ Each box is a focused class. CLI wires them together (`codeograph/cli/main.py`).
 | Assemble | `GraphAssembler` | merged graph + cross-file edges | [ADR-006](adr/ADR-006-knowledge-graph-schema.md) |
 | Write | `GraphWriter` | `graph.json` (canonical) + `manifest.json` (SHA-256) | [ADR-006](adr/ADR-006-knowledge-graph-schema.md), [ADR-007](adr/ADR-007-golden-graph-pattern.md) |
 
-## The Java parser (sidecar JAR)
+### The Java parser (sidecar JAR)
 
 `codeograph/parser/java/` is a Maven module that builds `parser.jar` — a JavaParser-based AST extractor invoked as a subprocess per `.java` file. Components:
 
@@ -39,7 +47,7 @@ Each box is a focused class. CLI wires them together (`codeograph/cli/main.py`).
 
 Regex fallback (`codeograph/parser/regex_fallback.py`) handles malformed sources the AST parser rejects. The dispatcher tags each `ParsedFile` with `extraction_mode: "ast" | "regex"` so consumers can distinguish.
 
-## Output contract
+### Output contract
 
 `graph.json` is byte-stable across runs given the same input:
 
@@ -50,14 +58,27 @@ Regex fallback (`codeograph/parser/regex_fallback.py`) handles malformed sources
 
 `manifest.json` records the SHA-256 of `graph.json` plus schema versions. Tested against checked-in goldens — see [ADR-007](adr/ADR-007-golden-graph-pattern.md) and `tests/test_golden.py`.
 
-## Reproducibility envelope
+### Reproducibility envelope
 
 CI pins `TZ=UTC`, `LC_ALL=C.UTF-8`, `PYTHONHASHSEED=0` (see `.github/workflows/ci.yml`). The JavaParser version is pinned in `pyproject.toml` `[tool.codeograph.versions]`; bumping it requires a goldens refresh.
 
-## Schema
+### Schema
 
-JSON Schema files live in `codeograph/schema/`. Pydantic v2 models are code-generated into `codeograph/graph/models/` via `make schema-models`. Both checked in; CI fails if regeneration would change them.
+The manifest JSON Schema lives in `codeograph/_generated/manifest.schema.json` — regenerated from the Pydantic source of truth (`codeograph/manifest/schema.py`) via `python -m codeograph.manifest.schema_cli --generate`. CI freshness gate catches drift. Graph and LLM-annotation schemas live in `codeograph/schema/`.
 
-## What's next (not in DC1)
+## DC5 — Run manifest, structured logging, secret scanning
 
-DC2 wires LLM enrichment passes (semantic annotations, domain decomposition) into the same graph. Renderers (TypeScript/NestJS, Go) come later. See the ADR index for committed decisions and the project roadmap for sequence.
+| Component | Location | ADR |
+|---|---|---|
+| Manifest schema v2.0.0 (flat layout) | `codeograph/manifest/schema.py` | [ADR-025](adr/ADR-025-manifest-schema-flat-layout.md) |
+| Manifest IO (strict-on-write / lenient-on-read) | `codeograph/manifest/io.py` | [ADR-025](adr/ADR-025-manifest-schema-flat-layout.md) |
+| Run-id generator (`YYYY-MM-DDTHH-MM-SSZ-<6hex>`) | `codeograph/manifest/run_id.py` | [ADR-022](adr/ADR-022-run-manifest-and-structured-logging.md) Fork 3 |
+| JSON Schema artefact (committed, CI-gated) | `codeograph/_generated/manifest.schema.json` | [ADR-022](adr/ADR-022-run-manifest-and-structured-logging.md) Fork 7 |
+| Dual-emission logging (JSONL file + plaintext stderr) | `codeograph/logging_config.py`, `logging_formatters.py`, `logging_filters.py` | [ADR-022](adr/ADR-022-run-manifest-and-structured-logging.md) Fork 4 |
+| Gitleaks secret scanning (pre-commit + CI + nightly) | `.pre-commit-config.yaml`, `.github/workflows/` | [ADR-023](adr/ADR-023-secret-scanning-with-gitleaks.md) |
+
+**Manifest write protocol (ADR-025 amendment):** the manifest is assembled in memory and written **once**, at a terminal checkpoint — after Pass 0 for `--ast-only`, after Pass 1+2 for a full run. A manifest present on disk always satisfies the schema invariants. `eval` and `render` add only top-level optional pointers (`scorecards`, `compile_checks`) to an already-terminal manifest.
+
+## What's next (v1.1)
+
+Go renderer (ADR-011 — learner's design work), error-handling translation (ADR-012), cost-control CLI (ADR-016), snapshot + negative tests (ADR-019), LLM-judge calibration (ADR-020). See the ADR index for the full deferred list.

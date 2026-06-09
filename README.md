@@ -2,7 +2,7 @@
 
 Reads a Java/Spring Boot codebase and emits a deterministic knowledge graph — nodes, edges, complexity metrics, Spring-aware annotations — reproducible byte-for-byte across runs.
 
-**Status:** DC1 (AST pipeline) — see [`docs/architecture.md`](docs/architecture.md) for what's implemented today. Later deliveries add LLM enrichment, domain decomposition, and target-language renderers.
+**Status:** v1 complete (DC1–DC5) — deterministic graph, LLM enrichment, eval framework, TypeScript/NestJS renderer, run manifest + structured logging. See [`docs/architecture.md`](docs/architecture.md) for the full pipeline.
 
 ## Requirements
 
@@ -21,9 +21,9 @@ Output (three files — always start from `manifest.json`):
 
 | File | Description |
 |---|---|
-| `out/manifest.json` | Entry point: schema versions + SHA-256 of each artefact |
+| `out/manifest.json` | Entry point: run identity, `schema_version: "2.0.0"`, SHA-256 of every artefact, `llm_skipped` flag |
 | `out/graph.json` | Deterministic AST graph — nodes, edges, complexity metrics |
-| `out/llm-annotations.json` | LLM semantic enrichment (DC2+; `sha256: null` in DC1 `--ast-only` output) |
+| `out/llm-annotations.json` | LLM semantic enrichment (full run only; absent on `--ast-only`, indicated by `llm_skipped: true`) |
 
 Input can be a local directory path, a git URL, or a `.zip` archive.
 
@@ -44,16 +44,23 @@ mvn test                      # Java parser tests (JavaParser-based)
 ```
 codeograph/                    Python package
   analyzer/                    CorpusAnalyzer — pipeline orchestrator
-  cli/                         CLI entry point (codeograph run)
+  cli/                         CLI entry point (run, eval, render, cache)
   config/                      pydantic-settings + YAML config source
+  evals/                       eval framework — scorecards, checks, runner, report
   graph/                       GraphBuilder, GraphAssembler, GraphWriter + models
   input/                       corpus acquisition + source discovery
+  llm/                         LLM provider, prompts, cache, middleware
+  manifest/                    Manifest schema (2.0.0), IO, run_id, schema_cli
   parser/                      FileParserDispatcher, RegexFallback
     java/                      Maven module — builds parser.jar (JavaParser AST)
-  schema/                      JSON Schema files (input to Pydantic codegen)
+  passes/                      Pass 1 (annotator), Pass 2 (synthesizer)
+  renderers/                   pluggable renderer registry; typescript_nestjs/
+  scripts/                     verify_gitleaks_pin + operational scripts
+_generated/
+  manifest.schema.json         committed JSON Schema (regenerated from Pydantic)
 docs/
-  architecture.md              current architecture snapshot (DC1)
-  adr/                         architecture decision records (ADR-001..)
+  architecture.md              current architecture snapshot
+  adr/                         architecture decision records (ADR-001..025)
 tests/
   fixtures/codeograph-corpus/  Tier 1 surgical fixture
   goldens/tier1/               stored golden graphs (byte-equal regression)
@@ -73,7 +80,7 @@ Codeograph includes an LLM enrichment pipeline (Passes 1 and 2) that adds semant
 ## Limitations (v1)
 
 - **Maven-only classpath resolution.** Gradle projects are detected and source files are parsed, but classpath resolution falls back to source-only mode. Method-call resolution is lower fidelity for Gradle inputs until v1.1.
-- **No rendering.** TypeScript/NestJS and Go renderers are planned for later deliveries (DC3+).
+- **TypeScript/NestJS renderer only.** The Go renderer (ADR-011) is planned for v1.1.
 
 ## Documentation
 
