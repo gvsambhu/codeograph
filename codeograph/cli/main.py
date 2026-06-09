@@ -213,10 +213,7 @@ def run(
         # The graph_writer never writes the manifest (per the ADR-025 amendment);
         # the assembler consumes the GraphArtefact at the terminal write.
         graph_artefact: GraphArtefact = analyzer.analyze(corpus, out_dir)
-        click.echo(
-            f"Done Pass 0. Graph: {graph_artefact.path} "
-            f"(sha256={graph_artefact.sha256[:12]}…)"
-        )
+        click.echo(f"Done Pass 0. Graph: {graph_artefact.path} (sha256={graph_artefact.sha256[:12]}…)")
 
         # --- LLM passes (full run only) ------------------------------------
         llm_annotations_artefact: GraphArtefact | None = None
@@ -241,10 +238,7 @@ def run(
 
             settings = Settings()
             if not settings.anthropic_api_key:
-                click.echo(
-                    "WARNING: CODEOGRAPH_ANTHROPIC_API_KEY is not set. "
-                    "LLM passes will fail unless mocked."
-                )
+                click.echo("WARNING: CODEOGRAPH_ANTHROPIC_API_KEY is not set. LLM passes will fail unless mocked.")
 
             # Setup Cache & Telemetry
             settings.cache_dir.mkdir(parents=True, exist_ok=True)
@@ -271,9 +265,7 @@ def run(
             match settings.llm_provider:
                 case ProviderType.ANTHROPIC:
                     base_provider = AnthropicProvider(
-                        api_key=settings.anthropic_api_key.get_secret_value()
-                        if settings.anthropic_api_key
-                        else "",
+                        api_key=settings.anthropic_api_key.get_secret_value() if settings.anthropic_api_key else "",
                         tier_map=tier_map,
                     )
                 case ProviderType.OLLAMA:
@@ -312,12 +304,8 @@ def run(
                 corpus_id=corpus_id,
                 provider_name=settings.llm_provider,
             )
-            provider_p1 = build_default_stack(
-                base_provider, retry_policy, cache_backend, emitter, ctx_p1
-            )
-            annotator = NodeAnnotator(
-                provider_p1, prompt_loader, out_dir, settings.llm_concurrency
-            )
+            provider_p1 = build_default_stack(base_provider, retry_policy, cache_backend, emitter, ctx_p1)
+            annotator = NodeAnnotator(provider_p1, prompt_loader, out_dir, settings.llm_concurrency)
             annotations = annotator.annotate(nodes)
 
             # --- Pass 2: Synthesize Corpus ---
@@ -331,9 +319,7 @@ def run(
                 corpus_id=corpus_id,
                 provider_name=settings.llm_provider,
             )
-            provider_p2 = build_default_stack(
-                base_provider, retry_policy, cache_backend, emitter, ctx_p2
-            )
+            provider_p2 = build_default_stack(base_provider, retry_policy, cache_backend, emitter, ctx_p2)
             synthesizer = CorpusSynthesizer(provider_p2, prompt_loader, out_dir)
             # Pass 2 consumes Pass 1's in-memory annotations + the Pass 0 graph dict
             # (per CorpusSynthesizer.synthesize signature).
@@ -424,11 +410,7 @@ def run(
 
                 scorecards = {}
                 for sc in scorecard_models:
-                    sc_filename = (
-                        "graph-scorecard.json"
-                        if sc.kind == "graph"
-                        else f"{sc.kind}-scorecard.json"
-                    )
+                    sc_filename = "graph-scorecard.json" if sc.kind == "graph" else f"{sc.kind}-scorecard.json"
                     sc_path = out_dir / "evals" / sc_filename
                     if sc_path.exists():
                         sc_sha = hashlib.sha256(sc_path.read_bytes()).hexdigest()
@@ -436,22 +418,14 @@ def run(
                         # EvalRunner should always have written the file; this
                         # is defensive against a future refactor mistake.
                         sc_sha = "0" * 64
-                    overall = (
-                        "pass"
-                        if all(c.result in ("pass", "skip") for c in sc.checks)
-                        else "fail"
-                    )
+                    overall = "pass" if all(c.result in ("pass", "skip") for c in sc.checks) else "fail"
                     scorecards[sc.kind] = ScorecardPointer(
                         path=f"evals/{sc_filename}",
                         sha256=sc_sha,
                         overall=overall,
                     )
 
-                has_failure = any(
-                    c.result == "fail"
-                    for sc in scorecard_models
-                    for c in sc.checks
-                )
+                has_failure = any(c.result == "fail" for sc in scorecard_models for c in sc.checks)
                 if has_failure:
                     click.echo("Evaluation failed overall.")
                     sys.exit(1)

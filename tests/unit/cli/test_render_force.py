@@ -48,9 +48,7 @@ def _minimal_from_dir(tmp_path: Path) -> Path:
             },
         },
     }
-    (from_dir / "manifest.json").write_text(
-        json.dumps(manifest), encoding="utf-8", newline=""
-    )
+    (from_dir / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8", newline="")
     return from_dir
 
 

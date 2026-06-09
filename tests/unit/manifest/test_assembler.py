@@ -12,6 +12,7 @@ Per ADR-025 §"Confirmation":
 * 2 — An ``--ast-only`` run produces ``llm_skipped == true``, **no**
       ``llm_annotations`` key under ``artefacts``, and no ``cache_stats``.
 """
+
 from __future__ import annotations
 
 # Imports used by the learner-written assertion bodies; suppress

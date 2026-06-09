@@ -3,13 +3,10 @@
 Scaffolding is AI-generated; the assertion bodies are learner-write per the
 DC5 M12 spec. Each test has a ``# TODO(learner):`` marker.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import MagicMock, patch
-import pytest
-
-from codeograph.scripts.verify_gitleaks_pin import main
 
 # ---------------------------------------------------------------------------
 # TestVerifyGitleaksPin

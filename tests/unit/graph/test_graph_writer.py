@@ -251,14 +251,10 @@ class TestWrite:
     def test_returns_graph_artefact(self, tmp_path: Path) -> None:
         """write() returns a GraphArtefact (the hand-off to the assembler)."""
         result = self.writer.write(_empty_graph(), tmp_path)
-        assert isinstance(result, GraphArtefact), (
-            f"expected GraphArtefact, got {type(result).__name__}"
-        )
+        assert isinstance(result, GraphArtefact), f"expected GraphArtefact, got {type(result).__name__}"
         assert result.path == tmp_path / GRAPH_FILENAME
         assert result.schema_version == "1.0.0"
-        assert result.sha256 == hashlib.sha256(
-            (tmp_path / GRAPH_FILENAME).read_bytes()
-        ).hexdigest()
+        assert result.sha256 == hashlib.sha256((tmp_path / GRAPH_FILENAME).read_bytes()).hexdigest()
 
     def test_graph_bytes_match_sha256_in_artefact(self, tmp_path: Path) -> None:
         """The artefact's sha256 must equal the sha256 of the bytes on disk."""

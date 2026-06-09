@@ -149,9 +149,7 @@ def test_eval_run_routed_through_top_level_cli(tmp_path: Path):
             },
         },
     }
-    (tmp_path / "manifest.json").write_text(
-        json.dumps(manifest), encoding="utf-8", newline=""
-    )
+    (tmp_path / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8", newline="")
 
     mock_sc = MagicMock()
     mock_sc.model_dump_json.return_value = '{"kind":"graph"}'

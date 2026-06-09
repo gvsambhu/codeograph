@@ -11,6 +11,7 @@ Per ADR-022 §"Confirmation":
 * 5 — Two calls to ``generate_run_id()`` in rapid succession produce
       different strings (collision check; 1000-call uniqueness).
 """
+
 from __future__ import annotations
 
 # Imports used by the learner-written assertion bodies; suppress

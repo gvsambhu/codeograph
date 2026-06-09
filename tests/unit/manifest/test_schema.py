@@ -13,6 +13,7 @@ Per ADR-025 §"Confirmation":
 * 9 — Manifest without ``run_id``, or with ``run_id: null``, raises
       ``ValidationError``.
 """
+
 from __future__ import annotations
 
 import pydantic
@@ -79,14 +80,13 @@ class TestSha256Required:
     @pytest.mark.parametrize(
         "bad_sha",
         [
-            "a" * 63,            # too short by 1
-            "a" * 65,            # too long by 1
-            "g" * 64,            # non-hex char
-            "A" * 64,            # uppercase (regex is lowercase-only)
-            " " * 64,            # spaces
+            "a" * 63,  # too short by 1
+            "a" * 65,  # too long by 1
+            "g" * 64,  # non-hex char
+            "A" * 64,  # uppercase (regex is lowercase-only)
+            " " * 64,  # spaces
         ],
     )
-
     def test_artefact_pointer_rejects_malformed_sha256(self, bad_sha: str) -> None:
         with pytest.raises(pydantic.ValidationError):
             ArtefactPointer(
@@ -94,6 +94,7 @@ class TestSha256Required:
                 schema_version="1.0.0",
                 sha256=bad_sha,
             )
+
 
 # ---------------------------------------------------------------------------
 # TestArtefactSchemaVersion (Confirmation #5)
@@ -117,15 +118,16 @@ class TestArtefactSchemaVersion:
             source_path=".",
             corpus_id="test",
             run_id="2026-06-09T12-00-00Z-abcdef",
-            artefacts={"graph": ptr}
+            artefacts={"graph": ptr},
         )
-        
+
         # Round-trip serialize and validate
         dumped = m.model_dump_json()
         loaded = Manifest.model_validate_json(dumped)
-        
+
         # Verify the version on the artefact pointer was preserved
         assert loaded.artefacts["graph"].schema_version == "1.2.3"
+
 
 # ---------------------------------------------------------------------------
 # TestCacheStatsNoCostFields (Confirmation #6)
@@ -139,21 +141,25 @@ class TestCacheStatsNoCostFields:
 
     def test_cache_stats_rejects_saved_usd_est(self) -> None:
         with pytest.raises(pydantic.ValidationError):
-            CacheStats.model_validate({
-                "calls": 1,
-                "hits": 1,
-                "hit_rate": 1.0,
-                "saved_usd_est": 0.5,
-            })
+            CacheStats.model_validate(
+                {
+                    "calls": 1,
+                    "hits": 1,
+                    "hit_rate": 1.0,
+                    "saved_usd_est": 0.5,
+                }
+            )
 
     def test_cache_stats_rejects_incurred_usd_est(self) -> None:
         with pytest.raises(pydantic.ValidationError):
-            CacheStats.model_validate({
-                "calls": 1,
-                "hits": 1,
-                "hit_rate": 1.0,
-                "incurred_usd_est": 0.5,
-            })
+            CacheStats.model_validate(
+                {
+                    "calls": 1,
+                    "hits": 1,
+                    "hit_rate": 1.0,
+                    "incurred_usd_est": 0.5,
+                }
+            )
 
     def test_cache_stats_v1_shape_is_three_fields(self) -> None:
         # Verify that constructing it with exactly the 3 v1 fields is valid
@@ -161,7 +167,7 @@ class TestCacheStatsNoCostFields:
         assert stats.calls == 10
         assert stats.hits == 8
         assert stats.hit_rate == 0.8
-        
+
         # Verify no cost fields exist in the schema
         assert "saved_usd_est" not in stats.model_fields
         assert "incurred_usd_est" not in stats.model_fields

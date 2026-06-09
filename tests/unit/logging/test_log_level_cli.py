@@ -3,16 +3,12 @@
 Scaffolding is AI-generated; the assertion bodies are learner-write per the
 DC5 M12 spec. Each test has a ``# TODO(learner):`` marker.
 """
+
 from __future__ import annotations
 
-import logging
 from pathlib import Path
-import pytest
-from click.testing import CliRunner
 
-from codeograph.cli.main import cli
-from codeograph.logging_filters import AreaFromContext
-from codeograph.logging_formatters import JsonlFormatter, PlaintextFormatter
+from click.testing import CliRunner
 
 # ---------------------------------------------------------------------------
 # TestCliLogLevelFlags
@@ -23,31 +19,31 @@ class TestCliLogLevelFlags:
     """Tests for CLI log level configuration, verbosity flags, and mutex rules."""
 
     def test_log_level_default_is_info(self) -> None:
-        runner = CliRunner()
+        _runner = CliRunner()
         # TODO(learner): run CLI with no verbosity flags (e.g. main_group with
         # sub-command check/run/etc.), and assert default log level is INFO.
         ...
 
     def test_verbose_flag_sets_debug(self) -> None:
-        runner = CliRunner()
+        _runner = CliRunner()
         # TODO(learner): run CLI with '-v' or '--verbose' flag, and assert log
         # level is set to DEBUG.
         ...
 
     def test_quiet_flag_sets_warning(self) -> None:
-        runner = CliRunner()
+        _runner = CliRunner()
         # TODO(learner): run CLI with '-q' flag, and assert log level is set to
         # WARNING.
         ...
 
     def test_double_quiet_flag_sets_error(self) -> None:
-        runner = CliRunner()
+        _runner = CliRunner()
         # TODO(learner): run CLI with '-qq' or '-q -q' flags, and assert log
         # level is set to ERROR.
         ...
 
     def test_verbose_and_quiet_mutex_raises_usage_error(self) -> None:
-        runner = CliRunner()
+        _runner = CliRunner()
         # TODO(learner): run CLI with both '-v' and '-q' flags, and assert that
         # click.UsageError is raised / exit code is non-zero.
         ...

@@ -13,6 +13,7 @@ The forward-compat rule (codified in ``manifest.io.read``): unknown
 top-level fields are dropped with a DEBUG log; the remaining fields
 validate against the current Pydantic schema.
 """
+
 from __future__ import annotations
 
 # Imports used by the learner-written assertion bodies; suppress

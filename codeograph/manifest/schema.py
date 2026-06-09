@@ -28,6 +28,7 @@ unaffected.
 from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, Field
+
 from codeograph.manifest.run_id import RUN_ID_PATTERN
 
 # ---------------------------------------------------------------------------

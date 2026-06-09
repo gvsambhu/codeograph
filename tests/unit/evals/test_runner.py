@@ -41,9 +41,7 @@ def _write_manifest(out_dir: Path, corpus_id: str = "test-corpus") -> None:
             },
         },
     }
-    (out_dir / "manifest.json").write_text(
-        json.dumps(manifest), encoding="utf-8", newline=""
-    )
+    (out_dir / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8", newline="")
 
 
 def _write_empty_graph(out_dir: Path) -> None:
@@ -215,9 +213,7 @@ def test_manifest_scorecards_pointer_is_valid_against_schema(tmp_path: Path):
 
     manifest = json.loads((tmp_path / "manifest.json").read_text(encoding="utf-8"))
     sc = manifest["scorecards"]["graph"]
-    assert re.fullmatch(r"^[0-9a-f]{64}$", sc["sha256"]), (
-        f"sha256 {sc['sha256']!r} is not 64-hex"
-    )
+    assert re.fullmatch(r"^[0-9a-f]{64}$", sc["sha256"]), f"sha256 {sc['sha256']!r} is not 64-hex"
     assert re.fullmatch(r"^(pass|fail|skip|mixed)$", sc["overall"]), (
         f"overall {sc['overall']!r} is not in the pass|fail|skip|mixed set"
     )

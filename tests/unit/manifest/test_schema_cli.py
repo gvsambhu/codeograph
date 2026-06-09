@@ -9,6 +9,7 @@ Per ADR-025 §"Confirmation":
       regenerating ``codeograph/_generated/manifest.schema.json``; the
       committed schema declares ``$schema: 2020-12``.
 """
+
 from __future__ import annotations
 
 # Imports used by the learner-written assertion bodies; suppress

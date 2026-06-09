@@ -17,6 +17,7 @@ already in the original ADR-025 body. It codifies the "terminal-write
 only" pattern: if the run doesn't reach the terminal write, no
 manifest is left behind.
 """
+
 from __future__ import annotations
 
 # Imports used by the learner-written assertion bodies; suppress
@@ -37,9 +38,7 @@ import pytest  # noqa: F401
 class TestNoManifestOnInterrupt:
     """A full run interrupted after the graph pass leaves no manifest."""
 
-    def test_no_manifest_when_graph_passes_but_llm_fails(
-        self, tmp_path: Path, monkeypatch
-    ) -> None:
+    def test_no_manifest_when_graph_passes_but_llm_fails(self, tmp_path: Path, monkeypatch) -> None:
         # TODO(learner): arrange a run where the graph pass succeeds
         # (writes graph.json to out_dir) but the LLM pass raises before
         # producing llm-annotations.json. Assert that no manifest.json
@@ -70,9 +69,7 @@ class TestTerminalWritePresenceImpliesValid:
     assembler only ever produces valid manifests, and only the assembler
     writes the manifest)."""
 
-    def test_manifest_written_by_run_satisfies_all_invariants(
-        self, tmp_path: Path
-    ) -> None:
+    def test_manifest_written_by_run_satisfies_all_invariants(self, tmp_path: Path) -> None:
         # TODO(learner): invoke the assembler directly (no subprocess),
         # write the manifest, re-read it via manifest_io.read, and
         # assert the strengthened invariant: ``artefacts.graph`` is
