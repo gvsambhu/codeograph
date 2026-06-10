@@ -28,7 +28,7 @@ from typing import Any
 # ---------------------------------------------------------------------------
 
 
-class RunIdLoggerAdapter(logging.LoggerAdapter):
+class RunIdLoggerAdapter(logging.LoggerAdapter[logging.Logger]):
     """LoggerAdapter that injects ``run_id`` into every record.
 
     Usage::
@@ -46,7 +46,7 @@ class RunIdLoggerAdapter(logging.LoggerAdapter):
     def __init__(self, logger: logging.Logger, run_id: str | None) -> None:
         super().__init__(logger, {"run_id": run_id})
 
-    def process(  # type: ignore[override]
+    def process(
         self,
         msg: Any,
         kwargs: MutableMapping[str, Any],
