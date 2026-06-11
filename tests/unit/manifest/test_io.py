@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 
 import pytest
@@ -70,7 +71,7 @@ class TestForwardCompat:
         # Unknown field should be dropped; current schema has no eval_stats attribute.
         assert not hasattr(manifest, "eval_stats")
 
-    def test_unknown_field_drops_with_debug_log(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    def test_unknown_field_drops_with_debug_log(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         manifest_path = tmp_path / "manifest.json"
 
         data = {
@@ -87,14 +88,19 @@ class TestForwardCompat:
 
         manifest_path.write_text(json.dumps(data), encoding="utf-8")
 
-        caplog.set_level("DEBUG", logger="codeograph.manifest.io")
+        import codeograph.manifest.io
+        captured_logs = []
+        monkeypatch.setattr(
+            codeograph.manifest.io.logger,
+            "debug",
+            lambda msg, *args, **kwargs: captured_logs.append(msg % args)
+        )
 
         manifest = read(manifest_path)
         assert isinstance(manifest, Manifest)
 
         # Ensure a DEBUG log mentioning the dropped field name was emitted.
-        messages = [rec.getMessage() for rec in caplog.records]
-        assert any("eval_stats" in msg and "dropped unknown top-level field" in msg for msg in messages)
+        assert any("eval_stats" in msg and "dropped unknown top-level field" in msg for msg in captured_logs)
 
     def test_2_0_0_manifest_round_trip_preserves_all_fields(self, tmp_path: Path) -> None:
         manifest_path = tmp_path / "manifest.json"

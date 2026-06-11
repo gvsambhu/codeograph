@@ -148,17 +148,25 @@ class TestFallbackPath:
         mock_fallback.parse.assert_called_once_with(java_file, corpus_root)
 
     def test_java_parse_error_logged_at_warning(
-        self, java_file: Path, corpus_root: Path, caplog: pytest.LogCaptureFixture
+        self, java_file: Path, corpus_root: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Fallback path must be observable via WARNING log for operators."""
         dispatcher, _, _ = _make_dispatcher(
             ast_result=JavaParseError("exit 1"),
             regex_result=_regex_pf(),
         )
-        with caplog.at_level(logging.WARNING, logger="codeograph.parser.file_parser_dispatcher"):
-            dispatcher.parse(java_file, corpus_root)
 
-        assert any("regex" in rec.message.lower() or "fallback" in rec.message.lower() for rec in caplog.records)
+        import codeograph.parser.file_parser_dispatcher
+        captured_logs = []
+        monkeypatch.setattr(
+            codeograph.parser.file_parser_dispatcher.logger,
+            "warning",
+            lambda msg, *args, **kwargs: captured_logs.append(msg % args)
+        )
+
+        dispatcher.parse(java_file, corpus_root)
+
+        assert any("regex" in msg.lower() or "fallback" in msg.lower() for msg in captured_logs)
 
 
 # ---------------------------------------------------------------------------
