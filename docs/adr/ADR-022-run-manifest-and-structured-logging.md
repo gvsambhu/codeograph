@@ -713,3 +713,19 @@ The shipped pattern of overwriting `<out>` on re-run (Fork 5) is the user-facing
 * JSON Schema 2020-12 specification — https://json-schema.org/draft/2020-12/schema
 * Python `logging` module — https://docs.python.org/3/library/logging.html
 * MADR template — https://github.com/adr/madr
+
+## Amendments
+
+**2026-06-07 — Manifest schema decisions partially superseded by ADR-025.** The manifest-schema
+portion of this ADR — Fork 1 (schema evolution discipline), Fork 2 (top-level layout), and Fork 7
+(manifest validation discipline) — is **superseded by ADR-025 (Manifest Schema 2.0.0, Flat Layout)**.
+Fork 1's strict-additive layout could not be reconciled with Fork 2's canonical hierarchy against the
+shipped nested shape (a restructure is not additive); ADR-025 resolves this by adopting the
+restructured layout as a deliberate `2.0.0` major bump, after which strict-additive evolution resumes
+within `2.x.x`.
+
+**This is a partial supersession.** The structured-logging decisions of this ADR — Fork 3 (run-id
+generation), Fork 4 (dual-emission logging), Fork 5 (per-run directory layout), and Fork 6 (log levels
+and CLI) — **remain in force and are not affected.** This ADR's `status` therefore stays `accepted`;
+consult ADR-025 for the current manifest schema, and this ADR for the logging substrate. Explicit
+reversal: ADR-025 reverses Fork 1's "v1 ships `1.x.x` only" for the manifest schema (now `2.0.0`).

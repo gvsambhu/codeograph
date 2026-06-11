@@ -8,12 +8,17 @@ Pipeline sequence (ADR-003, ADR-006, ADR-007):
                 FileParserDispatcher.parse()   → ParsedFile
                 GraphBuilder.build()           → CodeographKnowledgeGraph (fragment)
         └── GraphAssembler.assemble(fragments) → CodeographKnowledgeGraph (merged)
-        └── GraphWriter.write(graph, out_dir)  → manifest_path
+        └── GraphWriter.write(graph, out_dir)  → GraphArtefact
 
 DC1 scope — AST-only mode.  LLM enrichment (Pass 1 / Pass 2) is a DC2
 concern and is not wired here.  The `--ast-only` flag at the CLI is the
 signal that this pipeline is in use; the flag is accepted but has no effect
 on CorpusAnalyzer's behaviour in v1 since there is no LLM stage to skip.
+
+The manifest is NOT written from this analyzer. Per the ADR-025 write-protocol
+amendment, the manifest appears only at the terminal write orchestrated by the
+`codeograph run` command; GraphArtefact (path, schema_version, sha256) is the
+hand-off the assembler consumes.
 
 Error-handling contract:
   - FileParserDispatcher.parse() never raises (falls back to regex internally).
@@ -34,6 +39,7 @@ from codeograph.graph.graph_builder import GraphBuilder
 from codeograph.graph.graph_writer import GraphWriter
 from codeograph.graph.models.graph_schema import CodeographKnowledgeGraph
 from codeograph.input.models import CorpusSpec
+from codeograph.manifest.artefact import GraphArtefact
 from codeograph.parser.file_parser_dispatcher import FileParserDispatcher
 from codeograph.parser.models import ParsedFile
 
@@ -70,7 +76,7 @@ class CorpusAnalyzer:
     # Public API
     # ------------------------------------------------------------------
 
-    def analyze(self, corpus: CorpusSpec, output_dir: Path) -> Path:
+    def analyze(self, corpus: CorpusSpec, output_dir: Path) -> GraphArtefact:
         """
         Run the full AST pipeline for the given corpus.
 
@@ -79,11 +85,14 @@ class CorpusAnalyzer:
         and writes it to output_dir.
 
         :param corpus:      Fully-acquired, fully-discovered corpus from InputAcquirer.
-        :param output_dir:  Directory to write graph.json and manifest.json into.
-                            Created if it does not exist (GraphWriter handles mkdir).
-        :returns:           Path to manifest.json — the conventional entry point for
-                            downstream consumers.
-        :raises OSError:    If graph.json or manifest.json cannot be written.
+        :param output_dir:  Directory to write graph.json into. Created if it
+                            does not exist (GraphWriter handles mkdir).
+                            The manifest is NOT written here; the run
+                            orchestrator writes it at the terminal write.
+        :returns:           :class:`GraphArtefact` carrying the path,
+                            schema version, and sha256 of the just-written
+                            graph.json. Consumed by the manifest assembler.
+        :raises OSError:    If graph.json cannot be written.
         """
         fragments: list[tuple[ParsedFile, CodeographKnowledgeGraph]] = []
 
@@ -109,12 +118,11 @@ class CorpusAnalyzer:
         assembled = self._assembler.assemble(fragments)
 
         logger.info("CorpusAnalyzer: writing graph to %s", output_dir)
-        manifest_path = self._writer.write(
-            assembled,
-            output_dir,
-            source_path=corpus.corpus_root,
-            corpus_id=corpus.corpus_root.name,
-        )
+        graph_artefact = self._writer.write(assembled, output_dir)
 
-        logger.info("CorpusAnalyzer: done — manifest at %s", manifest_path)
-        return manifest_path
+        logger.info(
+            "CorpusAnalyzer: done — graph at %s (sha256=%s…)",
+            graph_artefact.path,
+            graph_artefact.sha256[:12],
+        )
+        return graph_artefact

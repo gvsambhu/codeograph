@@ -114,21 +114,21 @@ class JavaFileParser:
         Locate the java executable using JAVA_HOME then PATH.
 
         Resolution order:
-          1. $JAVA_HOME/bin/java  (explicit environment override — CI/CD friendly)
-          2. shutil.which("java") (java is on PATH — developer machine default)
+          1. $JAVA_HOME/bin/java (or java.exe)  (explicit environment override)
+          2. shutil.which("java") (or java.exe) (java is on PATH)
 
         :raises EnvironmentError: If java cannot be found by either method.
         """
         java_home = os.environ.get("JAVA_HOME")
         if java_home:
-            # Use shutil.which against the bin dir — it appends .exe on Windows
-            # automatically, so Path / "java" would fail there without this.
-            found_in_home = shutil.which("java", path=str(Path(java_home) / "bin"))
-            if found_in_home:
-                return found_in_home
+            for name in ("java", "java.exe"):
+                found_in_home = shutil.which(name, path=str(Path(java_home) / "bin"))
+                if found_in_home:
+                    return found_in_home
 
-        found = shutil.which("java")
-        if found:
-            return found
+        for name in ("java", "java.exe"):
+            found = shutil.which(name)
+            if found:
+                return found
 
         raise OSError("java not found — set JAVA_HOME or add java to PATH")

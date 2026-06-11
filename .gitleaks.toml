@@ -15,4 +15,5 @@ title = "Codeograph gitleaks configuration"
   paths = [
     # Test fixtures and example files that intentionally contain fake keys
     # for testing the scanner itself.  Add paths here, not regexes.
+    '''^\.gitleaksignore$'''
   ]

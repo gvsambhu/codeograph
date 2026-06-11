@@ -627,3 +627,15 @@ The following questions should be revisited once concrete telemetry and cache us
 * DuckDB JSONL queries — https://duckdb.org/docs/data/json/overview.html
 * Anthropic prompt caching — https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching
 * OpenTelemetry GenAI semantic conventions (future reference) — https://opentelemetry.io/docs/specs/semconv/gen-ai/
+
+## Amendments
+
+**2026-06-07 — `cache_stats` manifest shape now owned by ADR-025.** Fork 6 placed a per-pass
+`cache_stats` block in the manifest with fields `{calls, hits, hit_rate, saved_usd_est,
+incurred_usd_est}`. The manifest shape is restructured to `2.0.0` by **ADR-025 (Manifest Schema 2.0.0)**,
+which now owns the `cache_stats` shape. Under ADR-025 the v1 block is `{calls, hits, hit_rate}` only:
+the cost-estimate fields (`saved_usd_est`, `incurred_usd_est`) are **out of v1 scope** because v1 has no
+cost model, and are re-added as an additive `2.x` manifest bump **when a cost model is introduced** (the
+future cost-control work, or an amendment to this ADR that lands the per-model price table). No reversal
+of the telemetry / cache-backend / cache-key decisions of this ADR; the change is to the manifest
+`cache_stats` field set only.

@@ -53,3 +53,16 @@ def assert_sha256(value: str, *, length: int = 64) -> None:
     """Assert that the value is a valid hex string representing a SHA-256 hash."""
     pattern = rf"^[a-fA-F0-9]{{{length}}}$"
     assert re.match(pattern, value) is not None, f"'{value}' is not a valid {length}-character hex string"
+
+
+def assert_run_id_format(run_id: str) -> None:
+    """Assert that the value matches the locked run-id format per ADR-022 Fork 3.
+
+    Format: ``YYYY-MM-DDTHH-MM-SSZ-<6 hex>`` (chronologically sortable,
+    cross-OS filesystem-safe, stdlib-only). Helper is the 7th
+    determinism helper per ADR-018 Fork 7; ``run_id`` is classified as
+    a structural / regex-validated row in the determinism table.
+    """
+    from codeograph.manifest.run_id import RUN_ID_PATTERN
+
+    assert re.match(RUN_ID_PATTERN, run_id) is not None, f"'{run_id}' does not match run-id format"

@@ -7,10 +7,10 @@ Coverage plan:
     trailing newline, no None values in sorted arrays
   - _canonical_bytes: determinism — same bytes on two calls
   - write(): creates output_dir (including parents), graph.json written,
-    manifest.json written, sha256 in manifest matches graph bytes,
-    returns path to manifest.json
-  - _build_manifest: llm_annotations.sha256 is None (AST-only DC1 mode)
-  - _tool_version: fallback to "0.1.0-dev" when package not installed
+    returns a GraphArtefact whose sha256 matches the graph bytes,
+    does NOT write a manifest.json (manifest writes moved to the run
+    orchestrator per the ADR-025 write-protocol amendment)
+  - write(): return type is GraphArtefact (the hand-off to the assembler)
 
 NOTE: Tests that read a real parser.jar or call a live JVM are NOT here.
       Those belong to the golden-graph integration suite (ADR-007) and are
@@ -23,12 +23,10 @@ import hashlib
 import json
 from pathlib import Path
 
-import pytest
-
 from codeograph.graph.graph_writer import (
     _SORTABLE_NODE_ARRAYS,
     GRAPH_FILENAME,
-    MANIFEST_FILENAME,
+    GraphArtefact,
     GraphWriter,
 )
 from codeograph.graph.models.graph_schema import CodeographKnowledgeGraph
@@ -236,33 +234,35 @@ class TestWrite:
         self.writer.write(_empty_graph(), tmp_path)
         assert (tmp_path / GRAPH_FILENAME).exists()
 
-    def test_manifest_json_written(self, tmp_path: Path) -> None:
-        self.writer.write(_empty_graph(), tmp_path)
-        assert (tmp_path / MANIFEST_FILENAME).exists()
+    def test_does_not_write_manifest(self, tmp_path: Path) -> None:
+        """Manifest writes are the run-orchestrator's job (ADR-025 amendment).
 
-    def test_returns_manifest_path(self, tmp_path: Path) -> None:
+        graph_writer is a single-purpose deterministic graph serializer; the
+        only file it produces is graph.json. A manifest.json appearing in
+        out_dir after write() would indicate the responsibility split broke.
+        """
+        out = tmp_path
+        self.writer.write(_empty_graph(), out)
+        assert not (out / "manifest.json").exists(), (
+            "GraphWriter.write() must not emit manifest.json; the manifest is "
+            "the run orchestrator's responsibility (ADR-025 write-protocol amendment)."
+        )
+
+    def test_returns_graph_artefact(self, tmp_path: Path) -> None:
+        """write() returns a GraphArtefact (the hand-off to the assembler)."""
         result = self.writer.write(_empty_graph(), tmp_path)
-        assert result == tmp_path / MANIFEST_FILENAME
+        assert isinstance(result, GraphArtefact), f"expected GraphArtefact, got {type(result).__name__}"
+        assert result.path == tmp_path / GRAPH_FILENAME
+        assert result.schema_version == "1.0.0"
+        assert result.sha256 == hashlib.sha256((tmp_path / GRAPH_FILENAME).read_bytes()).hexdigest()
 
-    def test_graph_bytes_match_sha256_in_manifest(self, tmp_path: Path) -> None:
+    def test_graph_bytes_match_sha256_in_artefact(self, tmp_path: Path) -> None:
+        """The artefact's sha256 must equal the sha256 of the bytes on disk."""
         self.writer.write(_empty_graph(), tmp_path)
-
+        artefact = self.writer.write(_empty_graph(), tmp_path)
         graph_bytes = (tmp_path / GRAPH_FILENAME).read_bytes()
         expected_sha = hashlib.sha256(graph_bytes).hexdigest()
-
-        manifest_data = json.loads((tmp_path / MANIFEST_FILENAME).read_bytes())
-        assert manifest_data["artefacts"]["graph"]["sha256"] == expected_sha
-
-    def test_llm_annotations_sha256_is_null_in_manifest(self, tmp_path: Path) -> None:
-        """DC1 (AST-only) mode: llm_annotations sha256 must be null."""
-        self.writer.write(_empty_graph(), tmp_path)
-        manifest_data = json.loads((tmp_path / MANIFEST_FILENAME).read_bytes())
-        assert manifest_data["artefacts"]["llm_annotations"]["sha256"] is None
-
-    def test_manifest_contains_graph_path_field(self, tmp_path: Path) -> None:
-        self.writer.write(_empty_graph(), tmp_path)
-        manifest_data = json.loads((tmp_path / MANIFEST_FILENAME).read_bytes())
-        assert manifest_data["artefacts"]["graph"]["path"] == GRAPH_FILENAME
+        assert artefact.sha256 == expected_sha
 
     def test_graph_json_is_valid_utf8(self, tmp_path: Path) -> None:
         self.writer.write(_empty_graph(), tmp_path)
@@ -275,28 +275,3 @@ class TestWrite:
         self.writer.write(_empty_graph(), tmp_path)
         self.writer.write(_empty_graph(), tmp_path)
         assert (tmp_path / GRAPH_FILENAME).exists()
-
-
-# ---------------------------------------------------------------------------
-# TestToolVersion
-# ---------------------------------------------------------------------------
-
-
-class TestToolVersion:
-    """Unit tests for GraphWriter._tool_version()."""
-
-    def test_returns_string(self) -> None:
-        v = GraphWriter._tool_version()
-        assert isinstance(v, str)
-        assert len(v) > 0
-
-    def test_fallback_when_package_not_installed(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """Simulate PackageNotFoundError → expect "0.1.0-dev" fallback."""
-        from importlib.metadata import PackageNotFoundError
-
-        def _raise(_: str) -> str:
-            raise PackageNotFoundError("codeograph")
-
-        monkeypatch.setattr("codeograph.graph.graph_writer.version", _raise)
-        result = GraphWriter._tool_version()
-        assert result == "0.1.0-dev"

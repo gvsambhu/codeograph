@@ -131,8 +131,25 @@ def test_eval_run_routed_through_top_level_cli(tmp_path: Path):
 
     from codeograph.cli.eval import eval_cli
 
-    # Write a minimal manifest so the run_cmd manifest check passes
-    (tmp_path / "manifest.json").write_text("{}", encoding="utf-8")
+    # Write a valid 2.0.0 manifest so cli/eval.py's manifest_io.read
+    # surfaces a run_id and the EvalRunner mock can proceed.
+    manifest = {
+        "schema_version": "2.0.0",
+        "codeograph_version": "0.1.0",
+        "source_path": str(tmp_path),
+        "corpus_id": "test",
+        "run_id": "2026-06-08T00-00-00Z-000000",
+        "llm_skipped": False,
+        "artefacts": {
+            "graph": {"path": "graph.json", "schema_version": "1.0.0", "sha256": "a" * 64},
+            "llm_annotations": {
+                "path": "llm-annotations.json",
+                "schema_version": "1.0.0",
+                "sha256": "a" * 64,
+            },
+        },
+    }
+    (tmp_path / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8", newline="")
 
     mock_sc = MagicMock()
     mock_sc.model_dump_json.return_value = '{"kind":"graph"}'
@@ -144,3 +161,4 @@ def test_eval_run_routed_through_top_level_cli(tmp_path: Path):
         result = runner.invoke(eval_cli, ["run", str(tmp_path)])
 
     assert result.exit_code == 0, result.output
+    assert "Evaluating run" in result.output

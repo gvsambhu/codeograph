@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from contextlib import ExitStack
 from pathlib import Path
 from unittest.mock import patch
@@ -23,21 +24,24 @@ from codeograph.evals.scorecard_schema import (
 
 
 def _write_manifest(out_dir: Path, corpus_id: str = "test-corpus") -> None:
+    """Write a 2.0.0 manifest (flat layout, top-level scorecards)."""
     manifest = {
-        "schema_version": "1.6.0",
+        "schema_version": "2.0.0",
         "codeograph_version": "0.1.0",
         "source_path": str(out_dir),
         "corpus_id": corpus_id,
+        "run_id": "2026-06-08T00-00-00Z-000000",
+        "llm_skipped": False,
         "artefacts": {
             "graph": {"path": "graph.json", "schema_version": "1.0.0", "sha256": "a" * 64},
             "llm_annotations": {
                 "path": "llm-annotations.json",
                 "schema_version": "1.0.0",
-                "sha256": None,
+                "sha256": "a" * 64,
             },
         },
     }
-    (out_dir / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    (out_dir / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8", newline="")
 
 
 def _write_empty_graph(out_dir: Path) -> None:
@@ -180,11 +184,40 @@ def test_manifest_scorecards_pointer_updated(tmp_path: Path):
         runner.run(tmp_path, scorecard_kinds=["graph"])
 
     manifest = json.loads((tmp_path / "manifest.json").read_text(encoding="utf-8"))
-    scorecards_ptr = manifest["artefacts"]["scorecards"]
+    # 2.0.0: scorecards is TOP-LEVEL, not nested under artefacts (ADR-025 Fork 2)
+    assert "artefacts" in manifest  # graph + llm_annotations still nested
+    assert "scorecards" in manifest  # top-level in 2.0.0
+    assert "scorecards" not in manifest["artefacts"]
+    scorecards_ptr = manifest["scorecards"]
     assert "graph" in scorecards_ptr
     assert "path" in scorecards_ptr["graph"]
     assert "sha256" in scorecards_ptr["graph"]
     assert "overall" in scorecards_ptr["graph"]
+
+
+def test_manifest_scorecards_pointer_is_valid_against_schema(tmp_path: Path):
+    """The written scorecards pointer satisfies the 2.0.0 schema invariants.
+
+    Per ADR-025 Invariants: sha256 is required and 64-hex; overall must
+    match the ``pass|fail|skip|mixed`` regex; the path follows the
+    canonical ``evals/{kind}-scorecard.json`` form.
+    """
+    _write_manifest(tmp_path)
+    _write_empty_graph(tmp_path)
+
+    runner = EvalRunner()
+    with ExitStack() as stack:
+        for name, fn in _GRAPH_CHECK_PATCHES.items():
+            stack.enter_context(patch(name, side_effect=fn))
+        runner.run(tmp_path, scorecard_kinds=["graph"])
+
+    manifest = json.loads((tmp_path / "manifest.json").read_text(encoding="utf-8"))
+    sc = manifest["scorecards"]["graph"]
+    assert re.fullmatch(r"^[0-9a-f]{64}$", sc["sha256"]), f"sha256 {sc['sha256']!r} is not 64-hex"
+    assert re.fullmatch(r"^(pass|fail|skip|mixed)$", sc["overall"]), (
+        f"overall {sc['overall']!r} is not in the pass|fail|skip|mixed set"
+    )
+    assert sc["path"] == "evals/graph-scorecard.json"
 
 
 # ---------------------------------------------------------------------------

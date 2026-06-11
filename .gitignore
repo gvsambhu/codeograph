@@ -11,7 +11,7 @@ build/
 .eggs/
 pip-wheel-metadata/
 .installed.cfg
-MANIFEST
+/MANIFEST
 
 # Virtual environments
 .venv/

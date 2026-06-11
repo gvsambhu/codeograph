@@ -49,7 +49,8 @@ For someone new to the project who wants to understand the design end-to-end, re
 - [`ADR-018 — Test strategy with pytest`](ADR-018-test-strategy-with-pytest.md)
 
 ### 7. Cross-cutting
-- [`ADR-022 — Run manifest and structured logging`](ADR-022-run-manifest-and-structured-logging.md)
+- [`ADR-022 — Run manifest and structured logging`](ADR-022-run-manifest-and-structured-logging.md) — *manifest schema forks (1/2/7) superseded by ADR-025; logging forks remain in force*
+- [`ADR-025 — Manifest schema 2.0.0 (flat layout)`](ADR-025-manifest-schema-flat-layout.md) — supersedes ADR-022's manifest forks + ADR-015's `cache_stats` shape
 - [`ADR-023 — Secret scanning with gitleaks`](ADR-023-secret-scanning-with-gitleaks.md)
 
 ### 8. Deferred to v1.1 / post-v1 ⏸️
@@ -88,9 +89,10 @@ For someone new to the project who wants to understand the design end-to-end, re
 | 019 | Snapshot + negative tests | ⏸️ | Deferred (v1.1) |
 | 020 | LLM-judge calibration | ⏸️ | Deferred (v1.1) |
 | 021 | Determinism contract | ⏸️ | Deferred (v1.1) |
-| 022 | Run manifest and structured logging | ✅ | Cross-cutting |
+| 022 | Run manifest and structured logging | ✅ (manifest forks superseded by 025) | Cross-cutting |
 | 023 | Secret scanning with gitleaks | ✅ | Cross-cutting |
 | 024 | Prompt-injection / output-path safety | ⏸️ | Deferred (v1.1) |
+| 025 | Manifest schema 2.0.0 (flat layout) | ✅ | Cross-cutting |
 
 ---
 

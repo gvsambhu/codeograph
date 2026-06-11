@@ -1,0 +1,194 @@
+{
+  "$defs": {
+    "ArtefactPointer": {
+      "additionalProperties": false,
+      "description": "Pointer to a corpus-sized artefact (graph.json, llm-annotations.json).\n\nCarries its own ``schema_version`` (ADR-025 Fork 4 / ADR-006 manifest-\nas-version-authority contract) so a consumer learns the artefact's\nformat version from the manifest without opening the file.",
+      "properties": {
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "schema_version": {
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "schema_version",
+        "sha256"
+      ],
+      "title": "ArtefactPointer",
+      "type": "object"
+    },
+    "CacheStats": {
+      "additionalProperties": false,
+      "description": "Per-LLM-pass cache behaviour rollup.\n\nv1 shape is ``{calls, hits, hit_rate}`` only (ADR-025 Fork 5). The\ncost-estimate fields (``saved_usd_est``, ``incurred_usd_est``) require\na cost model (a per-model price table) that v1 does not implement;\nincluding them would ship numbers that are always ``0.0``. They are\nre-added as an **additive ``2.x`` minor bump** when a cost model is\nintroduced. Keyed by pass name (``\"pass_1\"``, ``\"pass_2\"``) at the\n``Manifest.cache_stats`` level.",
+      "properties": {
+        "calls": {
+          "title": "Calls",
+          "type": "integer"
+        },
+        "hits": {
+          "title": "Hits",
+          "type": "integer"
+        },
+        "hit_rate": {
+          "title": "Hit Rate",
+          "type": "number"
+        }
+      },
+      "required": [
+        "calls",
+        "hits",
+        "hit_rate"
+      ],
+      "title": "CacheStats",
+      "type": "object"
+    },
+    "CompileChecksPointer": {
+      "additionalProperties": false,
+      "description": "Pointer to a compile-check sidecar log per renderer target.\n\nTop-level peer of ``artefacts`` (ADR-025 Fork 2): compile-checks\nsidecars are evaluation outputs, not pipeline artefacts.",
+      "properties": {
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "sha256"
+      ],
+      "title": "CompileChecksPointer",
+      "type": "object"
+    },
+    "ScorecardPointer": {
+      "additionalProperties": false,
+      "description": "Pointer to a scorecard JSON file written by ``codeograph eval``.\n\nTop-level peer of ``artefacts`` (ADR-025 Fork 2): scorecards are\nevaluation outputs, not pipeline artefacts. ``overall`` carries the\ndiscriminated-union threshold result.",
+      "properties": {
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "overall": {
+          "pattern": "^(pass|fail|skip|mixed)$",
+          "title": "Overall",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "sha256",
+        "overall"
+      ],
+      "title": "ScorecardPointer",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Top-level run manifest (manifest ``2.0.0``, flat layout — ADR-025).\n\nFields grouped by ADR-022 Fork 2 category:\n\n* **Scalar metadata** — single primitive values describing the run as\n  a whole (``schema_version``, ``codeograph_version``, ``source_path``,\n  ``corpus_id``, ``run_id``, ``llm_skipped``).\n* **Aggregate metadata** — small typed rollups tightly coupled to\n  this run (``cache_stats`` keyed by pass name).\n* **Payload pointers** — references to files that grow with the\n  corpus or are independently consumed. Three top-level peers per\n  ADR-025 Fork 2: ``artefacts`` (pipeline outputs), ``scorecards``\n  and ``compile_checks`` (evaluation outputs).",
+  "properties": {
+    "schema_version": {
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "codeograph_version": {
+      "title": "Codeograph Version",
+      "type": "string"
+    },
+    "source_path": {
+      "title": "Source Path",
+      "type": "string"
+    },
+    "corpus_id": {
+      "title": "Corpus Id",
+      "type": "string"
+    },
+    "run_id": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}-\\d{2}-\\d{2}Z-[0-9a-f]{6}$",
+      "title": "Run Id",
+      "type": "string"
+    },
+    "llm_skipped": {
+      "default": false,
+      "title": "Llm Skipped",
+      "type": "boolean"
+    },
+    "cache_stats": {
+      "anyOf": [
+        {
+          "additionalProperties": {
+            "$ref": "#/$defs/CacheStats"
+          },
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Cache Stats"
+    },
+    "artefacts": {
+      "additionalProperties": {
+        "$ref": "#/$defs/ArtefactPointer"
+      },
+      "title": "Artefacts",
+      "type": "object"
+    },
+    "scorecards": {
+      "anyOf": [
+        {
+          "additionalProperties": {
+            "$ref": "#/$defs/ScorecardPointer"
+          },
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Scorecards"
+    },
+    "compile_checks": {
+      "anyOf": [
+        {
+          "additionalProperties": {
+            "$ref": "#/$defs/CompileChecksPointer"
+          },
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Compile Checks"
+    }
+  },
+  "required": [
+    "schema_version",
+    "codeograph_version",
+    "source_path",
+    "corpus_id",
+    "run_id"
+  ],
+  "title": "Manifest",
+  "type": "object"
+}

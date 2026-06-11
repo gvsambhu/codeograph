@@ -22,6 +22,7 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 from codeograph.analyzer.corpus_analyzer import CorpusAnalyzer
+from codeograph.graph.graph_writer import GraphArtefact
 from codeograph.input.models import AcquisitionSource, BuildTool, CorpusSpec, ModuleSpec
 
 # ---------------------------------------------------------------------------
@@ -51,8 +52,14 @@ def _mock_collaborators() -> tuple[MagicMock, MagicMock, MagicMock, MagicMock]:
     # assembler.assemble() returns a MagicMock that acts as the assembled graph.
     assembler.assemble.return_value = MagicMock(name="assembled_graph")
 
-    # writer.write() returns a sentinel manifest path.
-    writer.write.return_value = Path("/out/manifest.json")
+    # writer.write() returns a sentinel GraphArtefact (the hand-off the
+    # manifest assembler consumes; not a manifest path — graph_writer no
+    # longer writes the manifest per the ADR-025 write-protocol amendment).
+    writer.write.return_value = GraphArtefact(
+        path=Path("/out/graph.json"),
+        schema_version="1.0.0",
+        sha256="a" * 64,
+    )
 
     return dispatcher, builder, assembler, writer
 
@@ -101,16 +108,26 @@ def _make_analyzer(*mocks: MagicMock) -> CorpusAnalyzer:
 
 
 class TestReturnValue:
-    def test_returns_manifest_path_from_writer(self, tmp_path: Path) -> None:
+    def test_returns_graph_artefact_from_writer(self, tmp_path: Path) -> None:
+        """analyze() returns the GraphArtefact from the writer (the hand-off
+        the manifest assembler consumes)."""
         mocks = _mock_collaborators()
         analyzer = _make_analyzer(*mocks)
         writer = mocks[3]
-        writer.write.return_value = tmp_path / "manifest.json"
+        sentinel = GraphArtefact(
+            path=tmp_path / "graph.json",
+            schema_version="1.0.0",
+            sha256="b" * 64,
+        )
+        writer.write.return_value = sentinel
 
         corpus = _make_corpus(modules=[], corpus_root=tmp_path)
         result = analyzer.analyze(corpus, tmp_path)
 
-        assert result == tmp_path / "manifest.json"
+        assert result is sentinel
+        assert result.path == tmp_path / "graph.json"
+        assert result.schema_version == "1.0.0"
+        assert result.sha256 == "b" * 64
 
 
 # ---------------------------------------------------------------------------
