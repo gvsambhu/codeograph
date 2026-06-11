@@ -156,11 +156,12 @@ class TestFallbackPath:
         )
 
         import codeograph.parser.file_parser_dispatcher
+
         captured_logs = []
         monkeypatch.setattr(
             codeograph.parser.file_parser_dispatcher.logger,
             "warning",
-            lambda msg, *args, **kwargs: captured_logs.append(msg % args)
+            lambda msg, *args, **kwargs: captured_logs.append(msg % args),
         )
 
         dispatcher.parse(java_file, corpus_root)

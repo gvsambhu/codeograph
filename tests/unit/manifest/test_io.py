@@ -88,11 +88,10 @@ class TestForwardCompat:
         manifest_path.write_text(json.dumps(data), encoding="utf-8")
 
         import codeograph.manifest.io
+
         captured_logs = []
         monkeypatch.setattr(
-            codeograph.manifest.io.logger,
-            "debug",
-            lambda msg, *args, **kwargs: captured_logs.append(msg % args)
+            codeograph.manifest.io.logger, "debug", lambda msg, *args, **kwargs: captured_logs.append(msg % args)
         )
 
         manifest = read(manifest_path)
