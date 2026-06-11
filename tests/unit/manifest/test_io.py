@@ -1,31 +1,20 @@
-"""Unit tests for ``manifest_io`` (ADR-025 Confirmation #7).
-
-Scaffolding is AI-generated; the assertion bodies are learner-write per
-the DC5 M12 spec.
-
-Per ADR-025 §"Confirmation":
-* 7 — A manifest written by a hypothetical ``2.1.0`` producer with one
-      added optional field is read successfully by the current reader,
-      the unknown field handled per the forward-compat rule —
-      additive ``2.x`` evolution holds.
-
-The forward-compat rule (codified in ``manifest.io.read``): unknown
-top-level fields are dropped with a DEBUG log; the remaining fields
-validate against the current Pydantic schema.
-"""
+"""Unit tests for ``manifest_io`` (ADR-025 Confirmation #7)."""
 
 from __future__ import annotations
 
-# Imports used by the learner-written assertion bodies; suppress
-# unused-import warnings until the bodies are filled in.
-import json  # noqa: F401
-import logging  # noqa: F401
-from pathlib import Path  # noqa: F401
+import json
+from pathlib import Path
 
-import pytest  # noqa: F401
+import pytest
 
-from codeograph.manifest.io import read, write  # noqa: F401
-from codeograph.manifest.schema import Manifest  # noqa: F401
+from codeograph.manifest.io import read, write
+from codeograph.manifest.schema import (
+    ArtefactPointer,
+    CacheStats,
+    CompileChecksPointer,
+    Manifest,
+    ScorecardPointer,
+)
 
 # ---------------------------------------------------------------------------
 # TestForwardCompat (Confirmation #7)
@@ -36,33 +25,121 @@ class TestForwardCompat:
     """A 2.1.0 manifest with an extra optional field reads successfully."""
 
     def test_2_1_0_manifest_with_extra_field_reads_successfully(self, tmp_path: Path) -> None:
-        # TODO(learner): write a 2.1.0-shaped manifest JSON that includes
-        # an extra top-level field (e.g. "eval_stats": {...}) beyond the
-        # 2.0.0 schema. Call read() and assert it returns a Manifest
-        # (the extra field is dropped via lenient-on-read).
-        # Build the 2.1.0 dict inline:
-        # {
-        #   "schema_version": "2.1.0",
-        #   "codeograph_version": "0.1.0",
-        #   ...all the 2.0.0 fields...
-        #   "eval_stats": {"total": 42},  # the extra field
-        # }
-        ...
+        manifest_path = tmp_path / "manifest.json"
 
-    def test_unknown_field_drops_with_debug_log(self, tmp_path: Path, caplog) -> None:
-        # TODO(learner): write a manifest with an extra top-level field;
-        # call read(); assert caplog.records contains a DEBUG record
-        # mentioning the dropped field name. (The lenient-on-read path
-        # in manifest.io.read emits a DEBUG log per dropped field.)
-        ...
+        # Build a 2.1.0-shaped dict with an extra top-level field "eval_stats".
+        data = {
+            "schema_version": "2.1.0",  # newer minor than current 2.0.0
+            "codeograph_version": "0.1.0",
+            "source_path": "/tmp/source",
+            "corpus_id": "corpus-1",
+            "run_id": "2026-06-11T10-00-00Z-a1b2c3",
+            "llm_skipped": False,
+            "cache_stats": {
+                "pass_1": {"calls": 1, "hits": 0, "hit_rate": 0.0},
+            },
+            "artefacts": {
+                "graph": {
+                    "path": "graph.json",
+                    "schema_version": "1.0.0",
+                    "sha256": "0" * 64,
+                }
+            },
+            "scorecards": {
+                "graph": {
+                    "path": "evals/graph-scorecard.json",
+                    "sha256": "1" * 64,
+                    "overall": "pass",
+                }
+            },
+            "compile_checks": {
+                "java": {
+                    "path": "compile/java.json",
+                    "sha256": "2" * 64,
+                }
+            },
+            # Extra field introduced by a hypothetical 2.1.0 producer.
+            "eval_stats": {"total": 42},
+        }
+
+        manifest_path.write_text(json.dumps(data), encoding="utf-8")
+
+        manifest = read(manifest_path)
+
+        assert isinstance(manifest, Manifest)
+        # Unknown field should be dropped; current schema has no eval_stats attribute.
+        assert not hasattr(manifest, "eval_stats")
+
+    def test_unknown_field_drops_with_debug_log(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+        manifest_path = tmp_path / "manifest.json"
+
+        data = {
+            "schema_version": "2.1.0",
+            "codeograph_version": "0.1.0",
+            "source_path": "/tmp/source",
+            "corpus_id": "corpus-1",
+            "run_id": "2026-06-11T10-00-00Z-a1b2c3",
+            "llm_skipped": False,
+            "artefacts": {},
+            # Extra unknown top-level field.
+            "eval_stats": {"total": 42},
+        }
+
+        manifest_path.write_text(json.dumps(data), encoding="utf-8")
+
+        caplog.set_level("DEBUG", logger="codeograph.manifest.io")
+
+        manifest = read(manifest_path)
+        assert isinstance(manifest, Manifest)
+
+        # Ensure a DEBUG log mentioning the dropped field name was emitted.
+        messages = [rec.getMessage() for rec in caplog.records]
+        assert any("eval_stats" in msg and "dropped unknown top-level field" in msg for msg in messages)
 
     def test_2_0_0_manifest_round_trip_preserves_all_fields(self, tmp_path: Path) -> None:
-        # TODO(learner): write a 2.0.0 manifest with all 9 top-level
-        # keys (schema_version, codeograph_version, source_path,
-        # corpus_id, run_id, llm_skipped, cache_stats, artefacts,
-        # scorecards); call write(); call read(); assert the re-read
-        # Manifest equals the original.
-        ...
+        manifest_path = tmp_path / "manifest.json"
+
+        original = Manifest(
+            schema_version="2.0.0",
+            codeograph_version="0.1.0",
+            source_path="/tmp/source",
+            corpus_id="corpus-1",
+            run_id="2026-06-11T10-00-00Z-a1b2c3",
+            llm_skipped=False,
+            cache_stats={
+                "pass_1": CacheStats(calls=10, hits=7, hit_rate=0.7),
+            },
+            artefacts={
+                "graph": ArtefactPointer(
+                    path="graph.json",
+                    schema_version="1.0.0",
+                    sha256="0" * 64,
+                ),
+                "llm_annotations": ArtefactPointer(
+                    path="llm-annotations.json",
+                    schema_version="1.0.0",
+                    sha256="1" * 64,
+                ),
+            },
+            scorecards={
+                "graph": ScorecardPointer(
+                    path="evals/graph-scorecard.json",
+                    sha256="2" * 64,
+                    overall="pass",
+                )
+            },
+            compile_checks={
+                "java": CompileChecksPointer(
+                    path="compile/java.json",
+                    sha256="3" * 64,
+                )
+            },
+        )
+
+        write(original, manifest_path)
+        reread = read(manifest_path)
+
+        assert reread == original
 
 
 # ---------------------------------------------------------------------------
@@ -74,14 +151,53 @@ class TestStrictOnWrite:
     """Strict-on-write via Pydantic ``extra='forbid'``."""
 
     def test_constructing_manifest_with_extra_field_raises(self) -> None:
-        # TODO(learner): try to construct a Manifest via the Pydantic
-        # constructor with an extra kwarg (e.g. ``rogue_field=...``).
-        # Assert ValidationError is raised.
-        ...
+        # Manifest.model_config.extra is "forbid", so extra kwargs should
+        # trigger a ValidationError when using the normal constructor.
+        with pytest.raises(Exception) as excinfo:
+            Manifest(
+                schema_version="2.0.0",
+                codeograph_version="0.1.0",
+                source_path="/tmp/source",
+                corpus_id="corpus-1",
+                run_id="2026-06-11T10-00-00Z-a1b2c3",
+                llm_skipped=False,
+                artefacts={},
+                rogue_field="should_fail",  # type: ignore[call-arg]
+            )
+        # Pydantic v2 raises pydantic.ValidationError; we avoid importing it
+        # just to keep the test focused on behavior, but ensure it's a ValueError-like failure.
+        err_msg = str(excinfo.value)
+        assert (
+            "extra fields not permitted" in err_msg
+            or "Extra inputs are not permitted" in err_msg
+            or "extra_forbidden" in err_msg
+        )
 
     def test_write_rejects_model_with_extra_field(self, tmp_path: Path) -> None:
-        # TODO(learner): construct a Manifest via model_construct with
-        # an extra field, then call manifest_io.write. Assert either
-        # (a) model_construct allows it but write raises, or
-        # (b) the strict-on-write path catches it. Document which.
-        ...
+        manifest_path = tmp_path / "manifest.json"
+
+        # model_construct bypasses validation, so we can smuggle an extra field
+        # into the instance; strict-on-write is provided by the constructor,
+        # so write() itself will happily serialize whatever fields exist.
+        # This test documents that behaviour.
+        m = Manifest.model_construct(
+            schema_version="2.0.0",
+            codeograph_version="0.1.0",
+            source_path="/tmp/source",
+            corpus_id="corpus-1",
+            run_id="2026-06-11T10-00-00Z-a1b2c3",
+            llm_skipped=False,
+            artefacts={},
+            cache_stats=None,
+            scorecards=None,
+            compile_checks=None,
+        )
+        # Inject an extra attribute post-construction.
+        object.__setattr__(m, "rogue_field", "smuggled")
+
+        write(m, manifest_path)
+
+        raw = json.loads(manifest_path.read_text(encoding="utf-8"))
+        # model_dump_json respects extra='forbid' configuration and only dumps declared fields,
+        # so the extra attribute is not persisted.
+        assert "rogue_field" not in raw
