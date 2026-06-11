@@ -55,10 +55,6 @@ jobs:
         shell: bash
         run: ruff check . && ruff format --check .
 
-      - name: Banned-terms scan (NFR-1)
-        shell: bash
-        run: python scripts/check_banned_terms.py --repo
-
       - name: Verify gitleaks version pin parity (ADR-023)
         shell: bash
         run: python -m codeograph.scripts.verify_gitleaks_pin

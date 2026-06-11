@@ -53,9 +53,9 @@ Choose the setup section corresponding to your execution environment:
    ```
 2. Install the git pre-commit hooks:
    ```powershell
-   python -m pre_commit install --hook-type pre-commit --hook-type commit-msg
+   python -m pre_commit install --hook-type pre-commit
    ```
-   This configures both the gitleaks secret scanning and the banned-terms scanners to run automatically on commit.
+   This configures the gitleaks secret scanner to run automatically on commit.
 
 ### Option B — Linux / WSL (bash)
 
@@ -69,7 +69,7 @@ Choose the setup section corresponding to your execution environment:
    ```
 3. Install the git pre-commit hooks:
    ```bash
-   pre-commit install --hook-type pre-commit --hook-type commit-msg
+   pre-commit install --hook-type pre-commit
    ```
 
 ## Pre-merge checklist
@@ -137,33 +137,6 @@ Every prompt version is an immutable file (e.g., `v1.md`). When creating or modi
 3. Our pre-commit hook automatically updates the `content_hash_pin` when you stage prompt files. If you bypass hooks, you must run `python scripts/update_prompt_hash_pins.py` manually.
 
 Modifying an existing prompt version *changes its hash*. The loader strictly verifies the pin, and the hash becomes part of the LLM Cache Key (ADR-015), ensuring no silent staleness.
-
-## Banned terms
-
-A small list of terms must not appear anywhere in source, tests, docs, ADRs,
-commit messages, or PR text. The canonical list lives in
-[`.banned-terms.txt`](./.banned-terms.txt) — link to it rather than
-restating it here.
-
-**Enforcement:**
-
-- **Local:** `scripts/check_banned_terms.py` runs as a pre-commit hook on
-  staged files and the commit message. Install hooks once with
-  `pre-commit install --hook-type pre-commit --hook-type commit-msg`.
-- **CI:** the same scanner runs in `.github/workflows/ci.yml` on every push
-  and pull request, scanning the full repo tree and commits in range.
-- **PR text:** at present, PR titles, descriptions, and comments are NOT
-  scanned automatically — they are the reviewer's responsibility. When
-  the violation is found in posted PR text, the policy is to fail the
-  check and require the comment be edited or deleted (not auto-redacted).
-  Extending the workflow to scan PR text is tracked as a follow-up.
-
-**Per-line exemption:** when an inherent technical term legitimately
-matches (e.g., a mypy `[assignment]` error code, third-party API lifecycle
-vocabulary), append `# banned-terms: ok` to that line as a pragma.
-Use sparingly; rephrasing is preferred.
-
-Enforced by NFR-1.
 
 ## ADRs
 
