@@ -19,9 +19,11 @@ This page describes what is implemented **today**. It is updated as each deliver
 ```
 INPUT  →  ACQUIRE  →  DISCOVER  →  PARSE  →  BUILD  →  ASSEMBLE  →  WRITE  →  OUTPUT
  path/         CorpusSpec      ParsedFile     fragment       merged graph     graph.json
- git url/                                     per file                        manifest.json
+ git url/                                     per file
  zip
 ```
+
+The manifest is NOT written by this pipeline. Per the ADR-025 write-protocol amendment, the manifest appears only at a terminal write orchestrated by the `codeograph run` command.
 
 Each box is a focused class. CLI wires them together (`codeograph/cli/main.py`).
 
@@ -32,7 +34,7 @@ Each box is a focused class. CLI wires them together (`codeograph/cli/main.py`).
 | Parse | `FileParserDispatcher` → `JavaFileParser` (JAR subprocess) → `RegexFallback` | `ParsedFile` envelope (TypedDict) | [ADR-003](adr/ADR-003-parsing-strategy.md) |
 | Build | `GraphBuilder` | per-file graph fragment | [ADR-006](adr/ADR-006-knowledge-graph-schema.md) |
 | Assemble | `GraphAssembler` | merged graph + cross-file edges | [ADR-006](adr/ADR-006-knowledge-graph-schema.md) |
-| Write | `GraphWriter` | `graph.json` (canonical) + `manifest.json` (SHA-256) | [ADR-006](adr/ADR-006-knowledge-graph-schema.md), [ADR-007](adr/ADR-007-golden-graph-pattern.md) |
+| Write | `GraphWriter` | `graph.json` (canonical) + `GraphArtefact` (path, schema_version, sha256) | [ADR-006](adr/ADR-006-knowledge-graph-schema.md), [ADR-007](adr/ADR-007-golden-graph-pattern.md), [ADR-025](adr/ADR-025-manifest-schema-flat-layout.md) |
 
 ### The Java parser (sidecar JAR)
 

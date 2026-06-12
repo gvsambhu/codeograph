@@ -25,7 +25,7 @@ a CI freshness gate.
 | 1.7.0 | 2026-06-06 | `run_id` scalar (Optional) | ADR-017 Fork 3 + ADR-015 | Eval-correlation `run_id` carrying UUID4 values at ship time. |
 | **2.0.0** | 2026-06-07 | (restructure — **major bump**) | **ADR-025** | **Breaking.** Flat layout: `scorecards`/`compile_checks` promoted to top-level (peers of `artefacts`); per-artefact `schema_version` retained; `sha256` **required** + top-level `llm_skipped` flag (omit `llm_annotations` on `--ast-only`); `run_id` now **required**; `cache_stats` cost fields (`saved/incurred_usd_est`) dropped — re-add additively when a cost model lands; `run_id` format = `YYYY-MM-DDTHH-MM-SSZ-<6 hex>`. Supersedes ADR-022 manifest forks (1/2/7) + ADR-015 Fork 6 `cache_stats` shape. Strict-additive resumes within `2.x`. |
 
-## DC5 (current development)
+## DC5 (shipped 2026-06-12)
 
 DC5 introduces a new manifest package at `codeograph/codeograph/manifest/`
 and ships the manifest at **`2.0.0`** per [ADR-025](adr/ADR-025-manifest-schema-flat-layout.md)

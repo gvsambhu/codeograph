@@ -203,7 +203,6 @@ Repository administrators must configure branch protection rules on `main` to re
 - `Python (integration-external)`
 - `Java (mvn test)`
 - `Cross-corpus Eval Report`
-- `Java (mvn test)`
 
 ## Responding to a gitleaks finding
 
