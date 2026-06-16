@@ -52,6 +52,7 @@ For someone new to the project who wants to understand the design end-to-end, re
 - [`ADR-022 — Run manifest and structured logging`](ADR-022-run-manifest-and-structured-logging.md) — *manifest schema forks (1/2/7) superseded by ADR-025; logging forks remain in force*
 - [`ADR-025 — Manifest schema 2.0.0 (flat layout)`](ADR-025-manifest-schema-flat-layout.md) — supersedes ADR-022's manifest forks + ADR-015's `cache_stats` shape
 - [`ADR-023 — Secret scanning with gitleaks`](ADR-023-secret-scanning-with-gitleaks.md)
+- [`ADR-026 — Release & version management`](ADR-026-release-version-management.md) — SemVer scheme, `0.x`→`1.0.0` at the stability gate, version sourced from package metadata
 
 ### 8. Deferred to v1.1 / post-v1 ⏸️
 - `ADR-011 — Spring → Go mapping`
@@ -93,6 +94,7 @@ For someone new to the project who wants to understand the design end-to-end, re
 | 023 | Secret scanning with gitleaks | ✅ | Cross-cutting |
 | 024 | Prompt-injection / output-path safety | ⏸️ | Deferred (v1.1) |
 | 025 | Manifest schema 2.0.0 (flat layout) | ✅ | Cross-cutting |
+| 026 | Release & version management | ✅ | Cross-cutting |
 
 ---
 
