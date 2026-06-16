@@ -398,3 +398,18 @@ References:
 ## Amendments
 
 **2026-05-03 — Spring annotation coverage pinned (v1).** Section 9 added enumerating the 38 annotations Codeograph interprets in v1 across stereotypes, DI, HTTP class+method mapping, HTTP arg binding, REST exception flow, JPA core, JPA relations, transactions, Boot bootstrap, and basic validation. Deferred categories (security, async/scheduling, caching, profile/conditional, configuration binding, validation extended, test classes, JPA extended, HTTP arg extended, cross-cutting) called out explicitly with v1 behaviour: captured in `annotations[]` but not interpreted. Surfaced when planning DC1 parser implementation, where the gap between section 2's seed list and the real Spring Boot taxonomy would have forced ad-hoc decisions during dev. No reversal of any prior decision.
+
+**2026-06-14 — Design-review pass (4 decisions).** A design review found two genuinely-unmade failure forks and two undecided edge responses; this entry records the decisions. No prior locked fork is reversed.
+
+1. **Subprocess bridge failure model.** F3 covers per-*file* parse failure; this adds the response to a *subprocess-level* failure (JVM crash, OOM, protocol desync, hang on the JSON channel): the affected file(s) **fall back to the regex extractor**, and the run emits a **prominent run-summary warning** flagging that the sidecar failed and which files were degraded. The run does not silently abort. Extends the **Failure policy** decision (§3) to the bridge level.
+
+2. **Python/Java interpretation boundary — ratifies as-built.** Annotation *interpretation* (stereotype assignment, edge emission, HTTP/JPA handling) runs **Java-side, inside the parser JAR** — not in a Python module. **Supersedes** the §9 "Implementation note for parser dev" pointer to `parser/annotation_interpreters.py`; adding a new interpreted annotation is a change in the Java parser (`ParsedFileAssembler.java` and the annotation handling there), then a row in the §9 table.
+
+3. **Empty `~/.m2` on a Maven project.** CP2 detects an empty/unpopulated `~/.m2`; the response is to **surface a remediation hint** (e.g. "run `mvn dependency:resolve`") and **proceed** with degraded resolution (third-party refs become `unresolved_call`). The run is not aborted. Clarifies the CP2 "documented + detected" language with a decided behaviour.
+
+4. **Regex fallback's own failure.** When even the regex extractor cannot produce a usable node (fallback-of-the-fallback), emit a **minimal stub node** (class name only), flagged lowest-confidence and recorded in the manifest — rather than dropping the file silently. Extends §3.
+
+**New Confirmation items (from this amendment):**
+* A killed/crashed parser subprocess routes remaining files to regex fallback and the run reports a summary warning (#1).
+* An empty `~/.m2` on a Maven project produces a remediation hint and the run completes with `unresolved_call` edges for third-party targets (#3).
+* A file that fails both AST and regex extraction yields a name-only stub node, flagged lowest-confidence, and a manifest record (#4).
