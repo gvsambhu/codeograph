@@ -496,3 +496,22 @@ Decision: they are **not** added in v1. Rationale: the v1 renderer (Spring → T
 Impact on the graph builder: the builder copies `superclass`, `implements`, and `extends_interfaces` as string fields onto the node. It does not emit any hierarchy edge. This is the correct and complete behaviour for v1.
 
 **2026-05-02 — Canonical-form clarification.** Fork 6's `sha256` contract clarified to be over canonical-form serialization rather than arbitrary bytes. Writer rules listed in Decision Outcome → Fork 6 (sorted keys, sorted node and edge arrays, LF endings, no leaked non-determinism, JavaParser version pinned). Adds CI double-write check as testable enforcement. Surfaced during ADR-007 golden-test design, where byte-equal goldens and the manifest sha256 contract were identified as the same constraint and benefit from explicit canonical-form rules. No reversal of any prior decision; clarification only.
+
+**2026-06-17 — Design-review pass (6 decisions).** A design review of the graph-schema forms surfaced gaps and edge cases; this entry records the decisions. No prior locked fork is reversed.
+
+1. **Schema strictness + closed type sets.** Node, edge, manifest, and annotation objects are **closed** (`additionalProperties: false`); the node `type` and edge `type` sets are **closed enums**. The canonical enumeration is the JSON Schema files under `codeograph/schema/`. This makes the schema-validity check meaningful (unknown fields are caught) and is the consistent implication of Fork 7's pure-semver, no-open-extensions choice.
+
+2. **Schema location and validation points.** The language-neutral source of truth is the set of `codeograph/schema/*.schema.json` files (not a single `evals/graph-schema.json`). Every emitted graph is validated at **two points**: at write time, because the writer constructs the generated Pydantic models (a non-conforming graph cannot be built); and at evaluation time, by the schema-validity check (ADR-017). **Supersedes** the single-file `evals/graph-schema.json` reference; FR-7b is updated to match.
+
+3. **Node id for a non-resolvable FQCN.** A class whose fully-qualified name cannot be resolved (the regex-fallback stub case in ADR-003) is identified by a deterministic, source-path-namespaced id of the form `file:<corpus-relative-path>#<simple-name>`, carrying a `fqcn_resolved: false` property. Method-id parameter types use **erased** fully-qualified names (no generic type arguments) for cross-run stability. Extends Fork 3.
+
+4. **Cross-file id-join integrity.** Every key in `llm-annotations.json` must resolve to a class node in `graph.json` — an orphan annotation key is an error. A class node may carry no annotation (the normal case under `--ast-only` or an `llm_failed` extraction). This is checked by the internal-consistency evaluation. **Constraint flagged for ADR-017.** Extends Fork 5.
+
+5. **File-size assumption.** The cost of FQCN string ids at the upper end of the supported range (~10⁴ classes) is an explicitly accepted assumption; no graph-size budget requirement exists. Recorded so the id-scheme choice rests on a stated premise.
+
+6. **Cross-module FQCN uniqueness boundary.** Collision-free node ids rely on JVM fully-qualified-name uniqueness within a deployable. Duplicate FQCNs across modules (shaded or relocated classes) are a known boundary, out of v1 scope; no tie-break is added unless a corpus exhibits the case.
+
+**New Confirmation items.**
+* Node and edge schema objects reject unknown properties (`additionalProperties: false`), and `type` values are constrained to the closed enums.
+* A class that fails both AST and regex resolution yields a node with a `file:<path>#<name>` id and `fqcn_resolved: false`.
+* An `llm-annotations.json` key with no matching graph node is flagged by the internal-consistency check; a graph node with no annotation is not.

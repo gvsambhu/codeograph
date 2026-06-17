@@ -537,3 +537,23 @@ Confirmation that this decision is implemented correctly will come from:
 * pytest parametrisation — https://docs.pytest.org/en/stable/how-to/parametrize.html
 * pytest-snapshot pattern — https://github.com/joseph-roitman/pytest-snapshot
 * GitHub Actions cron workflows — https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#schedule
+
+## Amendments
+
+**2026-06-17 — Design-review pass (5 decisions).** A design review surfaced one requirement-traceability gap and several edge cases; this entry records the decisions. No prior locked fork is reversed.
+
+1. **Golden location, cadence, and categorization (requirement reconciliation).** The golden files are committed under `tests/golden/<corpus>/graph.json` for the test corpora (the hand-built fixture and the pinned real Spring project) — **not** a single golden under `examples/`. CI diffs every run byte-equal in canonical form. Golden refreshes are deliberate (`--update-goldens`), and each refresh PR records the diff category (update-golden / fix-bug / intentional-change) as a tracked convention captured in the Confirmation items below (not a hard commit-message gate). The committed example run ships its `graph.json` as illustrative output, **not** as a byte-equal regression golden. FR-7c is updated to match this design.
+
+2. **Golden-agreement evaluation reuses this mechanism.** The graph-quality scorecard's golden-graph-agreement check uses the **same** canonical-byte equality defined here — one mechanism with two callers: the pytest test that gates development, and the scorecard line that reports agreement. **Constraint flagged for ADR-017.**
+
+3. **Operating system added to the reproducibility envelope.** The byte-equal contract is platform-sensitive. The environment assertion additionally checks the operating-system family, and goldens are refreshed only in a Linux-matching environment (WSL, a dev container, or a CI-produced artefact), documented in `CONTRIBUTING.md`. Extends Fork 8. This closes the gap where a golden refreshed on a non-Linux developer machine could fail byte-equality on the Linux CI runner.
+
+4. **Submodule refresh trigger and fetch-failure behaviour.** A bump of the pinned real-Spring submodule tag is an explicit golden-refresh trigger. A CI failure to fetch the submodule **hard-fails** the job rather than silently skipping that corpus, so drift cannot hide behind a skipped test. Extends Forks 1 and 4.
+
+5. **Missing-golden behaviour.** A corpus registered in the test list with no committed golden **hard-fails** the test; goldens are created only via `--update-goldens`. This preserves the deliberate-refresh property. Extends Fork 4.
+
+**New Confirmation items.**
+* Goldens live at `tests/golden/<corpus>/graph.json`; the example run's `graph.json` is committed as example output and is not asserted byte-equal.
+* Each golden-refresh PR records a diff category (update-golden / fix-bug / intentional-change).
+* `tests/test_environment.py` asserts the OS family alongside the existing tool / locale / hashseed pins.
+* A registered corpus with no committed golden fails the run; a submodule-fetch failure fails the job.
