@@ -187,3 +187,17 @@ References:
 * MADR template — https://github.com/adr/madr
 * `pydantic-settings` docs — https://docs.pydantic.dev/latest/concepts/pydantic_settings/
 * `click` docs — https://click.palletsprojects.com/
+
+## Amendments
+
+**2026-06-14 — Design-review pass (2 decisions + 1 spin-off).** A design review produced two decisions recorded here and one finding that spins off into a dedicated ADR. No prior locked fork is reversed. (Other findings — single-command-vs-group, the "no custom merge code" wording, config.yaml-absent behaviour, the CLI-kwarg→field contract, the stale `--dry-run` note — are description-level corrections handled as documentation, not decisions.)
+
+1. **Env-var naming scheme — split rule.** Provider API keys follow the **provider's own** naming convention (bare `ANTHROPIC_API_KEY`); all codeograph-specific settings keep the **`CODEOGRAPH_`** prefix. The `anthropic_api_key` field is exempted from the global prefix via `AliasChoices("ANTHROPIC_API_KEY", "CODEOGRAPH_ANTHROPIC_API_KEY")` — bare form primary (ecosystem standard: aider, litellm, fabric, `llm` CLI all use bare provider keys), prefixed form accepted as fallback. `llm_provider` and all other tool-specific vars stay `CODEOGRAPH_*`, so FR-8 (provider switching via env var) is met in spirit. v1.1 note: when Bedrock/Ollama activate, `bedrock_region` and `ollama_base_url` gain the same dual-alias treatment against `AWS_DEFAULT_REGION` and `OLLAMA_HOST`.
+
+2. **Validation-error UX.** A pydantic `ValidationError` at startup (bad/missing config) is **caught and re-emitted as a user-readable `click` error** naming the offending field and remedy — not a raw traceback. Closes the previously-undecided strict-vs-permissive validation-failure-UX fork.
+
+3. **Version policy → new ADR.** The `codeograph_version` governance gap (no rule for what bumps the version; v1-ship-version unmapped; `__version__` hand-edited in two places) is **out of scope for "project skeleton + config"** and spins off into a dedicated release-management ADR (ADR-026). That ADR decides the bump policy, maps the v1 milestone to a version, and derives `__version__` from a single source (package metadata).
+
+**New Confirmation items (from this amendment):**
+* A bare `ANTHROPIC_API_KEY` (no `CODEOGRAPH_` prefix) is read successfully by `Settings` (#1).
+* `Settings(**bad)` at startup surfaces a user-readable `click` error, not a traceback (#2).

@@ -225,3 +225,13 @@ References:
 * Martin, R.C. (2008). *Clean Code: A Handbook of Agile Software Craftsmanship*. Prentice Hall.
 * SonarSource rules: `java:S1541` (CC), `java:S3776` (cognitive), `java:S138` (method LoC). https://rules.sonarsource.com/java/
 * MADR template — https://github.com/adr/madr
+
+## Amendments
+
+**2026-06-14 — Design-review pass (1 decision).** A design review confirmed the ADR is clean (citation guardrail fully satisfied) and found one uncovered scenario; this entry records the decision. No prior locked fork is reversed. (The separate question of whether metrics live in a `complexity` mapping or as flat per-metric fields is an implementation-conformance matter, tracked outside this decision.)
+
+1. **Bodyless-method / method-less-class metric semantics.** The §3 computation specs assume a method body, leaving CC / cognitive / method-LoC undefined for **bodyless methods** (interface & abstract — including pervasive Spring Data repository interfaces) and LCOM4 / WMC undefined for **method-less classes** (markers, constants holders, `@Configuration`-only). Decision: the affected metric is **omitted (n/a)** for such nodes — the metric key/field is **absent**, not zero — to avoid statistical skew in eval weighting and class selection (ADR-009), which would otherwise treat a structurally-trivial interface as if it had a measured complexity of 0. Extends §3 with a bodyless/method-less convention row. (The "omit" representation depends on the metric storage shape: under flat per-metric fields it means the field is nullable/absent; under a `complexity` mapping it means the key is absent.)
+
+**New Confirmation items (from this amendment):**
+* An interface method (no body) carries no CC / cognitive / method-LoC value (absent, not 0) (#1).
+* A method-less class carries no LCOM4 / WMC value (absent, not 0) (#1).

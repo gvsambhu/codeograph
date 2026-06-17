@@ -163,3 +163,33 @@ References:
 * `pathspec` — https://pypi.org/project/pathspec/
 * Python `zipfile` member-path safety (Python 3.12+ `Path.resolve()` idioms)
 * Git shallow clone — https://git-scm.com/docs/git-clone#Documentation/git-clone.txt---depthltdepthgt
+
+## Amendments
+
+**2026-06-14 — Design-review pass (10 decisions).** A design review surfaced ten unmade or under-specified forks and edge cases; this single entry records the decisions for all ten. No prior locked fork is reversed — these fill gaps and clarify; several ratify the as-built behaviour.
+
+1. **Module-name derivation.** The M2 `module` label is the **directory name of the nearest ancestor build file** (`pom.xml` / `build.gradle(.kts)`). Clarifies the "nearest ancestor … defines the module" heuristic in the Decision Outcome, which never specified *what* the name was (vs Maven `artifactId` or path-from-root).
+
+2. **Stage-1 contract shape — ratifies as-built.** The Stage-1 → Stage-2 contract is the **nested** `CorpusSpec{corpus_root, acquisition_source, modules: list[ModuleSpec]}`, where each `ModuleSpec` owns its own `java_files` — *not* the flat `ProjectInput`/`SourceFile` sketch in **More Information** above. The interface-granularity axis (flat-with-labels vs modules-own-files) was never forked; the nested shape is now the recorded design. **Supersedes** the `SourceFile`/`ProjectInput` dataclass sketch in **More Information** and the Confirmation's "(module, relative_path) set" wording.
+
+3. **Hybrid build system.** When **both** `pom.xml` and `build.gradle(.kts)` are present, **Maven wins**: emit `build_system = "maven"` and log the Gradle file as a secondary/ignored artefact. Rationale: only Maven gets `~/.m2` symbol resolution (ADR-003 CP2), so Maven is the meaningful classpath anchor.
+
+4. **FR-24 malformed-input enumeration.** FR-24's 6 v1 negative-input classes are enumerated authoritatively (zip bomb, zip-slip, corrupt archive, git acquisition failure, empty corpus, no build file); this ADR's Confirmation gains a matching negative-test obligation and honours that enumeration.
+
+5. **Source-arg classification — ratifies as-built.** The authoritative rule is **prefix-based**: `http(s)://`, `git@`, `git://` → git; `*.zip` (existing file) → zip; otherwise → local. **Supersedes** the "ends with `.git` → git clone" prose in **More Information** (Acquisition detection), which the implementation never followed. Consequence (accepted): a bare local path literally ending `.git` is treated as local, not a clone target.
+
+6. **`build_system` value space.** **`unknown` is dropped.** A corpus with no recognised build file is **rejected upstream** with a clear error (it is not accepted and labelled "unknown"). `build_system` is now **`maven | gradle` only**. **Supersedes** the `build_system: maven | gradle | unknown` declaration in the Decision Outcome and aligns the design with the shipped `BuildTool` enum.
+
+7. **Empty corpus.** A corpus with **no `.java` files in scope** after discovery → **fail loud**: user-readable message + non-zero exit. No empty-graph pass-through. (Pairs with #6 — both no-build-file and no-sources fail loud rather than degrade.)
+
+8. **Zip internal layout.** If the archive contains **exactly one top-level directory** that holds the project (`projectname/src/…`), that directory is **stripped** and becomes the extraction root. Otherwise the archive root is treated as the project root. Extends the **Safety** section.
+
+9. **`max_extracted_bytes` cap.** Default **500 MB**, citing GitHub's repository-size advisory limit as the anchor; **configurable** via settings. Replaces the unspecified "a `max_extracted_bytes` cap in settings" reference (Consequences + Safety) with a cited, named default.
+
+10. **Malformed `.gitignore`.** A `.gitignore` that `pathspec` cannot parse → **log a warning and fall back to the C1 hardcoded skiplist** (do not fail the run, do not silently produce wrong scoping). Extends the C2 decision.
+
+**New Confirmation items (from this amendment):**
+* Negative tests for the 6 FR-24 classes assert graceful failure with specific messages (#4).
+* A no-build-file corpus and a no-`.java`-files corpus each exit non-zero with a user-readable error (#6, #7).
+* A zip wrapping a single top-level project dir extracts with that dir stripped (#8).
+* A malformed `.gitignore` logs a warning and the run proceeds on the C1 skiplist (#10).
