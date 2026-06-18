@@ -39,8 +39,8 @@ from codeograph.parser.regex_fallback import RegexFallback
 # ---------------------------------------------------------------------------
 
 _TESTS_DIR = Path(__file__).parent
-_FIXTURE_DIR = _TESTS_DIR / "fixtures" / "codeograph-corpus"
-_GOLDENS_DIR = _TESTS_DIR.parent / "goldens" / "module-core"
+_FIXTURE_DIR = _TESTS_DIR.parent / "fixtures" / "codeograph-corpus"
+_GOLDENS_DIR = _TESTS_DIR.parent / "golden" / "codeograph-corpus"
 
 _CORE_SRC = _FIXTURE_DIR / "module-core" / "src" / "main" / "java"
 _WEB_SRC = _FIXTURE_DIR / "module-web" / "src" / "main" / "java"
@@ -110,8 +110,7 @@ def _assert_golden(actual_bytes: bytes, golden_path: Path, *, update: bool) -> N
     """
     if update:
         golden_path.parent.mkdir(parents=True, exist_ok=True)
-        # TODO(learner): write actual_bytes to golden_path
-        # golden_path.write_bytes(actual_bytes)
+        golden_path.write_bytes(actual_bytes)
     else:
         if not golden_path.exists():
             raise AssertionError(

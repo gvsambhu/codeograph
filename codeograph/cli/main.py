@@ -226,7 +226,6 @@ def run(
             import hashlib
             import json
 
-            from codeograph.config.settings import Settings
             from codeograph.llm._prompts_generated import PromptId
             from codeograph.llm.cache.sqlite_backend import SQLiteCacheBackend
             from codeograph.llm.factory import build_default_stack
@@ -238,7 +237,6 @@ def run(
             from codeograph.passes.pass2.synthesizer import CorpusSynthesizer
             from codeograph.telemetry.emitter import JsonlEmitter
 
-            settings = Settings()
             if not settings.anthropic_api_key:
                 click.echo("WARNING: CODEOGRAPH_ANTHROPIC_API_KEY is not set. LLM passes will fail unless mocked.")
 
