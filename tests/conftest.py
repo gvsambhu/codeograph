@@ -2,7 +2,7 @@
 Test-suite pytest configuration (tests/conftest.py).
 
 Registers:
-  --update-goldens  CLI flag (consumed by tests/test_golden.py)
+  --update-goldens  CLI flag (consumed by tests/integration/test_goldens.py)
   update_goldens    fixture that exposes the flag value to test functions
 """
 

@@ -32,14 +32,56 @@ class TestNoManifestOnInterrupt:
 
         # Ensure LLM path is enabled (ast_only=False and API key present).
         monkeypatch.setenv("CODEOGRAPH_ANTHROPIC_API_KEY", "dummy-key")
-        monkeypatch.setenv("JAVA_HOME", "C:/alldev/Java/jdk-25.0.1")
+
         import os
+        import platform
+
+        is_windows = platform.system() == "Windows"
+        path_sep = ";" if is_windows else ":"
+
+        if is_windows:
+            java_home = "C:/alldev/Java/jdk-25.0.1"
+            java_bin = "C:/alldev/Java/jdk-25.0.1/bin"
+            maven_bin = "C:/alldev/maven_root/apache-maven-3.8.6/bin"
+        else:
+            # Under WSL/Linux, convert Windows-style JAVA_HOME if set, or search common WSL mount paths.
+            java_home = os.environ.get("JAVA_HOME")
+            if java_home and java_home.upper().startswith("C:"):
+                if os.path.exists("/c/alldev"):
+                    java_home = java_home.replace("C:", "/c")
+                elif os.path.exists("/mnt/c/alldev"):
+                    java_home = java_home.replace("C:", "/mnt/c")
+
+            if not java_home:
+                if os.path.exists("/c/alldev/Java/jdk-25.0.1"):
+                    java_home = "/c/alldev/Java/jdk-25.0.1"
+                elif os.path.exists("/mnt/c/alldev/Java/jdk-25.0.1"):
+                    java_home = "/mnt/c/alldev/Java/jdk-25.0.1"
+
+            java_bin = f"{java_home}/bin" if java_home else ""
+
+            if os.path.exists("/c/alldev/maven_root/apache-maven-3.8.6/bin"):
+                maven_bin = "/c/alldev/maven_root/apache-maven-3.8.6/bin"
+            elif os.path.exists("/mnt/c/alldev/maven_root/apache-maven-3.8.6/bin"):
+                maven_bin = "/mnt/c/alldev/maven_root/apache-maven-3.8.6/bin"
+            else:
+                maven_bin = ""
+
+        if java_home:
+            monkeypatch.setenv("JAVA_HOME", java_home)
 
         current_path = os.environ.get("PATH", "")
-        java_bin = "C:/alldev/Java/jdk-25.0.1/bin"
-        maven_bin = "C:/alldev/maven_root/apache-maven-3.8.6/bin"
-        new_path = f"{maven_bin};{java_bin};{current_path}"
-        monkeypatch.setenv("PATH", new_path)
+        path_parts = []
+        if maven_bin:
+            path_parts.append(maven_bin)
+        if java_bin:
+            path_parts.append(java_bin)
+        if current_path:
+            path_parts.append(current_path)
+
+        if path_parts:
+            new_path = path_sep.join(path_parts)
+            monkeypatch.setenv("PATH", new_path)
 
         # Patch NodeAnnotator.annotate to simulate a Pass 1 crash.
         from codeograph.passes.pass1.annotator import NodeAnnotator

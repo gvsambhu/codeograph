@@ -193,7 +193,7 @@ class GraphBuilder:
             entry_point=parsed_file.get("entry_point"),
             wmc=parsed_file.get("wmc"),
             cbo=parsed_file.get("cbo"),
-            lcom4=int(v) if (v := parsed_file.get("lcom4")) is not None else None,
+            lcom4=parsed_file.get("lcom4"),
         )
         self._nodes.append(class_node)
 

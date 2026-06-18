@@ -168,6 +168,7 @@ def run(
 
     # --- Lazy imports (keep CLI startup fast) ----------------------------
     from codeograph.analyzer.corpus_analyzer import CorpusAnalyzer
+    from codeograph.config.settings import Settings
     from codeograph.graph.graph_assembler import GraphAssembler
     from codeograph.graph.graph_builder import GraphBuilder
     from codeograph.graph.graph_writer import GraphWriter
@@ -183,6 +184,7 @@ def run(
 
     # --- Per-run data (generated once, threaded into the assembler) ------
     run_id = generate_run_id()
+    settings = Settings()
 
     acquirer = InputAcquirer()
     corpus = None
@@ -201,7 +203,7 @@ def run(
 
         analyzer = CorpusAnalyzer(
             dispatcher=FileParserDispatcher(
-                java_parser=JavaFileParser(),
+                java_parser=JavaFileParser(jar_path=settings.javaparser_jar),
                 fallback=RegexFallback(),
             ),
             builder=GraphBuilder(),

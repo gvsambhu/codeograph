@@ -40,7 +40,7 @@ from codeograph.parser.regex_fallback import RegexFallback
 
 _TESTS_DIR = Path(__file__).parent
 _FIXTURE_DIR = _TESTS_DIR / "fixtures" / "codeograph-corpus"
-_GOLDENS_DIR = _TESTS_DIR / "goldens" / "tier1"
+_GOLDENS_DIR = _TESTS_DIR.parent / "goldens" / "module-core"
 
 _CORE_SRC = _FIXTURE_DIR / "module-core" / "src" / "main" / "java"
 _WEB_SRC = _FIXTURE_DIR / "module-web" / "src" / "main" / "java"
@@ -106,24 +106,35 @@ def _assert_golden(actual_bytes: bytes, golden_path: Path, *, update: bool) -> N
 
     If ``update=True``, overwrite the stored golden and pass unconditionally.
     If the golden does not exist and ``update=False``, fail with an actionable
-    message directing the developer to run ``make golden-update``.
-
-    TODO (Issue #6 M11): implement the comparison body.
-    Hints:
-      - golden_path.write_bytes(actual_bytes) for the update path
-      - golden_path.read_bytes() for the comparison path
-      - On mismatch, diff with json.dumps(json.loads(...), indent=2) for a
-        readable failure message rather than a raw bytes diff
+    message directing the developer to run ``pytest --update-goldens``.
     """
     if update:
         golden_path.parent.mkdir(parents=True, exist_ok=True)
-        # TODO: write actual_bytes to golden_path
-        pass
+        # TODO(learner): write actual_bytes to golden_path
+        # golden_path.write_bytes(actual_bytes)
     else:
         if not golden_path.exists():
-            pytest.skip(f"No golden at {golden_path} — run 'make golden-update' to capture it.")
-        # TODO: read golden_path, compare to actual_bytes, fail with a diff on mismatch
-        pass
+            raise AssertionError(
+                f"No golden at {golden_path} — run "
+                "'pytest tests/integration/test_goldens.py --update-goldens' to capture it."
+            )
+        # TODO(learner): read expected_bytes from golden_path, compare to actual_bytes,
+        # and on mismatch format both as pretty JSON strings to assert equality so pytest shows a readable diff:
+        #
+        # expected_bytes = golden_path.read_bytes()
+        # if actual_bytes != expected_bytes:
+        #     actual_str = actual_bytes.decode("utf-8")
+        #     expected_str = expected_bytes.decode("utf-8")
+        #     import json
+        #     try:
+        #         actual_json = json.loads(actual_str)
+        #         expected_json = json.loads(expected_str)
+        #         actual_formatted = json.dumps(actual_json, indent=2, ensure_ascii=False)
+        #         expected_formatted = json.dumps(expected_json, indent=2, ensure_ascii=False)
+        #     except Exception:
+        #         actual_formatted = actual_str
+        #         expected_formatted = expected_str
+        #     assert actual_formatted == expected_formatted, "Golden graph byte-mismatch detected!"
 
 
 # ---------------------------------------------------------------------------

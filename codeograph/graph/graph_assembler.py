@@ -504,17 +504,18 @@ class GraphAssembler:
 
     def _dedup_edges(self, edges: list[Edge]) -> list[Edge]:
         """
-        Remove duplicate edges by (kind, source, target). Preserves first-seen order.
+        Remove duplicate edges by (kind, source, target, optional cardinality). Preserves first-seen order.
         DependsOnEdge and RelationEdge are already guarded by emitted-pair sets
         during construction; this is a final safety net covering all edge types.
         """
-        seen: set[tuple[str, str, str]] = set()
+        seen: set[tuple[str, str, str, str | None]] = set()
         result: list[Edge] = []
         for edge in edges:
             key = (
                 edge.root.kind,
                 edge.root.source,
                 edge.root.target,
+                getattr(edge.root, "cardinality", None),
             )
             if key not in seen:
                 seen.add(key)
