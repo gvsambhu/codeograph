@@ -263,8 +263,20 @@ def run(
 
         if not ast_only:
             from codeograph.analyzer.llm_corpus_enricher import LlmCorpusEnricher
+            from codeograph.llm.resolver import LlmProviderResolver
+            from codeograph.telemetry.session_manager import TelemetrySessionManager
+            from codeograph.telemetry.stats_aggregator import TelemetryStatsAggregator
 
-            enricher = LlmCorpusEnricher(settings)
+            resolver = LlmProviderResolver(settings)
+            telemetry_manager = TelemetrySessionManager(settings)
+            stats_aggregator = TelemetryStatsAggregator()
+
+            enricher = LlmCorpusEnricher(
+                settings=settings,
+                provider_resolver=resolver,
+                telemetry_manager=telemetry_manager,
+                stats_aggregator=stats_aggregator,
+            )
             llm_annotations_artefact, cache_stats = enricher.enrich(
                 corpus_id=corpus_id,
                 graph_artefact=graph_artefact,
