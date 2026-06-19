@@ -20,8 +20,8 @@ from codeograph.rendering.class_selector import (
     _HIGH_CBO_THRESHOLD,
     _HIGH_WMC_THRESHOLD,
     ClassSelector,
-    SelectionResult,
 )
+from codeograph.rendering.models import SelectionResult
 
 
 def _make_class_node(

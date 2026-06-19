@@ -7,9 +7,9 @@ from unittest.mock import AsyncMock, patch
 from codeograph.graph.models.graph_schema import ClassNode
 from codeograph.llm.prompts.loader import PromptLoader
 from codeograph.llm.provider import LlmProvider
-from codeograph.renderers.typescript_nestjs.config import TypeScriptConfig
-from codeograph.renderers.typescript_nestjs.renderer import TypeScriptRenderer
-from codeograph.rendering.class_selector import SelectionResult
+from codeograph.renderers.typescript_nestjs.typescript_config import TypeScriptConfig
+from codeograph.renderers.typescript_nestjs.typescript_renderer import TypeScriptRenderer
+from codeograph.rendering.models import SelectionResult
 
 # ---------------------------------------------------------------------------
 # Shared fixtures / helpers

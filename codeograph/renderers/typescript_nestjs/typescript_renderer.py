@@ -44,13 +44,12 @@ from codeograph.llm.prompts.renderer import render as render_prompt
 from codeograph.llm.types import CacheHint, Message, Tier
 from codeograph.renderers.base import CompileCheck, Renderer
 from codeograph.renderers.registry import RendererRegistry
-from codeograph.renderers.typescript_nestjs.config import TypeScriptConfig
+from codeograph.renderers.typescript_nestjs.typescript_config import TypeScriptConfig
+from codeograph.renderers.typescript_nestjs.models import RenderedSource
 from codeograph.rendering.class_selector import ClassSelector, SelectionResult
-from codeograph.rendering.domain_grouping import (
-    DomainGrouping,
-    ManualMappingGrouping,
-    PackagePrefixGrouping,
-)
+from codeograph.rendering.base import DomainGrouping
+from codeograph.rendering.manual_mapping_grouping import ManualMappingGrouping
+from codeograph.rendering.package_prefix_grouping import PackagePrefixGrouping
 
 if TYPE_CHECKING:
     from codeograph.graph.models.graph_schema import ClassNode, CodeographKnowledgeGraph
@@ -89,21 +88,6 @@ _SPRING_SECURITY_ANNOTATIONS: frozenset[str] = frozenset(
 )
 
 
-# ---------------------------------------------------------------------------
-# Pydantic wrapper for code-gen LLM output
-# ---------------------------------------------------------------------------
-
-
-class RenderedSource(BaseModel):
-    """Single-field wrapper used with ``complete_structured()`` for code-gen output.
-
-    The render prompt instructs the model to return its TypeScript source code
-    in the ``content`` field.  Using ``complete_structured()`` keeps the
-    provider abstraction intact — no raw-text completion method is needed.
-    The model must JSON-escape the TypeScript content; Pydantic validates it.
-    """
-
-    content: str
 
 
 # ---------------------------------------------------------------------------

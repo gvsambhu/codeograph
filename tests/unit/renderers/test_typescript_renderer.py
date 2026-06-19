@@ -4,8 +4,8 @@ from typing import cast
 
 from codeograph.llm.prompts.loader import PromptLoader
 from codeograph.llm.provider import LlmProvider
-from codeograph.renderers.typescript_nestjs.config import TypeScriptConfig
-from codeograph.renderers.typescript_nestjs.renderer import TypeScriptRenderer
+from codeograph.renderers.typescript_nestjs.typescript_config import TypeScriptConfig
+from codeograph.renderers.typescript_nestjs.typescript_renderer import TypeScriptRenderer
 
 
 def _make_renderer(config: TypeScriptConfig | None = None) -> TypeScriptRenderer:
