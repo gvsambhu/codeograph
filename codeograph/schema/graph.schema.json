@@ -115,6 +115,10 @@
           "enum": ["ast", "signatures_only", "regex_fallback"],
           "description": "How this class's body was parsed. 'ast': full JavaParser AST (complexity metrics available). 'signatures_only': oversized-input fallback per ADR-005 (complexity metrics null). 'regex_fallback': JavaParser failed; per-file regex used (ADR-003). Applies to all methods in this class."
         },
+        "fqcn_resolved": {
+          "type": ["boolean", "null"],
+          "description": "True if the id is a real FQCN. False if the FQCN could not be determined (e.g. malformed regex fallback) and a stub id like file:<path>#<name> was used."
+        },
         "table_name": {
           "type": ["string", "null"],
           "description": "Database table name from @Table(name=...) or @Entity default (simple class name lowercased). Null if class is not an @Entity."

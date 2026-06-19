@@ -199,6 +199,7 @@ class ParsedFile(_ParsedFileBase, total=False):
     is_inner_class: bool
     table_name: str | None
     entry_point: bool
+    fqcn_resolved: bool
     wmc: int | None  # Weighted Methods per Class; M7
     cbo: int | None  # Coupling Between Objects; M7
     lcom4: int | None  # Lack of Cohesion of Methods 4; M7
