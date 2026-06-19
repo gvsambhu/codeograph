@@ -191,6 +191,7 @@ class GraphBuilder:
             is_inner_class=parsed_file.get("is_inner_class"),
             table_name=parsed_file.get("table_name"),
             entry_point=parsed_file.get("entry_point"),
+            fqcn_resolved=parsed_file.get("fqcn_resolved", True),
             wmc=parsed_file.get("wmc"),
             cbo=parsed_file.get("cbo"),
             lcom4=parsed_file.get("lcom4"),

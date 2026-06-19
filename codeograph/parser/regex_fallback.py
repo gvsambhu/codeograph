@@ -164,6 +164,8 @@ class RegexFallback:
     def _extract(self, source: str, source_file: str) -> ParsedFile:
         """Run all regex patterns against the source text and assemble a ParsedFile."""
         package = self._extract_package(source)
+        package_found = bool(package)
+
         imports = self._extract_imports(source)
         kind, simple_name = self._extract_type_decl(source)
 
@@ -171,7 +173,11 @@ class RegexFallback:
             logger.warning("RegexFallback: no type declaration found in %s", source_file)
             return _empty_envelope(source_file)
 
-        fqcn = f"{package}.{simple_name}" if package else simple_name
+        if package_found:
+            fqcn = f"{package}.{simple_name}"
+        else:
+            fqcn = f"file:{source_file}#{simple_name}"
+
         annotations = self._extract_annotations(source)
         stereotype = next((a for a in annotations if a in _STEREOTYPES), None)
         fields = self._extract_fields(source, fqcn)
@@ -181,6 +187,7 @@ class RegexFallback:
             # --- required base ---
             "kind": kind,
             "id": fqcn,
+            "fqcn_resolved": package_found,
             "name": simple_name,
             "source_file": source_file,
             "extraction_mode": "regex",
@@ -361,10 +368,11 @@ def _empty_envelope(source_file: str) -> ParsedFile:
     stem = source_file.rsplit("/", 1)[-1].removesuffix(".java")
     return {
         "kind": "class",
-        "id": source_file.replace("/", ".").removesuffix(".java"),
+        "id": f"file:{source_file}#{stem}",
         "name": stem,
         "source_file": source_file,
         "extraction_mode": "regex",
         "annotations": [],
         "imports": [],
+        "fqcn_resolved": False,
     }

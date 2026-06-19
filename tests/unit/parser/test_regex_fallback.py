@@ -66,7 +66,8 @@ class TestPackageAndId:
         src = "public class Standalone {}\n"
         f, root = _write(tmp_path, "Standalone.java", src)
         pf = fb.parse(f, root)
-        assert pf["id"] == "Standalone"
+        assert pf["id"] == "file:Standalone.java#Standalone"
+        assert pf["fqcn_resolved"] is False
         assert pf["name"] == "Standalone"
 
     def test_source_file_relative_to_corpus_root(self, fb: RegexFallback, tmp_path: Path) -> None:
@@ -346,6 +347,8 @@ class TestErrorPaths:
         # Must return a minimal envelope
         assert pf["extraction_mode"] == "regex"
         assert pf["source_file"] == "Ghost.java"
+        assert pf["id"] == "file:Ghost.java#Ghost"
+        assert pf["fqcn_resolved"] is False
         assert pf["annotations"] == []
         assert pf["imports"] == []
 
@@ -355,5 +358,19 @@ class TestErrorPaths:
         f, root = _write(tmp_path, "NoDecl.java", src)
         pf = fb.parse(f, root)
         assert pf["extraction_mode"] == "regex"
-        # id falls back to dotted path from source_file
-        assert "NoDecl" in pf["id"]
+        assert pf["id"] == "file:NoDecl.java#NoDecl"
+        assert pf["fqcn_resolved"] is False
+
+    def test_regex_fallback_stub_id_and_fqcn_resolved(self, fb: RegexFallback, tmp_path: Path) -> None:
+        """
+        Confirmation test for DC1R-01:
+        Asserts that a regex-fallback stub carries the file:...#... id form and fqcn_resolved=False.
+        """
+        # Create a malformed Java file
+        java_file = tmp_path / "Malformed.java"
+        java_file.write_text("class Malformed { // missing package }")
+
+        parsed = fb.parse(java_file, corpus_root=tmp_path)
+
+        assert parsed["id"] == "file:Malformed.java#Malformed"
+        assert parsed["fqcn_resolved"] is False

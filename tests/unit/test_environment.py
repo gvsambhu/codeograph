@@ -47,6 +47,31 @@ def test_pythonhashseed_is_zero() -> None:
 
 
 # ---------------------------------------------------------------------------
+# OS family check (CI or golden update)
+# ---------------------------------------------------------------------------
+
+
+def test_os_family_is_linux(request: pytest.FixtureRequest) -> None:
+    """Assert that the operating system family is Linux-matching.
+
+    This runs in CI to verify the runner platform, and locally whenever
+    --update-goldens is requested to prevent off-OS golden refreshes.
+    """
+    in_ci = bool(os.environ.get("CI"))
+    update_goldens = bool(request.config.getoption("--update-goldens"))
+
+    if not in_ci and not update_goldens:
+        pytest.skip("reproducibility envelope — not in CI and not updating goldens")
+
+    assert sys.platform.startswith("linux"), (
+        f"Operating system must be Linux-matching (got {sys.platform!r}). "
+        "Golden files must only be refreshed/updated in a Linux-matching environment "
+        "(WSL, devcontainer, or CI) to prevent CRLF, path separator, and JVM differences. "
+        "See CONTRIBUTING.md for details."
+    )
+
+
+# ---------------------------------------------------------------------------
 # Python version (always)
 # ---------------------------------------------------------------------------
 
