@@ -8,11 +8,11 @@ Public surface:
     ManualMappingGrouping — explicit {package_prefix: group_name} mapping
 """
 
-from codeograph.rendering.class_selector import ClassSelector
-from codeograph.rendering.models import SelectionResult
 from codeograph.rendering.base import DomainGrouping
-from codeograph.rendering.package_prefix_grouping import PackagePrefixGrouping
+from codeograph.rendering.class_selector import ClassSelector
 from codeograph.rendering.manual_mapping_grouping import ManualMappingGrouping
+from codeograph.rendering.models import SelectionResult
+from codeograph.rendering.package_prefix_grouping import PackagePrefixGrouping
 
 __all__ = [
     "ClassSelector",

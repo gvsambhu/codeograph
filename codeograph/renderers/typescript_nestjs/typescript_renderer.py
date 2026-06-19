@@ -36,20 +36,18 @@ import json
 from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING, ClassVar
 
-from jinja2 import Environment, PackageLoader, StrictUndefined
-from pydantic import BaseModel
-
+from codeograph.llm.models import CacheHint, Message, Tier
 from codeograph.llm.prompts.loader import PromptLoader
 from codeograph.llm.prompts.renderer import render as render_prompt
-from codeograph.llm.types import CacheHint, Message, Tier
 from codeograph.renderers.base import Renderer
 from codeograph.renderers.models import CompileCheck
 from codeograph.renderers.renderer_registry import RendererRegistry
-from codeograph.renderers.typescript_nestjs.typescript_config import TypeScriptConfig
 from codeograph.renderers.typescript_nestjs.models import RenderedSource
-from codeograph.rendering.class_selector import ClassSelector, SelectionResult
+from codeograph.renderers.typescript_nestjs.typescript_config import TypeScriptConfig
 from codeograph.rendering.base import DomainGrouping
+from codeograph.rendering.class_selector import ClassSelector
 from codeograph.rendering.manual_mapping_grouping import ManualMappingGrouping
+from codeograph.rendering.models import SelectionResult
 from codeograph.rendering.package_prefix_grouping import PackagePrefixGrouping
 
 if TYPE_CHECKING:
@@ -59,11 +57,12 @@ if TYPE_CHECKING:
 __all__ = ["TypeScriptRenderer"]
 
 from codeograph.renderers.typescript_nestjs.feature_policies import dispatch_feature_policies
-from codeograph.renderers.typescript_nestjs.helpers import stereotype_to_role_suffix, to_kebab_case
+from codeograph.renderers.typescript_nestjs.helpers import (
+    stereotype_to_role_suffix,
+    to_kebab_case,
+    to_pascal_case,
+)
 from codeograph.renderers.typescript_nestjs.scaffold_emitter import ScaffoldEmitter
-
-
-
 
 # ---------------------------------------------------------------------------
 # Renderer
@@ -166,7 +165,7 @@ class TypeScriptRenderer(Renderer[TypeScriptConfig]):  # noqa: UP046
             domain_groups = [
                 {
                     "name": r.group_name,
-                    "module_class": _to_pascal_case(r.group_name) + "Module",
+                    "module_class": to_pascal_case(r.group_name) + "Module",
                 }
                 for r in selection_results
             ]
@@ -339,5 +338,3 @@ class TypeScriptRenderer(Renderer[TypeScriptConfig]):  # noqa: UP046
             if isinstance(node, CN):
                 result[node.id] = node
         return result
-
-

@@ -11,7 +11,7 @@ from codeograph.renderers.typescript_nestjs.helpers import to_pascal_case
 
 if TYPE_CHECKING:
     from codeograph.renderers.typescript_nestjs.typescript_config import TypeScriptConfig
-    from codeograph.rendering.class_selector import SelectionResult
+    from codeograph.rendering.models import SelectionResult
 
 
 # Package name for Jinja2 PackageLoader
@@ -91,9 +91,7 @@ class ScaffoldEmitter:
             elif path.name.endswith(".entity.ts"):
                 entities.append({"class_name": to_pascal_case(path.stem.replace("-", "_")), "file_stem": path.stem})
             elif path.name.endswith(".repository.ts"):
-                repositories.append(
-                    {"class_name": to_pascal_case(path.stem.replace("-", "_")), "file_stem": path.stem}
-                )
+                repositories.append({"class_name": to_pascal_case(path.stem.replace("-", "_")), "file_stem": path.stem})
 
         context: dict[str, object] = {
             "group_name": result.group_name,

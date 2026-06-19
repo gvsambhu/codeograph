@@ -30,8 +30,9 @@ support the unsupported-feature policy machinery in the TypeScript renderer.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
+
+from codeograph.rendering.models import SelectionResult
 
 if TYPE_CHECKING:
     from codeograph.graph.models.graph_schema import ClassNode, CodeographKnowledgeGraph
@@ -49,9 +50,6 @@ _LOW_WMC_THRESHOLD = 5  # WMC ≤ this → candidate for OR-low (AND with CBO)
 
 # Default per-group budget cap (overridden by TypeScriptConfig.render_budget)
 _DEFAULT_CAP = 50
-
-
-from codeograph.rendering.models import SelectionResult
 
 
 # ---------------------------------------------------------------------------

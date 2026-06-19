@@ -43,9 +43,6 @@ __all__ = ["Renderer"]
 C = TypeVar("C", bound=BaseModel)
 
 
-
-
-
 class Renderer(ABC, Generic[C]):  # noqa: UP046 — ADR-008 uses Generic[C]; py3.12 syntax deferred
     """Abstract base for all target-language renderers (ADR-008 Forks 1, 2, 5).
 
