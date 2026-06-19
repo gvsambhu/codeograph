@@ -14,9 +14,9 @@ from codeograph.config.settings import Settings
 from codeograph.llm._prompts_generated import PromptId
 from codeograph.llm.factory import build_default_stack
 from codeograph.llm.middleware.retry_policy import RetryPolicy
+from codeograph.llm.models import CallContext, Purpose
 from codeograph.llm.prompts.loader import PromptLoader
 from codeograph.llm.resolver import LlmProviderResolver
-from codeograph.llm.models import CallContext, Purpose
 from codeograph.manifest.artefact import GraphArtefact
 from codeograph.manifest.models import CacheStats
 from codeograph.passes.pass1.node_annotator import NodeAnnotator
@@ -85,7 +85,9 @@ class LlmCorpusEnricher:
                 corpus_id=corpus_id,
                 provider_name=self._settings.llm_provider,
             )
-            provider_p1 = build_default_stack(base_provider, retry_policy, session.cache_backend, session.emitter, ctx_p1)
+            provider_p1 = build_default_stack(
+                base_provider, retry_policy, session.cache_backend, session.emitter, ctx_p1
+            )
             annotator = NodeAnnotator(provider_p1, prompt_loader, out_dir, self._settings.llm_concurrency)
             annotations = annotator.annotate(nodes)
 
@@ -100,7 +102,9 @@ class LlmCorpusEnricher:
                 corpus_id=corpus_id,
                 provider_name=self._settings.llm_provider,
             )
-            provider_p2 = build_default_stack(base_provider, retry_policy, session.cache_backend, session.emitter, ctx_p2)
+            provider_p2 = build_default_stack(
+                base_provider, retry_policy, session.cache_backend, session.emitter, ctx_p2
+            )
             synthesizer = CorpusSynthesizer(provider_p2, prompt_loader, out_dir)
             synthesizer.synthesize(annotations, graph_data)
         finally:

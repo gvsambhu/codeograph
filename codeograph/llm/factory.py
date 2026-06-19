@@ -3,8 +3,8 @@ from codeograph.llm.middleware.caching_llm_provider import CachingLlmProvider
 from codeograph.llm.middleware.retry_policy import RetryPolicy
 from codeograph.llm.middleware.retrying_llm_provider import RetryingLlmProvider
 from codeograph.llm.middleware.telemetry_llm_provider import TelemetryLlmProvider
-from codeograph.llm.provider import LlmProvider
 from codeograph.llm.models import CallContext
+from codeograph.llm.provider import LlmProvider
 from codeograph.telemetry.base import TelemetryEmitter
 
 # Note: Do not use `build_default_stack` in unit tests (where you want a mock provider without

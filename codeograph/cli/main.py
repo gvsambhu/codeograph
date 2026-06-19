@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING
 
 import click
+
+if TYPE_CHECKING:
+    from codeograph.config.settings import Settings
 
 from codeograph import __version__
 from codeograph.cli.cache import cache_cli
@@ -123,7 +126,8 @@ def _load_settings() -> Settings:
 
     Uses dynamic metadata-driven env var resolution (validation_alias) to avoid hardcoding specific provider keys.
     """
-    from pydantic import ValidationError, AliasChoices
+    from pydantic import AliasChoices, ValidationError
+
     from codeograph.config.settings import Settings
 
     try:
@@ -154,6 +158,7 @@ def _load_settings() -> Settings:
             errors.append(f"- {env_var}: {msg}")
         err_msg = "Invalid configuration:\n" + "\n".join(errors)
         raise click.UsageError(err_msg) from exc
+
 
 @cli.command()
 @click.argument("input_path", metavar="INPUT")
@@ -211,7 +216,6 @@ def run(
 
     # --- Lazy imports (keep CLI startup fast) ----------------------------
     from codeograph.analyzer.corpus_analyzer import CorpusAnalyzer
-    from codeograph.config.settings import Settings
     from codeograph.graph.graph_assembler import GraphAssembler
     from codeograph.graph.graph_builder import GraphBuilder
     from codeograph.graph.graph_writer import GraphWriter
@@ -290,8 +294,7 @@ def run(
         if run_eval:
             from codeograph.evals.corpus_evaluator import evaluate_corpus
 
-            evaluator = CorpusEvaluator()
-            scorecards = evaluator.evaluate(out_dir)
+            scorecards = evaluate_corpus(out_dir)
 
         # --- Terminal manifest write ----------------------------------------
         assembler = ManifestAssembler()
@@ -313,4 +316,3 @@ def run(
     finally:
         if corpus is not None:
             acquirer.cleanup(corpus)
-

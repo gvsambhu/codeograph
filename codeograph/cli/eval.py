@@ -15,18 +15,14 @@ from __future__ import annotations
 
 import json
 import sys
-from collections.abc import Mapping
 from pathlib import Path
-from typing import Any
 
 import click
 
 from codeograph.cli.eval_report import report_cmd
 from codeograph.cli.mutually_exclusive_option import MutuallyExclusiveOption
-from codeograph.evals.runner import run_evals, MissingOutputError
+from codeograph.evals.runner import MissingOutputError, run_evals
 from codeograph.manifest.io import read as manifest_io_read
-
-
 
 # ---------------------------------------------------------------------------
 # eval run — single-corpus scorecard

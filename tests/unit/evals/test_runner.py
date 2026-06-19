@@ -10,13 +10,13 @@ from unittest.mock import patch
 
 import pytest
 
-from codeograph.evals.runner import run_evals, MissingOutputError
 from codeograph.evals.models import (
     BooleanThreshold,
     CheckResult,
     MinRatioThreshold,
     ScoreBandThreshold,
 )
+from codeograph.evals.runner import MissingOutputError, run_evals
 
 # ---------------------------------------------------------------------------
 # Helpers

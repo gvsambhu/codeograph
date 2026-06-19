@@ -13,8 +13,8 @@ from pathlib import Path
 import pytest
 from pydantic import BaseModel
 
-from codeograph.llm.provider import LlmProvider
 from codeograph.llm.models import LlmResult, Message, Tier, TokenUsage
+from codeograph.llm.provider import LlmProvider
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:

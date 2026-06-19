@@ -11,7 +11,7 @@ from pathlib import Path
 
 import click
 
-from codeograph.evals.runner import run_evals, MissingOutputError
+from codeograph.evals.runner import MissingOutputError, run_evals
 from codeograph.manifest.models import ScorecardPointer
 
 logger = logging.getLogger(__name__)
@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 Stateless service class.
 """
+
 
 def evaluate_corpus(out_dir: Path) -> dict[str, ScorecardPointer]:
     """Runs the deterministic scorecard evaluations against out_dir.
@@ -32,12 +33,11 @@ def evaluate_corpus(out_dir: Path) -> dict[str, ScorecardPointer]:
     """
     click.echo("Running evaluation (--eval requested)...")
     try:
-        runner = EvalRunner()
         kinds = ["graph"]
         for child in out_dir.iterdir():
             if child.is_dir() and child.name not in ("evals", ".codeograph"):
                 kinds.append(child.name)
-        scorecard_models = runner.run(
+        scorecard_models = run_evals(
             output_dir=out_dir,
             scorecard_kinds=kinds,
         )

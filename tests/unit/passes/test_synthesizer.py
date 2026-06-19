@@ -1,8 +1,8 @@
 import json
 
 from codeograph.llm.models import LlmResult, TokenUsage
-from codeograph.passes.pass2.models import CrossDomainDependency, SynthesisResult
 from codeograph.passes.pass2.corpus_synthesizer import CorpusSynthesizer
+from codeograph.passes.pass2.models import CrossDomainDependency, SynthesisResult
 
 
 def test_synthesizer_basic(mock_llm_provider, mock_prompt_loader, tmp_path):

@@ -134,9 +134,9 @@ def render_cli(
     from codeograph.llm.cache.sqlite_backend import SQLiteCacheBackend
     from codeograph.llm.factory import build_default_stack
     from codeograph.llm.middleware.retry_policy import RetryPolicy
+    from codeograph.llm.models import CallContext, ProviderType, Purpose, Tier
     from codeograph.llm.prompts.loader import PromptLoader
     from codeograph.llm.providers.anthropic_provider import AnthropicProvider
-    from codeograph.llm.models import CallContext, ProviderType, Purpose, Tier
     from codeograph.manifest.io import read as manifest_io_read
     from codeograph.manifest.io import write as manifest_io_write
     from codeograph.manifest.models import CompileChecksPointer

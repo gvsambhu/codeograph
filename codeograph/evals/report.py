@@ -25,7 +25,6 @@ class ReportResult(BaseModel):
     kinds: dict[str, list[AggregatedCheck]]
 
 
-
 def generate_report(output_dirs: list[Path]) -> ReportResult:
     """Parse scorecards in given output directories and aggregate results."""
     # 1. Load scorecards: kind -> corpus_id -> Scorecard
@@ -138,6 +137,7 @@ def generate_report(output_dirs: list[Path]) -> ReportResult:
         overall = "pass"
 
     return ReportResult(overall=overall, kinds=kinds)
+
 
 def render_markdown(report: ReportResult) -> str:
     """Render the ReportResult as markdown tables."""

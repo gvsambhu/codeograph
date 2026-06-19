@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from codeograph.evals.report import generate_report, render_markdown, ReportResult
 from codeograph.evals.models import (
     BooleanThreshold,
     CheckResult,
@@ -13,6 +12,7 @@ from codeograph.evals.models import (
     ScoreBandThreshold,
     Scorecard,
 )
+from codeograph.evals.report import ReportResult, generate_report, render_markdown
 
 # ---------------------------------------------------------------------------
 # Helpers

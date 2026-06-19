@@ -7,8 +7,8 @@ from pydantic import BaseModel
 from codeograph.llm.cache.base import CacheBackend
 from codeograph.llm.cache.cache_entry import CacheEntry
 from codeograph.llm.cache.key import compute_cache_key, compute_input_hash, compute_schema_hash
-from codeograph.llm.provider import LlmProvider
 from codeograph.llm.models import CallContext, LlmResult, Message, Tier, TokenUsage
+from codeograph.llm.provider import LlmProvider
 
 T = TypeVar("T", bound=BaseModel)
 

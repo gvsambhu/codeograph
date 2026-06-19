@@ -14,6 +14,7 @@ from codeograph.telemetry.emitter import JsonlEmitter
 @dataclass(frozen=True)
 class TelemetrySession:
     """Holds active session telemetry resources."""
+
     cache_backend: SQLiteCacheBackend
     emitter: JsonlEmitter
     emitter_path: Path

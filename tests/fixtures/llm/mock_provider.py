@@ -13,8 +13,8 @@ from typing import Any, TypeVar
 
 from pydantic import BaseModel
 
-from codeograph.llm.provider import LlmProvider
 from codeograph.llm.models import LlmResult, Message, Tier, TokenUsage
+from codeograph.llm.provider import LlmProvider
 
 T = TypeVar("T", bound=BaseModel)
 
