@@ -14,7 +14,10 @@ class CrossDomainDependency(BaseModel):
 class SynthesisResult(BaseModel):
     description: str = Field(description="2-3 sentences describing what the system does in plain business English.")
     architecture_pattern: str = Field(
-        description="Overall architectural pattern (e.g., 'Layered Controller-Service-Repository with domain-driven packaging')."
+        description=(
+            "Overall architectural pattern (e.g., 'Layered Controller-Service-Repository with "
+            "domain-driven packaging')."
+        )
     )
     domains: list[str] = Field(description="Echoed list of business domain names from the prompt.")
     cross_domain_dependencies: list[CrossDomainDependency] = Field(

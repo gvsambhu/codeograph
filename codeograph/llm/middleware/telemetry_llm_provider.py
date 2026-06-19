@@ -7,8 +7,8 @@ from pydantic import BaseModel
 
 from codeograph.llm.cache.key import compute_input_hash, compute_output_hash
 from codeograph.llm.errors import LlmError
+from codeograph.llm.models import CallContext, LlmResult, Message, Tier
 from codeograph.llm.provider import LlmProvider
-from codeograph.llm.types import CallContext, LlmResult, Message, Tier
 from codeograph.telemetry.base import TelemetryEmitter
 from codeograph.telemetry.telemetry_record import TelemetryRecord
 

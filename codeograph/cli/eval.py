@@ -15,39 +15,14 @@ from __future__ import annotations
 
 import json
 import sys
-from collections.abc import Mapping
 from pathlib import Path
-from typing import Any
 
 import click
 
 from codeograph.cli.eval_report import report_cmd
-from codeograph.evals.runner import EvalRunner, MissingOutputError
+from codeograph.cli.mutually_exclusive_option import MutuallyExclusiveOption
+from codeograph.evals.runner import MissingOutputError, run_evals
 from codeograph.manifest.io import read as manifest_io_read
-
-
-class MutuallyExclusiveOption(click.Option):
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        self.mutually_exclusive = set(kwargs.pop("mutually_exclusive", []))
-        help_text = kwargs.get("help", "")
-        if self.mutually_exclusive:
-            ex_str = ", ".join(self.mutually_exclusive)
-            kwargs["help"] = help_text + f" (Mutually exclusive with: {ex_str})"
-        super().__init__(*args, **kwargs)
-
-    def handle_parse_result(
-        self,
-        ctx: click.Context,
-        opts: Mapping[str, Any],
-        args: list[str],
-    ) -> tuple[Any, list[str]]:
-        if self.mutually_exclusive.intersection(opts) and self.name in opts:
-            raise click.UsageError(
-                f"Illegal usage: `{self.name}` is mutually exclusive with "
-                f"arguments `{', '.join(self.mutually_exclusive)}`."
-            )
-        return super().handle_parse_result(ctx, opts, args)
-
 
 # ---------------------------------------------------------------------------
 # eval run — single-corpus scorecard
@@ -78,7 +53,6 @@ def run_cmd(
     skip_check: tuple[str, ...],
 ) -> None:
     """Evaluate quality of generated code and graphs for OUTPUT_DIR."""
-    runner = EvalRunner()
 
     try:
         manifest_path = Path(output_dir) / "manifest.json"
@@ -90,7 +64,7 @@ def run_cmd(
         # fields, strict on present fields). The run_id is surfaced in the
         # log so the user can correlate the eval result with the original
         # run that produced the manifest (ADR-022 Fork 4 contract).
-        # EvalRunner re-reads the manifest internally for its own use; the
+        # run_evals re-reads the manifest internally for its own use; the
         # read here is for log visibility, not for passing data.
         try:
             manifest = manifest_io_read(manifest_path)
@@ -107,7 +81,7 @@ def run_cmd(
                     kinds.append(child.name)
             scorecard = tuple(kinds)
 
-        scorecards = runner.run(
+        scorecards = run_evals(
             output_dir=Path(output_dir),
             scorecard_kinds=list(scorecard),
             check_filter=list(check) if check else None,

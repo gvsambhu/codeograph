@@ -6,7 +6,10 @@ from pydantic import BaseModel, Field
 class HttpMetadata(BaseModel):
     http_method: Literal["GET", "POST", "PUT", "DELETE", "PATCH"] = Field(description="The HTTP method used.")
     path: str = Field(
-        description="The full absolute HTTP path including class-level @RequestMapping prefixes (e.g., '/api/v1/orders' not just '/orders')."
+        description=(
+            "The full absolute HTTP path including class-level @RequestMapping prefixes "
+            "(e.g., '/api/v1/orders' not just '/orders')."
+        )
     )
     request_body_type: str | None = Field(None, description="The semantic type of the @RequestBody parameter.")
     response_type: str | None = Field(None, description="The semantic type inside ResponseEntity<...>.")
@@ -16,7 +19,10 @@ class MethodAnnotation(BaseModel):
     name: str = Field(description="The exact method name")
     signature: str = Field(description="Full signature including return type, name, and parameter list")
     kind: Literal["business", "lifecycle", "constructor", "utility"] = Field(
-        description="Classifies the method type: 'business' for domain logic, 'lifecycle' for @PostConstruct/@PreDestroy, 'constructor' for DI constructors, 'utility' for private helpers promoted to public."
+        description=(
+            "Classifies the method type: 'business' for domain logic, 'lifecycle' for @PostConstruct/@PreDestroy, "
+            "'constructor' for DI constructors, 'utility' for private helpers promoted to public."
+        )
     )
     return_type: str = Field(description="Just the return type")
     method_annotations: list[str] = Field(description="All annotations on the method")
@@ -62,7 +68,10 @@ class NodeAnnotation(BaseModel):
         )
     )
     domain_hint: str = Field(
-        description="The business domain this class belongs to (e.g., 'order management', 'user identity'). Use business language, not package names."
+        description=(
+            "The business domain this class belongs to (e.g., 'order management', 'user identity'). "
+            "Use business language, not package names."
+        )
     )
     description: str = Field(description="1-2 sentences explaining the class responsibility. Use business language.")
     conversion_notes: str | None = Field(

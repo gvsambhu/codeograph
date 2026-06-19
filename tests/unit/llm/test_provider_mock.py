@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 
-from codeograph.llm.types import Message, Tier
+from codeograph.llm.models import Message, Tier
 
 
 class DummySchema(BaseModel):

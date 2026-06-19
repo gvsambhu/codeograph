@@ -1,6 +1,6 @@
 import time
 
-from codeograph.evals.scorecard_schema import CheckResult, ScoreBandThreshold
+from codeograph.evals.models import CheckResult, ScoreBandThreshold
 from codeograph.graph.models.graph_schema import CodeographKnowledgeGraph
 
 

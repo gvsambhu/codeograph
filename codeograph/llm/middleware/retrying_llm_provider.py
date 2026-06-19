@@ -5,8 +5,8 @@ from pydantic import BaseModel
 
 from codeograph.llm.errors import LlmRateLimitExhausted, LlmTransientError
 from codeograph.llm.middleware.retry_policy import RetryPolicy
+from codeograph.llm.models import LlmResult, Message, Tier
 from codeograph.llm.provider import LlmProvider
-from codeograph.llm.types import LlmResult, Message, Tier
 
 T = TypeVar("T", bound=BaseModel)
 

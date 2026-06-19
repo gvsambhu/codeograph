@@ -3,7 +3,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from codeograph.evals.scorecard_schema import CheckResult, MinRatioThreshold
+from codeograph.evals.models import CheckResult, MinRatioThreshold
 
 _RATIONALE = (
     "ADR-010 Fork 9 coverage matrix defines what v1 promises to translate. "

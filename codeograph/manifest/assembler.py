@@ -27,7 +27,7 @@ from pathlib import Path
 
 from codeograph.manifest.artefact import GraphArtefact
 from codeograph.manifest.io import write as manifest_io_write
-from codeograph.manifest.schema import (
+from codeograph.manifest.models import (
     ArtefactPointer,
     CacheStats,
     CompileChecksPointer,

@@ -3,7 +3,7 @@ import json
 from pydantic import BaseModel
 
 from codeograph.llm.middleware.telemetry_llm_provider import TelemetryLlmProvider
-from codeograph.llm.types import CallContext, LlmResult, Message, Purpose, Tier, TokenUsage
+from codeograph.llm.models import CallContext, LlmResult, Message, Purpose, Tier, TokenUsage
 
 
 class DummySchema(BaseModel):

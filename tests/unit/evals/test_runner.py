@@ -10,13 +10,13 @@ from unittest.mock import patch
 
 import pytest
 
-from codeograph.evals.runner import EvalRunner, MissingOutputError
-from codeograph.evals.scorecard_schema import (
+from codeograph.evals.models import (
     BooleanThreshold,
     CheckResult,
     MinRatioThreshold,
     ScoreBandThreshold,
 )
+from codeograph.evals.runner import MissingOutputError, run_evals
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -122,15 +122,13 @@ _CODE_CHECK_PATCHES = {
 
 
 def test_runner_raises_when_output_dir_missing(tmp_path: Path):
-    runner = EvalRunner()
     with pytest.raises(MissingOutputError, match="no rendered output"):
-        runner.run(tmp_path / "nonexistent", scorecard_kinds=["graph"])
+        run_evals(tmp_path / "nonexistent", scorecard_kinds=["graph"])
 
 
 def test_runner_raises_when_manifest_missing(tmp_path: Path):
-    runner = EvalRunner()
     with pytest.raises(MissingOutputError):
-        runner.run(tmp_path, scorecard_kinds=["graph"])
+        run_evals(tmp_path, scorecard_kinds=["graph"])
 
 
 # ---------------------------------------------------------------------------
@@ -142,11 +140,10 @@ def test_runner_produces_graph_scorecard(tmp_path: Path):
     _write_manifest(tmp_path)
     _write_empty_graph(tmp_path)
 
-    runner = EvalRunner()
     with ExitStack() as stack:
         for name, fn in _GRAPH_CHECK_PATCHES.items():
             stack.enter_context(patch(name, side_effect=fn))
-        scorecards = runner.run(tmp_path, scorecard_kinds=["graph"])
+        scorecards = run_evals(tmp_path, scorecard_kinds=["graph"])
 
     assert len(scorecards) == 1
     sc = scorecards[0]
@@ -161,11 +158,10 @@ def test_graph_scorecard_written_to_disk(tmp_path: Path):
     _write_manifest(tmp_path)
     _write_empty_graph(tmp_path)
 
-    runner = EvalRunner()
     with ExitStack() as stack:
         for name, fn in _GRAPH_CHECK_PATCHES.items():
             stack.enter_context(patch(name, side_effect=fn))
-        runner.run(tmp_path, scorecard_kinds=["graph"])
+        run_evals(tmp_path, scorecard_kinds=["graph"])
 
     scorecard_file = tmp_path / "evals" / "graph-scorecard.json"
     assert scorecard_file.exists()
@@ -177,11 +173,10 @@ def test_manifest_scorecards_pointer_updated(tmp_path: Path):
     _write_manifest(tmp_path)
     _write_empty_graph(tmp_path)
 
-    runner = EvalRunner()
     with ExitStack() as stack:
         for name, fn in _GRAPH_CHECK_PATCHES.items():
             stack.enter_context(patch(name, side_effect=fn))
-        runner.run(tmp_path, scorecard_kinds=["graph"])
+        run_evals(tmp_path, scorecard_kinds=["graph"])
 
     manifest = json.loads((tmp_path / "manifest.json").read_text(encoding="utf-8"))
     # 2.0.0: scorecards is TOP-LEVEL, not nested under artefacts (ADR-025 Fork 2)
@@ -205,11 +200,10 @@ def test_manifest_scorecards_pointer_is_valid_against_schema(tmp_path: Path):
     _write_manifest(tmp_path)
     _write_empty_graph(tmp_path)
 
-    runner = EvalRunner()
     with ExitStack() as stack:
         for name, fn in _GRAPH_CHECK_PATCHES.items():
             stack.enter_context(patch(name, side_effect=fn))
-        runner.run(tmp_path, scorecard_kinds=["graph"])
+        run_evals(tmp_path, scorecard_kinds=["graph"])
 
     manifest = json.loads((tmp_path / "manifest.json").read_text(encoding="utf-8"))
     sc = manifest["scorecards"]["graph"]
@@ -227,8 +221,7 @@ def test_manifest_scorecards_pointer_is_valid_against_schema(tmp_path: Path):
 
 def test_runner_skips_code_scorecard_when_target_not_rendered(tmp_path: Path):
     _write_manifest(tmp_path)
-    runner = EvalRunner()
-    scorecards = runner.run(tmp_path, scorecard_kinds=["ts"])
+    scorecards = run_evals(tmp_path, scorecard_kinds=["ts"])
     assert len(scorecards) == 1
     sc = scorecards[0]
     assert sc.kind == "ts"
@@ -240,11 +233,10 @@ def test_runner_runs_code_checks_when_target_exists(tmp_path: Path):
     _write_manifest(tmp_path)
     (tmp_path / "ts").mkdir()
 
-    runner = EvalRunner()
     with ExitStack() as stack:
         for name, fn in _CODE_CHECK_PATCHES.items():
             stack.enter_context(patch(name, side_effect=fn))
-        scorecards = runner.run(tmp_path, scorecard_kinds=["ts"])
+        scorecards = run_evals(tmp_path, scorecard_kinds=["ts"])
 
     assert len(scorecards) == 1
     sc = scorecards[0]
@@ -262,11 +254,10 @@ def test_skip_checks_excludes_named_check(tmp_path: Path):
     _write_manifest(tmp_path)
     _write_empty_graph(tmp_path)
 
-    runner = EvalRunner()
     with ExitStack() as stack:
         for name, fn in _GRAPH_CHECK_PATCHES.items():
             stack.enter_context(patch(name, side_effect=fn))
-        scorecards = runner.run(
+        scorecards = run_evals(
             tmp_path,
             scorecard_kinds=["graph"],
             skip_checks=["reproducibility"],
@@ -281,11 +272,10 @@ def test_check_filter_runs_only_named_checks(tmp_path: Path):
     _write_manifest(tmp_path)
     _write_empty_graph(tmp_path)
 
-    runner = EvalRunner()
     with ExitStack() as stack:
         for name, fn in _GRAPH_CHECK_PATCHES.items():
             stack.enter_context(patch(name, side_effect=fn))
-        scorecards = runner.run(
+        scorecards = run_evals(
             tmp_path,
             scorecard_kinds=["graph"],
             check_filter=["structural_completeness"],
