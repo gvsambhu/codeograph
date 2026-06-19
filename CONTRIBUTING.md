@@ -112,9 +112,14 @@ CI enforces these on every push to `dev/**` and on PRs to `main`. See `.github/w
 
 ## Golden tests
 
-The golden test (`tests/integration/test_goldens.py`) compares the emitted `graph.json` against checked-in goldens under `tests/goldens/tier1/`. When a deliberate change affects graph output:
+The golden test (`tests/integration/test_goldens.py`) compares the emitted `graph.json` against checked-in goldens under `tests/goldens/tier1/`.
 
-1. Run `make golden-update` to regenerate goldens.
+> [!IMPORTANT]
+> **Golden-Refresh Environment:** Golden refreshes must only be performed in a Linux-matching environment (WSL, devcontainer, or CI). Never refresh or update goldens directly on Windows. Doing so introduces CRLF line endings, path separators, and JVM version differences that cause CI checks to fail.
+
+When a deliberate change affects graph output:
+
+1. Run `make golden-update` (or `pytest tests/integration/test_goldens.py --update-goldens` in WSL) to regenerate goldens.
 2. Diff the result. Make sure every change in the diff is intended.
 3. Commit the regenerated goldens together with the code change in the same PR.
 

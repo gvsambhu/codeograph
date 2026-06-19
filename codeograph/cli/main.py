@@ -167,6 +167,8 @@ def run(
     configure_logging(console_level=log_level, out_dir=out_dir)
 
     # --- Lazy imports (keep CLI startup fast) ----------------------------
+    from pydantic import ValidationError
+
     from codeograph.analyzer.corpus_analyzer import CorpusAnalyzer
     from codeograph.config.settings import Settings
     from codeograph.graph.graph_assembler import GraphAssembler
@@ -184,7 +186,23 @@ def run(
 
     # --- Per-run data (generated once, threaded into the assembler) ------
     run_id = generate_run_id()
-    settings = Settings()
+    try:
+        settings = Settings()
+    except ValidationError as exc:
+        errors = []
+        for error in exc.errors():
+            loc = error.get("loc")
+            field_name = str(loc[0]) if loc else "unknown"
+            if field_name == "anthropic_api_key":
+                env_var = "ANTHROPIC_API_KEY"
+            else:
+                env_var = f"CODEOGRAPH_{field_name.upper()}"
+            msg = error.get("msg", "Validation error")
+            if msg.startswith("Value error, "):
+                msg = msg[len("Value error, ") :]
+            errors.append(f"- {env_var}: {msg}")
+        err_msg = "Invalid configuration:\n" + "\n".join(errors)
+        raise click.UsageError(err_msg) from exc
 
     acquirer = InputAcquirer()
     corpus = None
