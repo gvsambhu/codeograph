@@ -32,7 +32,7 @@ from codeograph.evals.scorecard_schema import (
 )
 from codeograph.manifest.io import read as manifest_io_read
 from codeograph.manifest.io import write as manifest_io_write
-from codeograph.manifest.schema import ScorecardPointer
+from codeograph.manifest.models import ScorecardPointer
 
 logger = logging.getLogger(__name__)
 

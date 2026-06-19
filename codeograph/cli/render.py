@@ -139,7 +139,7 @@ def render_cli(
     from codeograph.llm.types import CallContext, ProviderType, Purpose, Tier
     from codeograph.manifest.io import read as manifest_io_read
     from codeograph.manifest.io import write as manifest_io_write
-    from codeograph.manifest.schema import CompileChecksPointer
+    from codeograph.manifest.models import CompileChecksPointer
     from codeograph.renderers import RendererRegistry
     from codeograph.telemetry.emitter import JsonlEmitter
 

@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from codeograph.manifest.io import read, write
-from codeograph.manifest.schema import (
+from codeograph.manifest.models import (
     ArtefactPointer,
     CacheStats,
     CompileChecksPointer,

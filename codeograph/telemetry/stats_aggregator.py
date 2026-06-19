@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from codeograph.llm.types import Purpose
-from codeograph.manifest.schema import CacheStats
+from codeograph.manifest.models import CacheStats
 
 
 class TelemetryStatsAggregator:

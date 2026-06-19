@@ -8,7 +8,7 @@ import pytest
 from click.testing import CliRunner
 
 from codeograph.manifest.io import read
-from codeograph.manifest.schema import Manifest
+from codeograph.manifest.models import Manifest
 
 
 class TestNoManifestOnInterrupt:

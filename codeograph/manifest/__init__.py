@@ -17,7 +17,7 @@ from codeograph.manifest.artefact import GraphArtefact
 from codeograph.manifest.assembler import ManifestAssembler
 from codeograph.manifest.io import read, write
 from codeograph.manifest.run_id import RUN_ID_PATTERN, generate_run_id
-from codeograph.manifest.schema import (
+from codeograph.manifest.models import (
     ArtefactPointer,
     CacheStats,
     CompileChecksPointer,

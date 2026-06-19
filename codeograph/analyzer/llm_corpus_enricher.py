@@ -18,7 +18,7 @@ from codeograph.llm.prompts.loader import PromptLoader
 from codeograph.llm.resolver import LlmProviderResolver
 from codeograph.llm.types import CallContext, Purpose
 from codeograph.manifest.artefact import GraphArtefact
-from codeograph.manifest.schema import CacheStats
+from codeograph.manifest.models import CacheStats
 from codeograph.passes.pass1.annotator import NodeAnnotator
 from codeograph.passes.pass2.synthesizer import CorpusSynthesizer
 from codeograph.telemetry.session_manager import TelemetrySessionManager

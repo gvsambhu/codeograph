@@ -30,7 +30,7 @@ from pathlib import Path
 
 import click
 
-from codeograph.manifest.schema import Manifest
+from codeograph.manifest.models import Manifest
 
 # Anchored at the repository root, which is the parent of the
 # ``codeograph/`` Python package directory. Resolved at call time so the

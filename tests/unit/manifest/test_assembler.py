@@ -10,7 +10,7 @@ import pytest
 from codeograph.manifest import ManifestAssembler
 from codeograph.manifest.artefact import GraphArtefact
 from codeograph.manifest.io import read
-from codeograph.manifest.schema import Manifest
+from codeograph.manifest.models import Manifest
 
 # ---------------------------------------------------------------------------
 # Helpers

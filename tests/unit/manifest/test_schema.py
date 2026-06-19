@@ -22,7 +22,7 @@ import pydantic
 # unused-import warnings until the bodies are filled in.
 import pytest  # noqa: F401
 
-from codeograph.manifest.schema import (  # noqa: F401
+from codeograph.manifest.models import (  # noqa: F401
     ArtefactPointer,
     CacheStats,
     Manifest,

@@ -12,7 +12,7 @@ from pathlib import Path
 import click
 
 from codeograph.evals.runner import EvalRunner, MissingOutputError
-from codeograph.manifest.schema import ScorecardPointer
+from codeograph.manifest.models import ScorecardPointer
 
 logger = logging.getLogger(__name__)
 
