@@ -42,7 +42,7 @@ def evaluate_corpus(out_dir: Path) -> dict[str, ScorecardPointer]:
             scorecard_kinds=kinds,
         )
 
-        scorecards = {}
+        scorecards: dict[str, ScorecardPointer] = {}
         for sc in scorecard_models:
             sc_filename = "graph-scorecard.json" if sc.kind == "graph" else f"{sc.kind}-scorecard.json"
             sc_path = out_dir / "evals" / sc_filename
