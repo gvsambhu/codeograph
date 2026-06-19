@@ -201,3 +201,12 @@ References:
 **New Confirmation items (from this amendment):**
 * A bare `ANTHROPIC_API_KEY` (no `CODEOGRAPH_` prefix) is read successfully by `Settings` (#1).
 * `Settings(**bad)` at startup surfaces a user-readable `click` error, not a traceback (#2).
+
+**2026-06-19 — Documentation reconciliation (description-level corrections; no decision change).** The description-level items flagged in the 2026-06-14 amendment are corrected here against the shipped implementation. All original decisions stand; the More-Information sketch predates these surfaces.
+
+* **CLI surface.** The shipped CLI is a `click` command group with subcommands, as the Decision anticipated. The `run` subcommand's options are `--out`, `--ast-only`, `--force`, and `--eval` (introduced by later ADRs). The original single-command sketch has drifted: `--dry-run` is **not** wired in v1 (it remains a future trigger referenced by ADR-009 / ADR-016); `--config` was dropped (a `config.yaml` is discovered without a path-override flag); `--target` and `--max-classes-per-domain` moved to the `render` subcommand's configuration.
+* **Settings location + YAML mechanism.** `Settings` lives at `codeograph/config/settings.py`. `config.yaml` is loaded by a small custom `YamlConfigSource` wired through pydantic-settings' official `settings_customise_sources` hook, not the native `yaml_file=` option. The "no custom merge code" driver still holds — precedence and merge remain the framework's, not hand-rolled; only a thin source class is added.
+* **config.yaml absent or malformed.** An absent `config.yaml` is skipped silently; configuration then resolves from init kwargs > env > `.env` > defaults. The priority chain is unchanged.
+* **CLI-argument → Settings boundary.** CLI flags are command-level arguments and do not populate `Settings` fields directly; `Settings` is constructed independently from env / `.env` / `config.yaml` / defaults. Settings field names map to environment variables via the `CODEOGRAPH_` prefix (with the provider-key exemption from the 2026-06-14 split rule).
+
+No reversal of any prior decision; clarification only.

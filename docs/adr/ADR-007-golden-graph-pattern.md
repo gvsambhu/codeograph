@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-05-03
 deciders: learner
 consulted: AI design advisor
@@ -557,3 +557,11 @@ Confirmation that this decision is implemented correctly will come from:
 * Each golden-refresh PR records a diff category (update-golden / fix-bug / intentional-change).
 * `tests/test_environment.py` asserts the OS family alongside the existing tool / locale / hashseed pins.
 * A registered corpus with no committed golden fails the run; a submodule-fetch failure fails the job.
+
+**2026-06-19 — Documentation reconciliation (status + scope/pointer clarifications; no decision change).**
+
+* **Status corrected to `accepted`.** Frontmatter read `status: proposed` though the golden pattern is locked and shipped (the Tier-1 golden is committed and CI-gated) and the ADR already carries amendments. Corrected to the locked state.
+* **Tier-2 (real Spring project) golden deferred to v1.1.** v1 ships the golden harness with the **Tier-1 hand-built fixture** only (`tests/golden/codeograph-corpus/`); the pinned real-Spring submodule and its golden are deferred to v1.1. The 2026-06-17 amendment items 1 and 4 (the `<corpus>` location convention and the submodule refresh-trigger / fetch-hard-fail behaviour) state the design and apply as each corpus is added — they do not assert a Tier-2 golden ships in v1. The Tier-1 golden satisfies the v1 deterministic-drift guardrail.
+* **`--ast-only` and the llm-annotations manifest pointer.** Under `--ast-only` no `llm-annotations.json` is produced, so the manifest carries no llm-annotations artefact pointer (it is `llm_skipped: true`). The authoritative manifest shape and the pointer presence/absence semantics are owned by ADR-025 (terminal-write manifest); ADR-007 consumes only `graph.json` for byte-equality.
+
+No reversal of any prior decision; clarification only.

@@ -413,3 +413,11 @@ References:
 * A killed/crashed parser subprocess routes remaining files to regex fallback and the run reports a summary warning (#1).
 * An empty `~/.m2` on a Maven project produces a remediation hint and the run completes with `unresolved_call` edges for third-party targets (#3).
 * A file that fails both AST and regex extraction yields a name-only stub node, flagged lowest-confidence, and a manifest record (#4).
+
+**2026-06-19 — Documentation reconciliation (description-level corrections; no decision change).** Three description-level drifts are corrected against the shipped implementation. (The §9 Python-vs-Java interpretation-boundary pointer was already superseded by the 2026-06-14 amendment item 2.)
+
+* **Intermediate envelope name + extraction-mode value.** Section 7's illustrative `ClassFacts` / `MethodFact` intermediate shipped as `ParsedFile` (`codeograph/parser/models.py`). The dispatcher emits `extraction_mode="regex"` at the intermediate layer; the graph builder maps it to the schema value `regex_fallback` (ADR-006) on the emitted node. The §7 sketch and its Confirmation wording predate these names.
+* **Unsourced JVM-startup figure.** The "~300ms" JVM-startup figure is withdrawn — no benchmark backs the specific number. The load-bearing claim is unchanged: JVM startup is amortised **once per run, not per file** via the long-lived subprocess.
+* **Interpret-vs-capture criterion behind the "38".** The v1 interpreted set (pinned at 38 by the 2026-05-03 amendment) is the closure of a single criterion: an annotation is *interpreted* when it lifts to a structured graph field or edge in the ADR-006 schema; every other annotation is *captured* in `annotations[]` but not interpreted. The count is a consequence of that criterion over the v1 schema, not an arbitrary target.
+
+No reversal of any prior decision; clarification only.

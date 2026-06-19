@@ -235,3 +235,10 @@ References:
 **New Confirmation items (from this amendment):**
 * An interface method (no body) carries no CC / cognitive / method-LoC value (absent, not 0) (#1).
 * A method-less class carries no LCOM4 / WMC value (absent, not 0) (#1).
+
+**2026-06-19 — Documentation reconciliation (description-level corrections; no decision change).** Two description-level drifts are corrected against the shipped implementation. The six-metric set and every cited threshold are unchanged.
+
+* **Metric storage shape + additivity rationale.** Metrics are emitted as **flat per-metric fields** on the graph node (`ClassNode.{wmc, cbo, lcom4}`, `MethodNode.{cyclomatic_complexity, cognitive_complexity, method_loc}`), not as a `complexity: Mapping[str, int]` open-set. The original additivity rationale ("adding metrics later is purely additive: a new key in the `complexity` dict, no schema revision") is corrected: adding a future metric (e.g. DIT / RFC / NOC) is additive at the **schema** level — a new nullable field under ADR-006 Fork 7 pure-semver (a MINOR schema bump) — not a free dict-key add. The decision to ship the full v1 metric set with cited thresholds is unaffected; only the "no schema revision" wording was inaccurate.
+* **Stale ADR-005 forward-reference.** The More-Information note predicting ADR-005 would consume Method LoC = 100 (`java:S138`) to gate chunked-vs-single extraction is withdrawn: ADR-005 instead uses a **class-level token estimate**, not Method LoC. The Method-LoC threshold remains valid as a reported complexity signal; it simply is not the token-strategy trigger.
+
+No reversal of any prior decision; clarification only.
