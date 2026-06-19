@@ -112,7 +112,7 @@ CI enforces these on every push to `dev/**` and on PRs to `main`. See `.github/w
 
 ## Golden tests
 
-The golden test (`tests/integration/test_goldens.py`) compares the emitted `graph.json` against checked-in goldens under `tests/goldens/tier1/`.
+The golden test (`tests/integration/test_goldens.py`) compares the emitted `graph.json` against checked-in goldens under `tests/golden/codeograph-corpus/`.
 
 > [!IMPORTANT]
 > **Golden-Refresh Environment:** Golden refreshes must only be performed in a Linux-matching environment (WSL, devcontainer, or CI). Never refresh or update goldens directly on Windows. Doing so introduces CRLF line endings, path separators, and JVM version differences that cause CI checks to fail.
