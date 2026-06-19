@@ -1,7 +1,7 @@
 import time
 from pathlib import Path
 
-from codeograph.evals.scorecard_schema import CheckResult, ScoreBandThreshold
+from codeograph.evals.models import CheckResult, ScoreBandThreshold
 
 
 def check_llm_judge(output_dir: Path, target: str) -> CheckResult:

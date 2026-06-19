@@ -1,6 +1,6 @@
 import time
 
-from codeograph.evals.scorecard_schema import CheckResult, MinRatioThreshold
+from codeograph.evals.models import CheckResult, MinRatioThreshold
 from codeograph.graph.models.graph_schema import CodeographKnowledgeGraph
 
 

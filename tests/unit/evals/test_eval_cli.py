@@ -29,7 +29,7 @@ def test_llm_judge_always_skips(tmp_path: Path):
 
 def _write_scorecard(out_dir: Path, corpus_id: str = "test") -> None:
     """Write a minimal graph-scorecard.json so the report CLI can read it."""
-    from codeograph.evals.scorecard_schema import (
+    from codeograph.evals.models import (
         BooleanThreshold,
         CheckResult,
         ReproducibilityInfo,
@@ -155,8 +155,8 @@ def test_eval_run_routed_through_top_level_cli(tmp_path: Path):
     mock_sc.model_dump_json.return_value = '{"kind":"graph"}'
     mock_sc.checks = []
 
-    with patch("codeograph.cli.eval.EvalRunner") as MockRunner:
-        MockRunner.return_value.run.return_value = [mock_sc]
+    with patch("codeograph.cli.eval.run_evals") as mock_run_evals:
+        mock_run_evals.return_value = [mock_sc]
         runner = CliRunner()
         result = runner.invoke(eval_cli, ["run", str(tmp_path)])
 

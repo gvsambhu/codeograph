@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from codeograph.llm.errors import LlmTransientError
 from codeograph.llm.middleware.retry_policy import RetryPolicy
 from codeograph.llm.middleware.retrying_llm_provider import RetryingLlmProvider
-from codeograph.llm.types import LlmResult, Tier, TokenUsage
+from codeograph.llm.models import LlmResult, Tier, TokenUsage
 
 
 class DummySchema(BaseModel):

@@ -5,7 +5,7 @@ import tempfile
 import time
 from pathlib import Path
 
-from codeograph.evals.scorecard_schema import BooleanThreshold, CheckResult
+from codeograph.evals.models import BooleanThreshold, CheckResult
 
 _RATIONALE = (
     "ADR-007 §8 reproducibility envelope — three consecutive --ast-only runs on "

@@ -3,7 +3,7 @@
 import json
 from pathlib import Path
 
-from codeograph.evals.scorecard_schema import Scorecard
+from codeograph.evals.models import Scorecard
 
 
 def main():

@@ -3,8 +3,8 @@ from typing import Any
 from langchain_anthropic import ChatAnthropic
 from pydantic import SecretStr
 
+from codeograph.llm.models import Tier
 from codeograph.llm.providers.langchain_base import LangChainLlmProvider
-from codeograph.llm.types import Tier
 
 
 class AnthropicProvider(LangChainLlmProvider):

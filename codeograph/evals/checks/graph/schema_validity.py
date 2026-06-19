@@ -4,7 +4,7 @@ from pathlib import Path
 
 import jsonschema
 
-from codeograph.evals.scorecard_schema import BooleanThreshold, CheckResult
+from codeograph.evals.models import BooleanThreshold, CheckResult
 from codeograph.graph.models.graph_schema import CodeographKnowledgeGraph
 
 # schema_validity.py is at codeograph/evals/checks/graph/schema_validity.py

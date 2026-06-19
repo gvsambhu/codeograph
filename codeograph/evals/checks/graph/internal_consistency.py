@@ -1,7 +1,7 @@
 import time
 from collections import defaultdict
 
-from codeograph.evals.scorecard_schema import CheckResult, MaxCountThreshold
+from codeograph.evals.models import CheckResult, MaxCountThreshold
 from codeograph.graph.models.graph_schema import CodeographKnowledgeGraph
 
 

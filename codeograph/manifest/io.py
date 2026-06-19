@@ -29,7 +29,7 @@ import json
 import logging
 from pathlib import Path
 
-from codeograph.manifest.schema import Manifest
+from codeograph.manifest.models import Manifest
 
 logger = logging.getLogger(__name__)
 

@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pydantic import Field, SecretStr, field_validator, model_validator
+from pydantic import AliasChoices, Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
 
 from codeograph.config.yaml_source import YamlConfigSource
-from codeograph.llm.types import ProviderType
+from codeograph.llm.models import ProviderType
 
 _DEFAULT_JAR = Path(__file__).parent.parent / "parser" / "lib" / "parser.jar"
 
@@ -33,7 +33,8 @@ class Settings(BaseSettings):
 
     anthropic_api_key: SecretStr | None = Field(
         default=None,
-        description="Anthropic API key. Set via CODEOGRAPH_ANTHROPIC_API_KEY.",
+        validation_alias=AliasChoices("ANTHROPIC_API_KEY", "CODEOGRAPH_ANTHROPIC_API_KEY"),
+        description="Anthropic API key. Set via ANTHROPIC_API_KEY or CODEOGRAPH_ANTHROPIC_API_KEY.",
     )
     llm_provider: ProviderType = Field(
         default=ProviderType.ANTHROPIC,

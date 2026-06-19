@@ -46,17 +46,17 @@ def report_cmd(
     if output_md and output_json:
         raise click.UsageError("--output-md and --output-json are mutually exclusive.")
 
-    from codeograph.evals.report import EvalReport
+    from codeograph.evals.report import generate_report, render_markdown
 
     paths = [Path(p) for p in output_dirs]
-    report = EvalReport.generate(paths)
+    report = generate_report(paths)
 
     if output_json:
         json_str = json.dumps(json.loads(report.model_dump_json()), indent=2)
         click.echo(json_str)
         Path(output_json).write_text(json_str, encoding="utf-8")
     else:
-        md = EvalReport.render_markdown(report)
+        md = render_markdown(report)
         click.echo(md)
         if output_md:
             Path(output_md).write_text(md, encoding="utf-8")

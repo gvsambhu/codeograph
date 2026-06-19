@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from codeograph.llm.cache.cache_entry import CacheEntry
 from codeograph.llm.cache.key import compute_cache_key
 from codeograph.llm.middleware.caching_llm_provider import CachingLlmProvider
-from codeograph.llm.types import CallContext, LlmResult, Message, Purpose, Tier, TokenUsage
+from codeograph.llm.models import CallContext, LlmResult, Message, Purpose, Tier, TokenUsage
 
 
 class DummySchema(BaseModel):
