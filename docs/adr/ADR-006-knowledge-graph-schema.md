@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-04-30
 deciders: learner
 consulted: AI design advisor
@@ -515,3 +515,10 @@ Impact on the graph builder: the builder copies `superclass`, `implements`, and 
 * Node and edge schema objects reject unknown properties (`additionalProperties: false`), and `type` values are constrained to the closed enums.
 * A class that fails both AST and regex resolution yields a node with a `file:<path>#<name>` id and `fqcn_resolved: false`.
 * An `llm-annotations.json` key with no matching graph node is flagged by the internal-consistency check; a graph node with no annotation is not.
+
+**2026-06-19 — Documentation reconciliation (status + stale example; no decision change).**
+
+* **Status corrected to `accepted`.** The frontmatter read `status: proposed` though this schema has been locked and load-bearing since DC1 (consumed by the writer, renderer, eval, goldens, and manifest) and already carries amendments. Corrected to the locked state.
+* **Fork 6 manifest example superseded by ADR-025.** The illustrative manifest block in Fork 6 (`manifest_version: 1.0.0` with nested `artifacts`) predates the ADR-025 terminal-write manifest, which is a **flat** `2.0.0` shape written exactly once. That block is retained only as historical illustration of the graph-side `sha256` contract; the authoritative manifest schema and version are ADR-025's. The graph.json canonical-form and `sha256` contract — the substance of Fork 6 — are unchanged.
+
+No reversal of any prior decision; clarification only.
