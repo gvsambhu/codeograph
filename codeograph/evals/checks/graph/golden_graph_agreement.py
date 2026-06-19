@@ -3,7 +3,7 @@ import json
 import time
 from pathlib import Path
 
-from codeograph.evals.scorecard_schema import BooleanThreshold, CheckResult
+from codeograph.evals.models import BooleanThreshold, CheckResult
 
 _RATIONALE = (
     "ADR-007 golden-graph pattern — current graph.json must byte-match the "

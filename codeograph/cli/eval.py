@@ -23,7 +23,7 @@ import click
 
 from codeograph.cli.eval_report import report_cmd
 from codeograph.cli.mutually_exclusive_option import MutuallyExclusiveOption
-from codeograph.evals.runner import EvalRunner, MissingOutputError
+from codeograph.evals.runner import run_evals, MissingOutputError
 from codeograph.manifest.io import read as manifest_io_read
 
 
@@ -57,7 +57,6 @@ def run_cmd(
     skip_check: tuple[str, ...],
 ) -> None:
     """Evaluate quality of generated code and graphs for OUTPUT_DIR."""
-    runner = EvalRunner()
 
     try:
         manifest_path = Path(output_dir) / "manifest.json"
@@ -69,7 +68,7 @@ def run_cmd(
         # fields, strict on present fields). The run_id is surfaced in the
         # log so the user can correlate the eval result with the original
         # run that produced the manifest (ADR-022 Fork 4 contract).
-        # EvalRunner re-reads the manifest internally for its own use; the
+        # run_evals re-reads the manifest internally for its own use; the
         # read here is for log visibility, not for passing data.
         try:
             manifest = manifest_io_read(manifest_path)
@@ -86,7 +85,7 @@ def run_cmd(
                     kinds.append(child.name)
             scorecard = tuple(kinds)
 
-        scorecards = runner.run(
+        scorecards = run_evals(
             output_dir=Path(output_dir),
             scorecard_kinds=list(scorecard),
             check_filter=list(check) if check else None,

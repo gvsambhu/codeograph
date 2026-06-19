@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from codeograph.evals.report import EvalReport, ReportResult
-from codeograph.evals.scorecard_schema import (
+from codeograph.evals.report import generate_report, render_markdown, ReportResult
+from codeograph.evals.models import (
     BooleanThreshold,
     CheckResult,
     MinRatioThreshold,
@@ -76,7 +76,7 @@ def _write_scorecard_file(out_dir: Path, sc: Scorecard) -> None:
 
 def test_generate_empty_dirs_returns_pass(tmp_path: Path):
     """No scorecards found → all_results empty → overall pass."""
-    result = EvalReport.generate([tmp_path])
+    result = generate_report([tmp_path])
     assert result.overall == "pass"
     assert result.kinds == {}
 
@@ -84,7 +84,7 @@ def test_generate_empty_dirs_returns_pass(tmp_path: Path):
 def test_generate_single_corpus_all_pass(tmp_path: Path):
     sc = _make_scorecard("graph", "spring-rest-sample", [_pass_check("schema_validity")])
     _write_scorecard_file(tmp_path, sc)
-    result = EvalReport.generate([tmp_path])
+    result = generate_report([tmp_path])
     assert result.overall == "pass"
     assert "graph" in result.kinds
 
@@ -100,7 +100,7 @@ def test_generate_aggregates_across_two_corpora(tmp_path: Path):
     _write_scorecard_file(dir_a, sc_a)
     _write_scorecard_file(dir_b, sc_b)
 
-    result = EvalReport.generate([dir_a, dir_b])
+    result = generate_report([dir_a, dir_b])
     assert result.overall == "pass"
     graph_checks = result.kinds["graph"]
     schema_check = next(c for c in graph_checks if c.id == "schema_validity")
@@ -119,7 +119,7 @@ def test_generate_overall_fail_when_any_fails(tmp_path: Path):
     )
     sc = _make_scorecard("graph", "corpus-a", [fail_check])
     _write_scorecard_file(tmp_path, sc)
-    result = EvalReport.generate([tmp_path])
+    result = generate_report([tmp_path])
     assert result.overall == "fail"
 
 
@@ -148,7 +148,7 @@ def test_generate_aggregates_min_ratio_mean(tmp_path: Path):
     _write_scorecard_file(dir_a, _make_scorecard("graph", "a", [check_a]))
     _write_scorecard_file(dir_b, _make_scorecard("graph", "b", [check_b]))
 
-    result = EvalReport.generate([dir_a, dir_b])
+    result = generate_report([dir_a, dir_b])
     agg = next(c for c in result.kinds["graph"] if c.id == "structural_completeness")
     assert agg.aggregate_value.get("mean") is not None
 
@@ -161,8 +161,8 @@ def test_generate_aggregates_min_ratio_mean(tmp_path: Path):
 def test_render_markdown_contains_table_and_header(tmp_path: Path):
     sc = _make_scorecard("graph", "spring-rest-sample", [_pass_check("schema_validity")])
     _write_scorecard_file(tmp_path, sc)
-    result = EvalReport.generate([tmp_path])
-    md = EvalReport.render_markdown(result)
+    result = generate_report([tmp_path])
+    md = render_markdown(result)
     assert "# Evaluation Report" in md
     assert "schema_validity" in md
     assert "spring-rest-sample" in md
@@ -170,5 +170,5 @@ def test_render_markdown_contains_table_and_header(tmp_path: Path):
 
 def test_render_markdown_overall_emoji():
     result = ReportResult(overall="pass", kinds={})
-    md = EvalReport.render_markdown(result)
+    md = render_markdown(result)
     assert "✅" in md or "PASS" in md.upper()

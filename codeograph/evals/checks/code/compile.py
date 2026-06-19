@@ -5,7 +5,7 @@ import subprocess
 import time
 from pathlib import Path
 
-from codeograph.evals.scorecard_schema import CheckResult, MinRatioThreshold
+from codeograph.evals.models import CheckResult, MinRatioThreshold
 
 _RATIONALE = (
     "FR-7 — compile is the minimum bar for generated code; ADR-008 Fork 3 supplies "

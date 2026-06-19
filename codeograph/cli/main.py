@@ -288,7 +288,7 @@ def run(
         # --- Eval (runs for both ast-only and full-LLM paths).
         scorecards = None
         if run_eval:
-            from codeograph.evals.corpus_evaluator import CorpusEvaluator
+            from codeograph.evals.corpus_evaluator import evaluate_corpus
 
             evaluator = CorpusEvaluator()
             scorecards = evaluator.evaluate(out_dir)

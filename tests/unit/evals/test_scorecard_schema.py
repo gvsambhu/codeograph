@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import pytest
 
-from codeograph.evals.scorecard_schema import (
+from codeograph.evals.models import (
     BooleanThreshold,
     CheckResult,
     MaxCountThreshold,
@@ -233,7 +233,7 @@ def test_check_result_json_round_trip():
 
 
 def test_scorecard_construction():
-    from codeograph.evals.scorecard_schema import ReproducibilityInfo
+    from codeograph.evals.models import ReproducibilityInfo
 
     check = CheckResult(
         id="schema_validity",
