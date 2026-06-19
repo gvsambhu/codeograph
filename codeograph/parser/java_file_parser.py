@@ -78,6 +78,7 @@ class JavaFileParser:
         :raises JavaParseError: If the JAR exits non-zero, stdout is empty,
                                  or stdout is not valid JSON.
         """
+
         def _fmt(p: Path) -> str:
             s = str(p)
             if self._java.startswith("/mnt/") and s.startswith("/mnt/"):
