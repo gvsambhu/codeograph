@@ -8,7 +8,7 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from codeograph.renderers.typescript_nestjs.config import TypeScriptConfig
+from codeograph.renderers.typescript_nestjs.typescript_config import TypeScriptConfig
 
 
 class TestTypeScriptConfigDefaults:

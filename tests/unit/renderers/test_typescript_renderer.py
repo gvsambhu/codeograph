@@ -4,8 +4,8 @@ from typing import cast
 
 from codeograph.llm.prompts.loader import PromptLoader
 from codeograph.llm.provider import LlmProvider
-from codeograph.renderers.typescript_nestjs.config import TypeScriptConfig
-from codeograph.renderers.typescript_nestjs.renderer import TypeScriptRenderer
+from codeograph.renderers.typescript_nestjs.typescript_config import TypeScriptConfig
+from codeograph.renderers.typescript_nestjs.typescript_renderer import TypeScriptRenderer
 
 
 def _make_renderer(config: TypeScriptConfig | None = None) -> TypeScriptRenderer:
@@ -22,7 +22,7 @@ class TestScaffoldSqliteBranch:
 
     def _render_scaffold(self, db_adapter: str) -> dict[PurePosixPath, bytes]:
         renderer = _make_renderer(TypeScriptConfig(db_adapter=db_adapter))  # type: ignore[arg-type]
-        return renderer._render_scaffold([])
+        return renderer._scaffold_emitter.render_scaffold([])
 
     def test_pg_emits_host_and_port(self):
         file_map = self._render_scaffold("pg")

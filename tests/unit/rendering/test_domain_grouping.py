@@ -8,10 +8,8 @@ from __future__ import annotations
 
 import pytest
 
-from codeograph.rendering.domain_grouping import (
-    ManualMappingGrouping,
-    PackagePrefixGrouping,
-)
+from codeograph.rendering.manual_mapping_grouping import ManualMappingGrouping
+from codeograph.rendering.package_prefix_grouping import PackagePrefixGrouping
 
 # ---------------------------------------------------------------------------
 # PackagePrefixGrouping
