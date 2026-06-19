@@ -4,6 +4,7 @@ TelemetrySessionManager — manages lifecycle, files, folders, and resources for
 
 from __future__ import annotations
 
+import datetime
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -27,10 +28,17 @@ class TelemetrySessionManager:
         self._settings = settings
 
     def start_session(self, corpus_id: str) -> TelemetrySession:
-        # TODO: The learner should port the telemetry directory setup and resource initialization here.
-        # This includes:
-        # 1. Ensuring settings.cache_dir exists.
-        # 2. Instantiating SQLiteCacheBackend at cache_dir / "cache.db".
-        # 3. Setting up a unique run log filename via timestamp.
-        # 4. Instantiating and returning the TelemetrySession with SQLiteCacheBackend and JsonlEmitter.
-        raise NotImplementedError("TelemetrySessionManager.start_session needs to be implemented by the learner.")
+        self._settings.cache_dir.mkdir(parents=True, exist_ok=True)
+        cache_backend = SQLiteCacheBackend(self._settings.cache_dir / "cache.db")
+        telemetry_dir = self._settings.cache_dir / "telemetry"
+        telemetry_dir.mkdir(parents=True, exist_ok=True)
+
+        run_ts = datetime.datetime.now(datetime.UTC).strftime("%Y%m%dT%H%M%SZ")
+        emitter_path = telemetry_dir / f"run-{corpus_id}-{run_ts}.jsonl"
+        emitter = JsonlEmitter(emitter_path)
+
+        return TelemetrySession(
+            cache_backend=cache_backend,
+            emitter=emitter,
+            emitter_path=emitter_path,
+        )
