@@ -8,7 +8,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from codeograph.llm.types import Purpose
+from codeograph.llm.models import Purpose
 from codeograph.manifest.models import CacheStats
 
 

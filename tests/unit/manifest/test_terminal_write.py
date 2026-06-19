@@ -84,7 +84,7 @@ class TestNoManifestOnInterrupt:
             monkeypatch.setenv("PATH", new_path)
 
         # Patch NodeAnnotator.annotate to simulate a Pass 1 crash.
-        from codeograph.passes.pass1.annotator import NodeAnnotator
+        from codeograph.passes.pass1.node_annotator import NodeAnnotator
 
         def boom(self: Any, nodes: list[Any]) -> None:
             raise RuntimeError("synthetic pass-1 failure")

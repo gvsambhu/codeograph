@@ -9,7 +9,7 @@ from codeograph.llm.errors import (
 )
 from codeograph.llm.factory import build_default_stack
 from codeograph.llm.provider import LlmProvider
-from codeograph.llm.types import CacheHint, CallContext, LlmResult, Message, Purpose, Tier, TokenUsage
+from codeograph.llm.models import CacheHint, CallContext, LlmResult, Message, Purpose, Tier, TokenUsage
 
 try:
     from codeograph.llm._prompts_generated import PromptId

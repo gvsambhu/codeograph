@@ -6,7 +6,7 @@ from pydantic import AliasChoices, Field, SecretStr, field_validator, model_vali
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
 
 from codeograph.config.yaml_source import YamlConfigSource
-from codeograph.llm.types import ProviderType
+from codeograph.llm.models import ProviderType
 
 _DEFAULT_JAR = Path(__file__).parent.parent / "parser" / "lib" / "parser.jar"
 

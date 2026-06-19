@@ -7,8 +7,8 @@ from codeograph.llm._prompts_generated import PromptId
 from codeograph.llm.prompts.loader import PromptLoader
 from codeograph.llm.prompts.renderer import render
 from codeograph.llm.provider import LlmProvider
-from codeograph.llm.types import CacheHint, Message, Tier
-from codeograph.passes.pass1.schemas import AnnotationRecord, NodeAnnotation
+from codeograph.llm.models import CacheHint, Message, Tier
+from codeograph.passes.pass1.models import AnnotationRecord, NodeAnnotation
 
 logger = logging.getLogger(__name__)
 

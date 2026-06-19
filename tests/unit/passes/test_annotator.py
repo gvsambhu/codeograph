@@ -1,8 +1,8 @@
 import json
 
-from codeograph.llm.types import LlmResult, TokenUsage
-from codeograph.passes.pass1.annotator import NodeAnnotator
-from codeograph.passes.pass1.schemas import AnnotationRecord, NodeAnnotation
+from codeograph.llm.models import LlmResult, TokenUsage
+from codeograph.passes.pass1.node_annotator import NodeAnnotator
+from codeograph.passes.pass1.models import AnnotationRecord, NodeAnnotation
 
 
 def test_annotator_normal_nodes(mock_llm_provider, mock_prompt_loader, tmp_path):

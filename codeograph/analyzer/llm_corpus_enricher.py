@@ -16,11 +16,11 @@ from codeograph.llm.factory import build_default_stack
 from codeograph.llm.middleware.retry_policy import RetryPolicy
 from codeograph.llm.prompts.loader import PromptLoader
 from codeograph.llm.resolver import LlmProviderResolver
-from codeograph.llm.types import CallContext, Purpose
+from codeograph.llm.models import CallContext, Purpose
 from codeograph.manifest.artefact import GraphArtefact
 from codeograph.manifest.models import CacheStats
-from codeograph.passes.pass1.annotator import NodeAnnotator
-from codeograph.passes.pass2.synthesizer import CorpusSynthesizer
+from codeograph.passes.pass1.node_annotator import NodeAnnotator
+from codeograph.passes.pass2.corpus_synthesizer import CorpusSynthesizer
 from codeograph.telemetry.session_manager import TelemetrySessionManager
 from codeograph.telemetry.stats_aggregator import TelemetryStatsAggregator
 

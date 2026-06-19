@@ -14,7 +14,7 @@ import pytest
 from pydantic import BaseModel
 
 from codeograph.llm.provider import LlmProvider
-from codeograph.llm.types import LlmResult, Message, Tier, TokenUsage
+from codeograph.llm.models import LlmResult, Message, Tier, TokenUsage
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:

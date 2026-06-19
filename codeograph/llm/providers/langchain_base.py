@@ -17,7 +17,7 @@ from codeograph.llm.errors import (
     LlmTransientError,
 )
 from codeograph.llm.provider import LlmProvider
-from codeograph.llm.types import LlmResult, Message, Tier, TokenUsage
+from codeograph.llm.models import LlmResult, Message, Tier, TokenUsage
 
 T = TypeVar("T", bound=BaseModel)
 

@@ -7,7 +7,7 @@ from __future__ import annotations
 from codeograph.config.settings import Settings
 from codeograph.llm.provider import LlmProvider
 from codeograph.llm.providers.anthropic_provider import AnthropicProvider
-from codeograph.llm.types import ProviderType, Tier
+from codeograph.llm.models import ProviderType, Tier
 
 
 class LlmProviderResolver:
