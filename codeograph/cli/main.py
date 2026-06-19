@@ -155,209 +155,6 @@ def _load_settings() -> Settings:
         err_msg = "Invalid configuration:\n" + "\n".join(errors)
         raise click.UsageError(err_msg) from exc
 
-
-def _execute_llm_passes(
-    settings: Settings,
-    corpus_id: str,
-    graph_artefact: GraphArtefact,
-    out_dir: Path,
-) -> tuple[GraphArtefact, dict[str, CacheStats] | None]:
-    """Orchestrates LLM telemetry, caching, provider stack setup, and annotations/synthesis passes."""
-    import datetime
-    import hashlib
-    import json
-
-    from codeograph.llm._prompts_generated import PromptId
-    from codeograph.llm.cache.sqlite_backend import SQLiteCacheBackend
-    from codeograph.llm.factory import build_default_stack
-    from codeograph.llm.middleware.retry_policy import RetryPolicy
-    from codeograph.llm.prompts.loader import PromptLoader
-    from codeograph.llm.providers.anthropic_provider import AnthropicProvider
-    from codeograph.llm.types import CallContext, ProviderType, Purpose, Tier
-    from codeograph.manifest.artefact import GraphArtefact
-    from codeograph.manifest.schema import CacheStats
-    from codeograph.passes.pass1.annotator import NodeAnnotator
-    from codeograph.passes.pass2.synthesizer import CorpusSynthesizer
-    from codeograph.telemetry.emitter import JsonlEmitter
-
-    if not settings.anthropic_api_key:
-        click.echo("WARNING: CODEOGRAPH_ANTHROPIC_API_KEY is not set. LLM passes will fail unless mocked.")
-
-    # Setup Cache & Telemetry
-    settings.cache_dir.mkdir(parents=True, exist_ok=True)
-    cache_backend = SQLiteCacheBackend(settings.cache_dir / "cache.db")
-    telemetry_dir = settings.cache_dir / "telemetry"
-    telemetry_dir.mkdir(parents=True, exist_ok=True)
-
-    run_ts = datetime.datetime.now(datetime.UTC).strftime("%Y%m%dT%H%M%SZ")
-    emitter_path = telemetry_dir / f"run-{corpus_id}-{run_ts}.jsonl"
-    emitter = JsonlEmitter(emitter_path)
-
-    # Base Provider — dispatches on settings.llm_provider
-    tier_map = {
-        Tier.FAST: settings.llm_model_fast or settings.llm_model,
-        Tier.DEEP: settings.llm_model_deep or settings.llm_model,
-        Tier.RENDER: settings.llm_model_render or settings.llm_model,
-    }
-
-    match settings.llm_provider:
-        case ProviderType.ANTHROPIC:
-            base_provider = AnthropicProvider(
-                api_key=settings.anthropic_api_key.get_secret_value() if settings.anthropic_api_key else "",
-                tier_map=tier_map,
-            )
-        case ProviderType.OLLAMA:
-            raise NotImplementedError(
-                "Ollama provider is not implemented in v1. "
-                "Use llm_provider=anthropic; Ollama support is planned for v1.1."
-            )
-        case ProviderType.BEDROCK:
-            raise NotImplementedError(
-                "Bedrock provider is not implemented in v1. "
-                "Use llm_provider=anthropic; Bedrock support is planned for v1.1."
-            )
-        case _:
-            raise ValueError(
-                f"Unknown llm_provider: {settings.llm_provider!r}. "
-                f"Must be one of: {[p.value for p in ProviderType]}."
-            )
-
-    retry_policy = RetryPolicy()  # default policy
-    prompt_loader = PromptLoader(Path(__file__).parent.parent / "prompts")
-
-    # Load graph from Pass 0
-    with open(graph_artefact.path, encoding="utf-8") as f:
-        graph_data = json.load(f)
-    nodes = graph_data.get("nodes", [])
-
-    # --- Pass 1: Annotate Nodes ---
-    click.echo("Running Pass 1 (Node Annotation)...")
-    prompt_p1 = prompt_loader.get(PromptId.ANNOTATE_NODE)
-    ctx_p1 = CallContext(
-        purpose=Purpose.ANNOTATE,
-        prompt_id=PromptId.ANNOTATE_NODE,
-        prompt_version=prompt_p1.metadata.version,
-        prompt_content_hash=prompt_p1.metadata.content_hash_pin,
-        corpus_id=corpus_id,
-        provider_name=settings.llm_provider,
-    )
-    provider_p1 = build_default_stack(base_provider, retry_policy, cache_backend, emitter, ctx_p1)
-    annotator = NodeAnnotator(provider_p1, prompt_loader, out_dir, settings.llm_concurrency)
-    annotations = annotator.annotate(nodes)
-
-    # --- Pass 2: Synthesize Corpus ---
-    click.echo("Running Pass 2 (Corpus Synthesis)...")
-    prompt_p2 = prompt_loader.get(PromptId.SYNTHESIZE_CORPUS)
-    ctx_p2 = CallContext(
-        purpose=Purpose.SYNTHESIZE,
-        prompt_id=PromptId.SYNTHESIZE_CORPUS,
-        prompt_version=prompt_p2.metadata.version,
-        prompt_content_hash=prompt_p2.metadata.content_hash_pin,
-        corpus_id=corpus_id,
-        provider_name=settings.llm_provider,
-    )
-    provider_p2 = build_default_stack(base_provider, retry_policy, cache_backend, emitter, ctx_p2)
-    synthesizer = CorpusSynthesizer(provider_p2, prompt_loader, out_dir)
-    synthesizer.synthesize(annotations, graph_data)
-
-    # Flush telemetry so the JSONL is readable for per-pass aggregation.
-    emitter.close()
-    click.echo("LLM passes complete.")
-
-    # --- Compute the llm-annotations artefact from the just-written file.
-    annotations_path = out_dir / "llm-annotations.json"
-    if not annotations_path.exists():
-        raise click.ClickException(
-            f"LLM passes completed but {annotations_path} was not produced. "
-            f"This is a producer bug; the manifest cannot be assembled "
-            f"without it (per ADR-025 §Invariants)."
-        )
-    llm_annotations_artefact = GraphArtefact(
-        path=annotations_path,
-        schema_version=graph_artefact.schema_version,  # same version as graph in v1
-        sha256=hashlib.sha256(annotations_path.read_bytes()).hexdigest(),
-    )
-
-    # --- Aggregate cache_stats from telemetry.
-    purpose_to_pass = {
-        Purpose.ANNOTATE.value: "pass_1",
-        Purpose.SYNTHESIZE.value: "pass_2",
-    }
-    per_pass: dict[str, list[dict[str, Any]]] = {"pass_1": [], "pass_2": []}
-    if emitter_path.exists():
-        with open(emitter_path, encoding="utf-8") as tf:
-            for line in tf:
-                line = line.strip()
-                if not line:
-                    continue
-                rec = json.loads(line)
-                pass_label = purpose_to_pass.get(rec.get("purpose"))
-                if pass_label:
-                    per_pass[pass_label].append(rec)
-
-    cache_stats = None
-    aggregated: dict[str, CacheStats] = {}
-    for pass_label, recs in per_pass.items():
-        if not recs:
-            continue
-        calls = len(recs)
-        hits = sum(1 for r in recs if r.get("cache_hit"))
-        hit_rate = round((hits / calls) if calls else 0.0, 4)
-        aggregated[pass_label] = CacheStats(
-            calls=calls,
-            hits=hits,
-            hit_rate=hit_rate,
-        )
-    if aggregated:
-        cache_stats = aggregated
-
-    return llm_annotations_artefact, cache_stats
-
-
-def _execute_evaluation(out_dir: Path) -> dict[str, ScorecardPointer] | None:
-    """Runs the deterministic scorecard evaluations against output directory and returns pointers."""
-    import sys
-    import hashlib
-    from codeograph.evals.runner import EvalRunner, MissingOutputError
-    from codeograph.manifest.schema import ScorecardPointer
-
-    click.echo("Running evaluation (--eval requested)...")
-    try:
-        runner = EvalRunner()
-        kinds = ["graph"]
-        for child in out_dir.iterdir():
-            if child.is_dir() and child.name not in ("evals", ".codeograph"):
-                kinds.append(child.name)
-        scorecard_models = runner.run(
-            output_dir=out_dir,
-            scorecard_kinds=kinds,
-        )
-
-        scorecards = {}
-        for sc in scorecard_models:
-            sc_filename = "graph-scorecard.json" if sc.kind == "graph" else f"{sc.kind}-scorecard.json"
-            sc_path = out_dir / "evals" / sc_filename
-            if sc_path.exists():
-                sc_sha = hashlib.sha256(sc_path.read_bytes()).hexdigest()
-            else:
-                sc_sha = "0" * 64
-            overall = "pass" if all(c.result in ("pass", "skip") for c in sc.checks) else "fail"
-            scorecards[sc.kind] = ScorecardPointer(
-                path=f"evals/{sc_filename}",
-                sha256=sc_sha,
-                overall=overall,
-            )
-
-        has_failure = any(c.result == "fail" for sc in scorecard_models for c in sc.checks)
-        if has_failure:
-            click.echo("Evaluation failed overall.")
-            sys.exit(1)
-        return scorecards
-    except MissingOutputError as e:
-        click.echo(f"Eval Error: {e}", err=True)
-        sys.exit(2)
-
-
 @cli.command()
 @click.argument("input_path", metavar="INPUT")
 @click.option(
@@ -465,8 +262,10 @@ def run(
         cache_stats = None
 
         if not ast_only:
-            llm_annotations_artefact, cache_stats = _execute_llm_passes(
-                settings=settings,
+            from codeograph.analyzer.llm_corpus_enricher import LlmCorpusEnricher
+
+            enricher = LlmCorpusEnricher(settings)
+            llm_annotations_artefact, cache_stats = enricher.enrich(
                 corpus_id=corpus_id,
                 graph_artefact=graph_artefact,
                 out_dir=out_dir,
@@ -477,7 +276,10 @@ def run(
         # --- Eval (runs for both ast-only and full-LLM paths).
         scorecards = None
         if run_eval:
-            scorecards = _execute_evaluation(out_dir)
+            from codeograph.evals.corpus_evaluator import CorpusEvaluator
+
+            evaluator = CorpusEvaluator()
+            scorecards = evaluator.evaluate(out_dir)
 
         # --- Terminal manifest write ----------------------------------------
         assembler = ManifestAssembler()
