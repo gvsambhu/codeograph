@@ -38,7 +38,7 @@ codeograph = "codeograph.cli.main:cli"
 
 [project.optional-dependencies]
 dev = [
-    "datamodel-code-generator>=0.25",
+    "datamodel-code-generator==0.61.0",
     "pytest>=8.0",
     "pytest-xdist>=3.0",
     "pytest-asyncio>=0.23",
@@ -57,6 +57,14 @@ packages = ["codeograph"]
 [tool.ruff]
 target-version = "py312"
 line-length = 120
+
+[tool.ruff.format]
+# Generated model files are formatted by datamodel-code-generator (the codegen
+# tool owns their style — single quotes, its own wrapping). They are already
+# excluded from mypy and E501 lint; exclude them from ruff format too so
+# `make schema-models` output stays byte-stable (DC1-06) rather than fighting
+# ruff's quote/wrap normalization.
+exclude = ["codeograph/graph/models/*.py"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP"]

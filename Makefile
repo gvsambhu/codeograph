@@ -48,7 +48,7 @@ format-java:
 # Refresh golden graph files for all corpora.
 # Tier 1 + Tier 2 only; Tier 3 (JHipster) is nightly-only.
 golden-update:
-	pytest tests/test_golden.py --update-goldens -k "not tier3"
+	pytest tests/integration/test_goldens.py --update-goldens -k "not tier3"
 
 clean:
 	find . -type d -name __pycache__ -exec rm -rf {} +

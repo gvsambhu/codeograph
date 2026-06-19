@@ -193,7 +193,7 @@ class GraphBuilder:
             entry_point=parsed_file.get("entry_point"),
             wmc=parsed_file.get("wmc"),
             cbo=parsed_file.get("cbo"),
-            lcom4=int(v) if (v := parsed_file.get("lcom4")) is not None else None,
+            lcom4=parsed_file.get("lcom4"),
         )
         self._nodes.append(class_node)
 
@@ -459,15 +459,14 @@ class GraphBuilder:
                     kind_raw,
                 )
 
-        # ParameterFact has extra="forbid" and no populate_by_name=True, so the
-        # constructor only accepts the alias key "validate", not the Python
-        # attribute name "validate_". model_validate() with a dict is the
-        # clean way to pass alias-keyed fields programmatically.
+        # ParameterFact has extra="forbid" and no populate_by_name=True.
+        # We must pass the exact Python attribute name "validate_" (the parser
+        # emits the key as "validate").
         return GraphParameterFact.model_validate(
             {
                 "name": param["name"],
                 "type": param["type"],
-                "validate": param.get("validate"),
+                "validate_": param.get("validate"),
                 "constraints": param.get("constraints") or None,
                 "binding": binding,
             }
