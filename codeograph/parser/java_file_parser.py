@@ -78,12 +78,19 @@ class JavaFileParser:
         :raises JavaParseError: If the JAR exits non-zero, stdout is empty,
                                  or stdout is not valid JSON.
         """
+        def _fmt(p: Path) -> str:
+            s = str(p)
+            if self._java.startswith("/mnt/") and s.startswith("/mnt/"):
+                drive = s[5]
+                return f"{drive.upper()}:{s[6:]}"
+            return s
+
         command: list[str] = [
             self._java,
             "-jar",
-            str(self._jar),
-            str(java_file),
-            str(corpus_root),
+            _fmt(self._jar),
+            _fmt(java_file),
+            _fmt(corpus_root),
         ]
 
         logger.debug("AST parse: %s", java_file)

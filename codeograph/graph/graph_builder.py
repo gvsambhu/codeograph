@@ -459,15 +459,14 @@ class GraphBuilder:
                     kind_raw,
                 )
 
-        # ParameterFact has extra="forbid" and no populate_by_name=True, so the
-        # constructor only accepts the alias key "validate", not the Python
-        # attribute name "validate_". model_validate() with a dict is the
-        # clean way to pass alias-keyed fields programmatically.
+        # ParameterFact has extra="forbid" and no populate_by_name=True.
+        # We must pass the exact Python attribute name "validate_" (the parser
+        # emits the key as "validate").
         return GraphParameterFact.model_validate(
             {
                 "name": param["name"],
                 "type": param["type"],
-                "validate": param.get("validate"),
+                "validate_": param.get("validate"),
                 "constraints": param.get("constraints") or None,
                 "binding": binding,
             }

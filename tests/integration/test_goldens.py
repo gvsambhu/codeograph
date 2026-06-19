@@ -109,6 +109,12 @@ def _assert_golden(actual_bytes: bytes, golden_path: Path, *, update: bool) -> N
     message directing the developer to run ``pytest --update-goldens``.
     """
     if update:
+        import json
+        actual_json = json.loads(actual_bytes.decode("utf-8"))
+        nodes = actual_json.get("nodes", [])
+        if nodes and all(n.get("extraction_mode") == "regex_fallback" for n in nodes if "extraction_mode" in n):
+            raise AssertionError("Capture aborted: Graph is 100% regex_fallback. The JVM/AST parser is likely dead in this environment.")
+        
         golden_path.parent.mkdir(parents=True, exist_ok=True)
         golden_path.write_bytes(actual_bytes)
     else:

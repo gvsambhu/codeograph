@@ -38,7 +38,7 @@ codeograph = "codeograph.cli.main:cli"
 
 [project.optional-dependencies]
 dev = [
-    "datamodel-code-generator>=0.25",
+    "datamodel-code-generator==0.61.0",
     "pytest>=8.0",
     "pytest-xdist>=3.0",
     "pytest-asyncio>=0.23",
