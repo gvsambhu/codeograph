@@ -11,7 +11,7 @@ import pytest
 from pydantic import BaseModel
 
 from codeograph.renderers.base import Renderer
-from codeograph.renderers.registry import RendererRegistry
+from codeograph.renderers.renderer_registry import RendererRegistry
 
 # ---------------------------------------------------------------------------
 # Minimal concrete renderer used only in this test module

@@ -22,7 +22,6 @@ Migration note (streaming, deferred per ADR-008):
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
 from pathlib import PurePosixPath
 from typing import TYPE_CHECKING, ClassVar, Generic, TypeVar
 
@@ -32,40 +31,19 @@ if TYPE_CHECKING:
     from codeograph.graph.models.graph_schema import CodeographKnowledgeGraph
     from codeograph.llm.prompts.loader import PromptLoader
     from codeograph.llm.provider import LlmProvider
+    from codeograph.renderers.models import CompileCheck
 
     # LlmAnnotations is the dict produced by Pass 1 / NodeAnnotator.
     # Typed as Any-compatible dict here to avoid a hard dependency on pass1 schemas;
     # concrete renderers narrow the type in their own implementation.
     LlmAnnotations = dict[str, object]
 
-__all__ = ["CompileCheck", "Renderer"]
+__all__ = ["Renderer"]
 
 C = TypeVar("C", bound=BaseModel)
 
 
-@dataclass(frozen=True)
-class CompileCheck:
-    """Declarative description of one compile / typecheck command (ADR-008 Fork 3).
 
-    The eval framework (DC4) iterates ``renderer.compile_checks()``,
-    preflights ``required_tools`` via ``shutil.which``, runs each command
-    with ``subprocess.run``, and records pass / skip / fail in the scorecard.
-
-    Attributes:
-        name:              Human-readable label shown in the scorecard row.
-        cmd:               Command tuple passed to ``subprocess.run``.
-        workdir:           Working directory relative to the rendered output root.
-                           Defaults to the root itself.
-        required_tools:    Tool names to preflight via ``shutil.which``.
-                           A missing tool produces a recorded ``skip``, not a crash.
-        pass_on_exit_codes: Exit codes that count as a pass.  Defaults to ``(0,)``.
-    """
-
-    name: str
-    cmd: tuple[str, ...]
-    workdir: PurePosixPath = field(default_factory=lambda: PurePosixPath("."))
-    required_tools: tuple[str, ...] = field(default_factory=tuple)
-    pass_on_exit_codes: tuple[int, ...] = field(default_factory=lambda: (0,))
 
 
 class Renderer(ABC, Generic[C]):  # noqa: UP046 — ADR-008 uses Generic[C]; py3.12 syntax deferred
@@ -141,7 +119,7 @@ class Renderer(ABC, Generic[C]):  # noqa: UP046 — ADR-008 uses Generic[C]; py3
         Override to return one or more :class:`CompileCheck` instances.
 
         The eval framework (DC4) is responsible for invoking these; the renderer
-        only declares *what* to run.  See ``CompileCheck`` docstring for field
-        semantics.
+        only declares *what* to run.  See ``CompileCheck`` in ``codeograph.renderers.models``
+        for field semantics.
         """
         return []

@@ -42,8 +42,9 @@ from pydantic import BaseModel
 from codeograph.llm.prompts.loader import PromptLoader
 from codeograph.llm.prompts.renderer import render as render_prompt
 from codeograph.llm.types import CacheHint, Message, Tier
-from codeograph.renderers.base import CompileCheck, Renderer
-from codeograph.renderers.registry import RendererRegistry
+from codeograph.renderers.base import Renderer
+from codeograph.renderers.models import CompileCheck
+from codeograph.renderers.renderer_registry import RendererRegistry
 from codeograph.renderers.typescript_nestjs.typescript_config import TypeScriptConfig
 from codeograph.renderers.typescript_nestjs.models import RenderedSource
 from codeograph.rendering.class_selector import ClassSelector, SelectionResult
@@ -57,35 +58,9 @@ if TYPE_CHECKING:
 
 __all__ = ["TypeScriptRenderer"]
 
-# ---------------------------------------------------------------------------
-# Module-level constants
-# ---------------------------------------------------------------------------
-
-# Package name for Jinja2 PackageLoader (resolved relative to this file's package)
-_TEMPLATE_PACKAGE = "codeograph.renderers.typescript_nestjs"
-_TEMPLATE_DIR = "templates/scaffold"
-
-# NestJS version pinned per Q1 decision
-_NESTJS_VERSION = "^10.4.0"
-_TYPEORM_VERSION = "^0.3.20"
-_PG_VERSION = "^8.12.0"
-_BETTER_SQLITE3_VERSION = "^9.6.0"
-
-# Spring Security annotation simple names that trigger security_feature_policy.
-# Source: Spring Security 6 reference, §Method Security and §Web Security.
-_SPRING_SECURITY_ANNOTATIONS: frozenset[str] = frozenset(
-    {
-        "PreAuthorize",
-        "PostAuthorize",
-        "Secured",
-        "RolesAllowed",
-        "PreFilter",
-        "PostFilter",
-        "EnableWebSecurity",
-        "EnableMethodSecurity",
-        "WithMockUser",  # test annotations — also trigger the policy
-    }
-)
+from codeograph.renderers.typescript_nestjs.feature_policies import dispatch_feature_policies
+from codeograph.renderers.typescript_nestjs.helpers import stereotype_to_role_suffix, to_kebab_case
+from codeograph.renderers.typescript_nestjs.scaffold_emitter import ScaffoldEmitter
 
 
 
@@ -118,13 +93,7 @@ class TypeScriptRenderer(Renderer[TypeScriptConfig]):  # noqa: UP046
         self._prompts = prompt_loader
         self._concurrency = concurrency
 
-        # Jinja2 environment — StrictUndefined catches template typos at render
-        # time rather than silently emitting empty strings (same policy as ADR-014).
-        self._jinja: Environment = Environment(
-            loader=PackageLoader(_TEMPLATE_PACKAGE, _TEMPLATE_DIR),
-            undefined=StrictUndefined,
-            autoescape=False,
-        )
+        self._scaffold_emitter = ScaffoldEmitter(config)
 
         # Package-local PromptLoader for the render prompt.
         # Separate from self._prompts (which points at the main codeograph/prompts/).
@@ -201,7 +170,7 @@ class TypeScriptRenderer(Renderer[TypeScriptConfig]):  # noqa: UP046
                 }
                 for r in selection_results
             ]
-            scaffold_map = self._render_scaffold(domain_groups)
+            scaffold_map = self._scaffold_emitter.render_scaffold(domain_groups)
             file_map.update(scaffold_map)
 
         return file_map
@@ -231,7 +200,7 @@ class TypeScriptRenderer(Renderer[TypeScriptConfig]):  # noqa: UP046
                 file_map[path] = content
 
         # Emit the domain module file for this group
-        module_content = self._render_domain_module(result, file_map)
+        module_content = self._scaffold_emitter.render_domain_module(result, file_map)
         if module_content:
             module_path = PurePosixPath(f"src/{result.group_name}/{result.group_name}.module.ts")
             file_map[module_path] = module_content
@@ -250,69 +219,18 @@ class TypeScriptRenderer(Renderer[TypeScriptConfig]):  # noqa: UP046
             ``(output_path, file_bytes)`` or ``None`` if the class is refused
             by a feature policy.
         """
-        hints: dict[str, str] = {}
-
-        # --- Spring Security policy (deterministic from ClassNode.annotations) ---
-        # ClassNode.annotations is the list of ALL annotation simple names on
-        # the class (e.g. ["RestController", "PreAuthorize", "Validated"]).
-        class_annotations: set[str] = set(class_node.annotations or [])
-        security_hits = _SPRING_SECURITY_ANNOTATIONS & class_annotations
-        if security_hits:
-            if self._config.security_feature_policy == "refuse":
-                return None
-            elif self._config.security_feature_policy == "stub_todo":
-                # Inject a hint so the model emits a Guard stub with a TODO comment.
-                hints["security_hint"] = (
-                    f"This class carries Spring Security annotation(s): "
-                    f"{', '.join(sorted(security_hits))}. "
-                    f"Emit a NestJS @UseGuards() decorator stub with a "
-                    f"// TODO(learner): replace with a real Guard implementation."
-                )
-            # elif "silent_skip": render without auth and without any TODO — no hint.
-
-        # --- WebFlux policy (from Pass 1 method return types) ---
-        # Detection is scoped to annotation_json.annotation.methods[] — method
-        # return type detail lives there, not in class_json.
-        record = annotations.get(class_node.id)
-        _methods: list[object] = []
-        if isinstance(record, dict):
-            ann = record.get("annotation") or {}
-            if isinstance(ann, dict):
-                methods_raw = ann.get("methods", [])
-                if isinstance(methods_raw, list):
-                    _methods = methods_raw
-
-        uses_mono = any("Mono<" in (m.get("return_type") or "") for m in _methods if isinstance(m, dict))
-        uses_flux = any("Flux<" in (m.get("return_type") or "") for m in _methods if isinstance(m, dict))
-        uses_webflux = uses_mono or uses_flux
-
-        if uses_webflux:
-            if self._config.webflux_policy == "refuse":
-                return None
-            if self._config.webflux_policy == "translate_mono_only":
-                # Flux<T> cannot be represented as Promise<T>; refuse per ADR-010 Fork 9.
-                if uses_flux:
-                    return None
-                hints["webflux_hint"] = (
-                    "This class uses Spring WebFlux reactive return types. "
-                    "Translate Mono<T> to Promise<T> and render async NestJS methods. "
-                    "Do not use RxJS Observable. "
-                    "If a Flux<T> shape cannot be represented under this policy, emit a TODO stub."
-                )
-            elif self._config.webflux_policy == "best_effort":
-                hints["webflux_hint"] = (
-                    "This class uses Spring WebFlux reactive return types. "
-                    "Translate Mono<T> to Promise<T> and Flux<T> to Observable<T> from rxjs. "
-                    "Import Observable when needed and preserve any unclear reactive semantics with TODO stubs."
-                )
+        # --- Feature policies dispatch ---
+        hints = dispatch_feature_policies(class_node, annotations, self._config)
+        if hints is None:
+            return None
 
         # --- Derive output path ---
         # The role suffix (.service.ts, .controller.ts, etc.) is derived from the
         # class stereotype so that _render_domain_module can classify files by
         # endswith() checks.  ADR-010 Fork 8 / Issue #1.
         simple_name = class_node.id.rsplit(".", 1)[-1]
-        file_stem = _to_kebab_case(simple_name)
-        role_suffix = _stereotype_to_role_suffix(class_node.stereotype)
+        file_stem = to_kebab_case(simple_name)
+        role_suffix = stereotype_to_role_suffix(class_node.stereotype)
         path = PurePosixPath(f"src/{group_name}/{file_stem}{role_suffix}")
 
         # --- LLM call ---
@@ -397,106 +315,6 @@ class TypeScriptRenderer(Renderer[TypeScriptConfig]):  # noqa: UP046
         return result.value.content
 
     # ------------------------------------------------------------------
-    # Scaffold emission
-    # ------------------------------------------------------------------
-
-    def _render_scaffold(self, domain_groups: list[dict[str, str]]) -> dict[PurePosixPath, bytes]:
-        """Emit the NestJS project skeleton using Jinja2 scaffold templates."""
-        project_name = "app"  # TODO: derive from graph or config
-        db_adapter = self._config.db_adapter
-        db_adapter_pkg, db_adapter_ver = _db_adapter_info(db_adapter)
-
-        ctx: dict[str, object] = {
-            "project_name": project_name,
-            "domain_groups": domain_groups,
-            "db_adapter": db_adapter,
-            "db_adapter_package": db_adapter_pkg,
-            "db_adapter_version": db_adapter_ver,
-            "strict": self._config.strict,
-        }
-
-        _emit = self._emit_template
-        return {
-            PurePosixPath("package.json"): _emit("package.json.j2", ctx),
-            PurePosixPath("tsconfig.json"): _emit("tsconfig.json.j2", ctx),
-            PurePosixPath("tsconfig.build.json"): _emit("tsconfig.build.json.j2", ctx),
-            PurePosixPath("nest-cli.json"): _emit("nest-cli.json.j2", ctx),
-            PurePosixPath(".gitignore"): _emit("gitignore.j2", ctx),
-            PurePosixPath(".env.example"): _emit("env.example.j2", ctx),
-            PurePosixPath("src/main.ts"): _emit("main.ts.j2", ctx),
-            PurePosixPath("src/app.module.ts"): _emit("app.module.ts.j2", ctx),
-        }
-
-    def _render_domain_module(
-        self,
-        result: SelectionResult,
-        group_file_map: dict[PurePosixPath, bytes],
-    ) -> bytes | None:
-        """Emit a NestJS module barrel for *result.group_name*.
-
-        TODO(learner): implement this method.
-
-        Steps:
-            1. Classify the files in ``group_file_map`` by filename suffix:
-                 Controllers : path.name ends with ``.controller.ts``
-                 Services    : path.name ends with ``.service.ts``
-                 Entities    : path.name ends with ``.entity.ts``
-                 Repositories: path.name ends with ``.repository.ts``
-               For each file, derive the class name from the file stem:
-                 ``order-service.ts``  → stem ``order-service``
-                 class name ``OrderService`` (pascal-case the stem)
-            2. Build the Jinja2 template context::
-                 {
-                   "group_name": result.group_name,
-                   "module_class_name": _to_pascal_case(result.group_name) + "Module",
-                   "selected_count": result.total_in_group,
-                   "selection_strategy": result.strategy,
-                   "controllers": [{"class_name": ..., "file_stem": ...}, ...],
-                   "services": [...],
-                   "entities": [...],
-                   "repositories": [...],
-                 }
-            3. Render ``domain.module.ts.j2`` via ``self._emit_template()``.
-            4. Return the rendered bytes.
-
-        Reference: ``templates/scaffold/domain.module.ts.j2`` for the expected
-        context keys.
-        """
-        controllers = []
-        services = []
-        entities = []
-        repositories = []
-
-        for path in group_file_map.keys():
-            if path.name.endswith(".controller.ts"):
-                controllers.append({"class_name": _to_pascal_case(path.stem.replace("-", "_")), "file_stem": path.stem})
-            elif path.name.endswith(".service.ts"):
-                services.append({"class_name": _to_pascal_case(path.stem.replace("-", "_")), "file_stem": path.stem})
-            elif path.name.endswith(".entity.ts"):
-                entities.append({"class_name": _to_pascal_case(path.stem.replace("-", "_")), "file_stem": path.stem})
-            elif path.name.endswith(".repository.ts"):
-                repositories.append(
-                    {"class_name": _to_pascal_case(path.stem.replace("-", "_")), "file_stem": path.stem}
-                )
-
-        context: dict[str, object] = {
-            "group_name": result.group_name,
-            "module_class_name": _to_pascal_case(result.group_name) + "Module",
-            "selected_count": result.total_in_group,
-            "selection_strategy": result.strategy,
-            "controllers": controllers,
-            "services": services,
-            "entities": entities,
-            "repositories": repositories,
-        }
-        return self._emit_template("domain.module.ts.j2", context)
-
-    def _emit_template(self, template_name: str, context: dict[str, object]) -> bytes:
-        """Render one Jinja2 template to bytes."""
-        tpl = self._jinja.get_template(template_name)
-        return tpl.render(**context).encode("utf-8")
-
-    # ------------------------------------------------------------------
     # Class selection + graph helpers
     # ------------------------------------------------------------------
 
@@ -523,61 +341,3 @@ class TypeScriptRenderer(Renderer[TypeScriptConfig]):  # noqa: UP046
         return result
 
 
-# ---------------------------------------------------------------------------
-# Module-level helpers
-# ---------------------------------------------------------------------------
-
-
-def _to_pascal_case(name: str) -> str:
-    """``"orders"`` → ``"Orders"``, ``"order-items"`` → ``"OrderItems"``."""
-    return "".join(part.capitalize() for part in name.replace("-", "_").split("_"))
-
-
-def _to_kebab_case(name: str) -> str:
-    """``"OrderService"`` → ``"order-service"``."""
-    import re
-
-    s1 = re.sub(r"([a-z0-9])([A-Z])", r"\1-\2", name)
-    s2 = re.sub(r"([A-Z]+)([A-Z][a-z])", r"\1-\2", s1)
-    return s2.lower()
-
-
-def _stereotype_to_role_suffix(stereotype: object) -> str:
-    """Return the NestJS file-role suffix for *stereotype*.
-
-    The suffix is appended to the kebab-case class stem so that
-    ``_render_domain_module`` can classify output files with a plain
-    ``path.name.endswith(suffix)`` check (ADR-010 Fork 8).
-
-    *stereotype* may be a ``Stereotype`` enum value or a plain string.
-    The function coerces to string via ``.value`` (enum) or ``str()``.
-
-    Mapping::
-
-        RestController / Controller → .controller.ts
-        Service                     → .service.ts
-        Repository                  → .repository.ts
-        Entity                      → .entity.ts
-        ControllerAdvice            → .filter.ts
-        anything else               → .ts   (DTOs, exceptions, config classes)
-    """
-    _MAP: dict[str, str] = {
-        "RestController": ".controller.ts",
-        "Controller": ".controller.ts",
-        "Service": ".service.ts",
-        "Repository": ".repository.ts",
-        "Entity": ".entity.ts",
-        "ControllerAdvice": ".filter.ts",
-    }
-    # ClassNode.stereotype is a Stereotype enum; extract its string value.
-    key: str = getattr(stereotype, "value", None) or (str(stereotype) if stereotype else "")
-    return _MAP.get(key, ".ts")
-
-
-def _db_adapter_info(adapter: str) -> tuple[str, str]:
-    """Return ``(npm_package_name, version_constraint)`` for *adapter*."""
-    if adapter == "pg":
-        return "pg", _PG_VERSION
-    if adapter == "better-sqlite3":
-        return "better-sqlite3", _BETTER_SQLITE3_VERSION
-    raise ValueError(f"Unknown db_adapter: {adapter!r}")

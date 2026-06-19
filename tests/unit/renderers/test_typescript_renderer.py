@@ -22,7 +22,7 @@ class TestScaffoldSqliteBranch:
 
     def _render_scaffold(self, db_adapter: str) -> dict[PurePosixPath, bytes]:
         renderer = _make_renderer(TypeScriptConfig(db_adapter=db_adapter))  # type: ignore[arg-type]
-        return renderer._render_scaffold([])
+        return renderer._scaffold_emitter.render_scaffold([])
 
     def test_pg_emits_host_and_port(self):
         file_map = self._render_scaffold("pg")

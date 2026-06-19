@@ -11,7 +11,8 @@ imports them explicitly after importing this package so the registry is
 populated before RendererRegistry.build() is called.
 """
 
-from codeograph.renderers.base import CompileCheck, Renderer
-from codeograph.renderers.registry import RendererRegistry
+from codeograph.renderers.base import Renderer
+from codeograph.renderers.models import CompileCheck
+from codeograph.renderers.renderer_registry import RendererRegistry
 
 __all__ = ["CompileCheck", "Renderer", "RendererRegistry"]
