@@ -993,3 +993,16 @@ The same nine-fork structure (DI / HTTP / persistence / exceptions / config / va
 **Rationale:** The original `refuse` value was a policy without a detection signal. `security_feature_policy="refuse"` and `webflux_policy="refuse"` both work because they have concrete, deterministic class-level signals — Spring Security annotations (`@PreAuthorize`, `@Secured`, etc.) and reactive return types (`Mono<T>`, `Flux<T>`) respectively. Generic "unsupported Spring features" have no equivalent class-level detector. Implementing one would require a feature-by-feature annotation scan, and `stub_todo` already surfaces the gap reviewably in the generated output. Keeping `refuse` as a valid value was a dead code path that misled callers.
 
 **Files changed:** `config.py` (Literal narrowed + docstring), `prompts/render_file/v1.md` (refuse bullet removed), `tests/renderers/test_typescript_config.py` (test now validates that `"refuse"` raises).
+
+**2026-06-21 — DC3 design-review pass (1 decision + 1 shared boundary + 1 cross-ref).** A code-blind design review of ADR-010 (DC3 cluster, guideline 06) produced one locked decision plus a shared boundary; the Spring→TS mapping decisions themselves (learner-zone) were not touched.
+
+1. **Refuse-reason precedence for multi-category classes (D-010-2).** When a class is both security-refused and webflux-refused, the audit log records **security first (most-severe-first)**. The outcome is identical (the class is refused either way) — this only fixes reason-attribution determinism. Fork 9's sub-rules are amended: precedence = security > webflux.
+
+**Shared boundary (D-010-1, cross-ADR 008/009/010).** Selection-tuning knobs (per-domain cap, domain grouping/mapping) are hosted on the renderer config (`TypeScriptConfig`) for v1, documented as **ADR-009 selection knobs hosted on the renderer config — not renderer concerns**; revisit (→ dedicated selection-config object) at the 2nd renderer (v1.1).
+
+**Cross-reference (D-008-1).** ADR-010 finding #2 (renderer input contract — typed vs opaque `annotations`) is resolved in **ADR-008's amendment of the same date**: `annotations` is an opaque `dict[str, object]` with an in-memory handoff.
+
+**New Confirmation item (from this amendment):**
+* A class matching both security and webflux refusal records `security` as the refuse reason in the audit log (D-010-2).
+
+No reversal of any prior decision; clarification only.
