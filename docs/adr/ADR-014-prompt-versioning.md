@@ -532,3 +532,16 @@ The following questions should be revisited once concrete prompt-evolution exper
 * Jinja2 meta-introspection — https://jinja.palletsprojects.com/en/stable/api/#the-meta-api
 * PEP 257 (docstrings as content-hash precedent) — https://peps.python.org/pep-0257/
 * Pre-commit framework — https://pre-commit.com/
+
+## Amendments
+
+**2026-06-20 — DC2 design-review pass (1 decision + 1 doc-sync).** A code-blind design review of ADR-014 (DC2 cluster, guideline 06) produced one locked decision and one description-level correction, recorded here.
+
+1. **No-`default.yaml` resolution — fail loud (D-014-2).** Fork 4's prompt-loader behaviour is amended: when a prompt directory has **no `default.yaml` and no explicit version is passed**, the loader **errors (fails loud)** rather than falling back to the newest `vN`. An undeclared default is a prompt-authoring bug, not something to guess — this matches the project's "no silent failures" stance.
+
+**Doc-sync (no decision):** Fork 1's prompt-location model is amended to acknowledge **renderer-owned prompts** (a downstream consequence of ADR-008's renderer evolution) — prompts may live alongside their renderer, not only in a central prompt tree. The pre-commit hash-pin hook's path regex must therefore cover both locations (the regex update is learner code) (F-014-1).
+
+**New Confirmation item (from this amendment):**
+* A prompt dir with no `default.yaml` and no explicit version raises a loud error, not a silent newest-`vN` fallback (D-014-2).
+
+No reversal of any prior decision; clarification only.

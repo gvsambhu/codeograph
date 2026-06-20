@@ -602,3 +602,24 @@ The following questions should be revisited once concrete LLM-pass implementatio
 * Anthropic Messages Batches API — https://docs.anthropic.com/en/api/creating-message-batches (v1.1 reference)
 * OpenAI Batch API — https://platform.openai.com/docs/guides/batch (v1.1 reference)
 * Python `concurrent.futures.ThreadPoolExecutor` — https://docs.python.org/3/library/concurrent.futures.html
+
+## Amendments
+
+**2026-06-20 — DC2 design-review pass (3 decisions + 2 doc-syncs).** A code-blind design review of ADR-013 (DC2 cluster, guideline 06) produced three locked decisions and two description-level corrections, recorded here.
+
+1. **v1 provider set = Anthropic + OpenRouter (D-013-1).** Fork 9's provider roster is amended: **v1 ships Anthropic + OpenRouter, both mandatory**; Ollama and Bedrock move to **v1.1**. OpenRouter is an active end-of-v1 requirement (cheaper / free aggregated models); plan §4 FR-8 is updated to this real v1 set. **Sub-rule — free-form model pass-through:** the OpenRouter provider config must accept **any** OpenRouter model identifier the user supplies (`<vendor>/<model>` pass-through), NOT an enum of codeograph-blessed constants. Consequently Fork 1's `tier_map`/`override_model` must accept arbitrary OpenRouter model ids, and ADR-001's `llm_model`/`openrouter_*` settings are free `str` fields with no `Literal` allowlist (see the ADR-001 amendment of the same date). The OpenRouter provider implementation is the learner's in-flight work.
+
+2. **Concurrent fan-out partial-failure shape (D-013-3).** Fork 2's `complete_structured_many` is amended to return **per-item results-or-errors** (a result/error wrapper per item) rather than a flat `list[LlmResult]` that re-raises on the first non-retryable failure. This lets the Pass-1 orchestrator honour ADR-005 §5 ("skip the node, record, continue") cleanly instead of pushing per-future discipline onto every caller.
+
+3. **Fan-out concurrency default 10 → 5 (D-013-4).** Fork 2's ABC default `max_concurrent=10` is aligned to **5**, matching ADR-005's locked Pass-1 concurrency. `Settings.llm_concurrency` still overrides.
+
+**Cross-reference:** the provider-credential → env-var extensibility gap (ADR-013 finding #2 / dev DC1-08) is owned by **ADR-001 D-001-1** (a Settings/config concern that already owns env-var naming), not here — see the ADR-001 amendment of the same date. This ADR's "adding a provider is one config block" claim depends on that dynamic alias resolution.
+
+**Doc-syncs (no decision):** Confirmation #1 ("two abstract methods") is corrected — the ABC has a third abstract method `resolve_model`, the cache-key seam (F-013-5); `CallContext` god-bag creep is noted against Open-Question #3 (`provider_name` added first) (F-013-6).
+
+**New Confirmation items (from this amendment):**
+* `complete_structured_many` with 1 of N items failing returns N−1 results plus the failure surfaced per-item — not a whole-batch raise (D-013-3).
+* The ABC default `max_concurrent` is 5 (D-013-4).
+* OpenRouter accepts an arbitrary model-id string with no allowlist rejection (D-013-1 pass-through).
+
+No locked design decision is reversed; the v1 provider roster is re-scoped (OpenRouter added; Ollama/Bedrock deferred to v1.1). Clarification and additive evolution only.
