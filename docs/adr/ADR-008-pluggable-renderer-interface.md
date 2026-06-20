@@ -503,3 +503,25 @@ The same shape applies when a Go renderer is added: one new package under `codeo
 * Lanza & Marinescu (2006). *Object-Oriented Metrics in Practice* — referenced indirectly via ADR-009's class-selection thresholds, which the renderer consumes through the filtered subgraph.
 * NestJS Documentation — Modules and Providers. https://docs.nestjs.com/modules
 * Pydantic v2 — `model_config = ConfigDict(extra="forbid")` for strict schema validation. https://docs.pydantic.dev/latest/concepts/models/#extra-fields
+
+## Amendments
+
+**2026-06-21 — DC3 design-review pass (5 decisions + 1 shared boundary).** A code-blind design review of ADR-008 (DC3 cluster, guideline 06) produced five locked decisions plus one cross-ADR boundary shared with ADR-009/010. No prior decision is reversed.
+
+1. **Renderer input contract — opaque dict + in-memory handoff (D-008-1).** Fork 1's `render()` input contract is settled: `annotations` is an **opaque `dict[str, object]` (untyped-by-design)**, not a typed `LlmAnnotations` model — this avoids a hard renderer→Pass-1 schema dependency (a typed model is the v1.1 path if renderer-side type safety is wanted). The renderer receives `(graph, annotations)` **in-memory**; reading them from a persisted manifest is a CLI/eval concern outside the renderer contract. **This also resolves ADR-010 finding #2** (the same input-contract question).
+
+2. **Render-time partial-failure — skip + record (D-008-2).** When a class fails to render after retries, `render()` **omits that class's file, records it in the run manifest, and continues** — mirroring ADR-005 §5's per-call "skip + record + continue". Aborting the whole render throws away N−1 good files; a placeholder ships non-compiling output. Both rejected.
+
+3. **NFR-5 renderer-guide — CONTRIBUTING now, full guide v1.1 (D-008-3).** v1 ships a short "adding a renderer" section in `CONTRIBUTING.md`; the full contributor renderer-authoring guide is deferred to v1.1, when a second (Go) renderer makes the pattern real. NFR-5 is amended to the CONTRIBUTING form (plan §4).
+
+4. **Coverage check is eval-owned (D-008-4).** The per-target "coverage" check is **not** a renderer `compile_check` — it is owned by ADR-017's Fork 4 `coverage` slot (feature-coverage computed from the ADR-010 mapping matrix). `compile_checks()` stays compile-scoped; no rename. Fork 3 gains a one-line pointer to ADR-017.
+
+5. **Duplicate render path-key collision — fail loud (D-008-5).** Two classes mapping to the same `PurePosixPath` in the `render()` return dict is an **error at assembly**, not last-wins. Silent file loss is the worst failure mode; a collision is a renderer/selection bug. (Namespacing colliding paths is a v1.1 option if a legitimate case ever appears.)
+
+**Shared boundary (D-010-1, cross-ADR 008/009/010).** Selection-tuning knobs (per-domain cap, domain grouping/mapping) are **hosted on the renderer config (`TypeScriptConfig`) for v1**, but are documented as **ADR-009 selection knobs hosted on the renderer config — not renderer concerns**. Revisit (→ a dedicated selection-config object) when a 2nd renderer arrives (v1.1) and the knobs must be renderer-agnostic.
+
+**New Confirmation items (from this amendment):**
+* One class failing to render → its file is omitted, the manifest records it, and the other classes' files are still written (D-008-2).
+* Two classes resolving to the same render path raise a loud assembly error, not a silent overwrite (D-008-5).
+
+No reversal of any prior decision; clarification + additive contract definition only.

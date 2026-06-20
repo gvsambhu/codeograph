@@ -432,3 +432,21 @@ The per-class render granularity locked in ADR-010 Fork 8 multiplies neatly with
 **Deferred:** The Path A heuristic (detect outlier packages, compute LCP within the dominant cluster) is tracked for a future design round. It requires a learner-defined outlier rule and belongs in a dedicated ADR amendment, not a fixup round.
 
 **Files changed:** `codeograph/rendering/domain_grouping.py` (docstring), `codeograph/cli/render.py` (stderr warning).
+
+**2026-06-21 — DC3 design-review pass (3 decisions + shared boundary + 2 doc-syncs).** A code-blind design review of ADR-009 (DC3 cluster, guideline 06) produced three locked decisions, one shared cross-ADR boundary, and two doc-syncs.
+
+1. **Cap semantics — cost ceiling with stratified round-robin fill (D-009-1).** Fork 4's framing is **amended (not superseded)**: `--max-classes-per-domain` is a **cost/token ceiling** — its driver is cost control, born from a legacy uncapped run that burned tokens rendering classes (some purely representative) that did not need converting. The **fill algorithm is the stratified round-robin across High/Medium/Low complexity buckets** and is **kept**: at the default of **3 it yields one example per bucket** (one simple, one typical, one complex), which is precisely what lets a user judge whether the tool handles trivial *and* gnarly classes. The representativeness goal is **retained and recorded as validated-by-experience** — this **closes review finding #2 by grounding the premise rather than dropping it** (a small *random* sample is uninformative; a small *difficulty-stratified* sample is the whole point). FR-13 (cost/reproducibility default) and FR-14 (documented ordering = the round-robin) are both satisfied; `--max-classes-per-domain 0` still disables the cap for full runs. The cost story is three layers: this cap, free-tier/aggregator providers (ADR-013 D-013-1, OpenRouter), and this stratified fill that makes the capped sample maximally informative.
+   * **Code-verification follow-up (DC3 dev review):** the shipped selector must fill by **round-robin H/M/L**, not pure complexity-descending priority. If the shipped fill is priority-desc, it diverges from this decision and becomes a DC3 dev-review / reconciliation catch-up (restore the stratified round-robin) — flagged here so the lock is not silently contradicted by what shipped.
+
+2. **Selection result shape — per-group list (D-009-2).** Fork 1 is amended to record the shipped **per-group `list[SelectionResult]`** (one result per domain group), not a whole-corpus domain-keyed dict. It composes with the renderer's per-class render loop and the per-group audit (refused / stub_todos). **Cross-cluster:** this is the shape ADR-017's eval framework (DC4) consumes — locked coherently with that downstream dependency.
+
+3. **Null-metric bucketing (D-009-3).** Classes with null complexity metrics (`signatures_only` / `regex_fallback`, no CBO/WMC) are placed in the **MID bucket, sorted last**. This keeps an unmeasured class selectable without letting it masquerade as high- or low-complexity; sorted-last is the least-surprising tiebreak. Material because D-009-1 keeps the stratified fill live.
+
+**Shared boundary (D-010-1, cross-ADR 008/009/010).** Selection-tuning knobs (per-domain cap, domain grouping/mapping) are hosted on the renderer config (`TypeScriptConfig`) for v1, documented as **ADR-009 selection knobs hosted on the renderer config — not renderer concerns**; revisit (→ dedicated selection-config object) at the 2nd renderer (v1.1).
+
+**Doc-syncs (no decision):** the in-memory output-volume bound is recomputed against the default cap of 3 (small; the ~1 MB assumption holds) (F-008-5); the representativeness-beyond-FR-14 note is folded into D-009-1's validated-by-experience framing (F-009-5).
+
+**New Confirmation item (from this amendment):**
+* A null-metric class (`signatures_only`/`regex_fallback`) lands in the MID bucket, sorted last, and remains selectable (D-009-3).
+
+No prior decision reversed; Fork 4 is amended (cost-ceiling framing + validated representativeness), not superseded. Clarification only.
