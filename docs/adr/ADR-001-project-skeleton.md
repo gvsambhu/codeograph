@@ -210,3 +210,13 @@ References:
 * **CLI-argument → Settings boundary.** CLI flags are command-level arguments and do not populate `Settings` fields directly; `Settings` is constructed independently from env / `.env` / `config.yaml` / defaults. Settings field names map to environment variables via the `CODEOGRAPH_` prefix (with the provider-key exemption from the 2026-06-14 split rule).
 
 No reversal of any prior decision; clarification only.
+
+**2026-06-20 — DC2 design-review pass (1 decision; provider-credential extensibility).** Surfaced by the DC2 review of ADR-013 (finding #2) and the dev DC1-08 OCP finding: ADR-013's "adding a provider is one config block" claim was undermined because the credential-key → env-var mapping was hardcoded at the CLI `ValidationError` boundary, so adding OpenRouter required a code edit (an OCP gap). The decision (D-013-2 = A) is that **dynamic credential alias resolution is owned here, in D-001-1** — not in ADR-013 — because it is a Settings/config concern and D-001-1 already owns env-var naming.
+
+Concretely, extending the D-001-1 env-var rule: `Settings` resolves each provider's credential env var from that field's **own validation aliases** (`AliasChoices`) rather than a hardcoded key→env map in the CLI handler. Adding a provider then adds a field with its aliases and needs no edit to the validation-error surface. The OpenRouter credential follows the 2026-06-14 split rule (bare `OPENROUTER_API_KEY` primary, `CODEOGRAPH_OPENROUTER_API_KEY` fallback). Per DC2 D-013-1, the OpenRouter **model** field is a free-form `str` (no `Literal` allowlist), accepting any OpenRouter model id. The CLI handler refactor that consumes this is the learner's in-flight DC1-08 work; this amendment records **where** the mechanism is designed, not the code.
+
+**New Confirmation items (from this amendment):**
+* Adding a provider credential (e.g. `OPENROUTER_API_KEY`) requires no edit to the CLI validation-error mapping — the alias is resolved from the `Settings` field's `AliasChoices` (D-013-2).
+* The OpenRouter model setting accepts an arbitrary model-id string with no allowlist rejection (D-013-1 pass-through).
+
+No reversal of any prior decision; extends the D-001-1 env-var rule (clarification + additive).

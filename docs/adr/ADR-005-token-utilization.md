@@ -259,3 +259,26 @@ References:
 * Anthropic rate limits — https://docs.anthropic.com/en/api/rate-limits
 * LangChain `ChatAnthropic` cache control — https://python.langchain.com/docs/integrations/chat/anthropic/#prompt-caching
 * MADR template — https://github.com/adr/madr
+
+## Amendments
+
+**2026-06-20 — DC2 design-review pass (5 decisions + 2 doc-syncs).** A code-blind design review of ADR-005 (DC2 cluster, guideline 06) produced five locked decisions and two description-level corrections, recorded here. The O1/O3 token strategy, the prefix-cache architecture, and the orchestration model all stand.
+
+1. **Oversized-input handling — implement O3 as locked (D-005-1).** A class exceeding the per-call token cap is handled by **signatures-only extraction** (`extraction_mode="signatures_only"`) with the degradation recorded in the run manifest — the originally-locked O3 behaviour, which the shipped code had instead silently *skipped*. This keeps every class present (degraded, not dropped) and makes the `signatures_only` enum value live. Chosen over the alternative ("skip oversized" as a new explicit option) for fidelity: signatures-only is strictly less lossy than dropping a class a reviewer would notice as missing. **No ripple into ADR-006's graph schema or the golden corpus** — the enum already exists, so no `2.0.0` schema bump and no golden re-capture (option B would have rippled into DC1).
+
+2. **Pass-1 prompt-cache TTL = 1 hour (D-005-2).** §1's 5-minute TTL is amended to a **1-hour TTL for the high-fan-out Pass 1**; low-fan-out callers keep the 5-minute default. A Pass-1 fan-out over 10³–10⁴ classes at concurrency 5 can outlive 5 minutes and re-bill the cached prefix; 1 hour keeps the prefix warm and protects Driver #1 (cost ceiling on Pass 1). Ratifies the shipped behaviour.
+
+3. **Cost visibility deferred to v1.1 (D-005-3).** FR-22 cost-control flags (`--max-cost-usd`, `--budget-warn`) and the NFR-2 token/cost scorecard are confirmed **v1.1 (ADR-016)**, not v1; plan §4 is annotated to mark them so they are not read as "unmet in v1". v1's only cost mechanism remains prefix caching (no estimate, no cap). The NFR-2 scorecard line is delegated to ADR-017's eval surface rather than owned here.
+
+4. **Sizing assumptions stated as heuristics (D-005-4).** The "~3 chars/token for Java" ratio and the "80,000-token quality-degradation cap" were presented without provenance. §3 is amended to (a) cite a measured chars/token ratio from a Java sample and (b) record the 80K cap as an **explicitly-accepted operational heuristic** (per ADR-004's citation discipline: accept a deliberate threshold rather than fabricate a source). Neither is presented as an external fact.
+
+5. **Failure-ratio at small N (D-005-6).** `max_pass1_failure_ratio=0.10` would abort a 3-class run on a single transient failure (33%). §5 is amended to apply the ratio **only above an N-floor (N≥10)**; below the floor an absolute-failure-count minimum governs, so a micro-corpus is not aborted by one transient.
+
+**Doc-syncs (no decision):** the orchestration fork gains its missing rejected-alternatives note (F-005-5); the stale v1.1 model field names are corrected (`pass1/pass2/hazards` → `fast/deep/render`, present-but-inert) (F-005-7).
+
+**New Confirmation items (from this amendment):**
+* A class over the token cap yields `extraction_mode="signatures_only"` plus a manifest record — not a silent skip (D-005-1).
+* The Pass-1 prompt cache uses a 1-hour TTL (D-005-2).
+* A single failure in an N<10 run does not abort the run via the failure ratio (D-005-6).
+
+No prior locked decision is reversed; the oversized-input amendment realigns the shipped code with the already-locked O3. Clarification and implementation-alignment only.

@@ -639,3 +639,22 @@ cost model, and are re-added as an additive `2.x` manifest bump **when a cost mo
 future cost-control work, or an amendment to this ADR that lands the per-model price table). No reversal
 of the telemetry / cache-backend / cache-key decisions of this ADR; the change is to the manifest
 `cache_stats` field set only.
+
+**2026-06-20 — DC2 design-review pass (4 decisions + 1 doc-sync).** A code-blind design review of ADR-015 (DC2 cluster, guideline 06) produced four locked decisions and one description-level correction, recorded here.
+
+1. **Cache key adds `provider` (D-015-1).** Fork 4's cache key grows from 7 to **8 components** — `provider` is added, and the include table is updated. Once D-013-1 makes more than one provider/aggregator live (OpenRouter), the model name alone no longer uniquely determines the response, so omitting `provider` would cause cross-provider cache contamination (the same model id served via Anthropic vs OpenRouter sharing a key). With OpenRouter's free-form model pass-through, the model string is whatever the user supplied; `provider` disambiguates.
+
+2. **`run_id` added to `TelemetryRecord` (D-015-2 — JOINT with ADR-022).** Fork 2's `TelemetryRecord` (and the telemetry sidecar filename) gains a **`run_id`** field, bumping the telemetry schema **1.0 → 1.1 (additive)**. ADR-022 (Fork 4/5) assumes a shared `run_id` for manifest↔logs↔telemetry correlation that did not previously exist (the record carried only `trace_id`/`pipeline_run_id`). A single `run_id` is the natural join key. **This is one decision mirrored in the DC5-DDL (D-022-L1) — ADR-015 is the canonical schema owner; ADR-022 Fork 4/5 is amended jointly.**
+
+3. **FR-16 sidecar reinterpretation documented (D-015-3).** FR-16 says per-call telemetry goes "to the run manifest"; the design routes **per-call telemetry → sidecar JSONL** and **aggregate → manifest**. That deviation is now blessed explicitly here (and noted in plan §4 FR-16), the same way ADR-022 Fork 5 documents its analogous FR-20 reinterpretation. Routing per-call records into the manifest (literal FR-16) is rejected — manifest god-bag.
+
+4. **Telemetry emit-failure = best-effort + warn (D-015-5).** Fork 1's `JsonlEmitter.emit` is amended to **best-effort semantics**: a telemetry write error **warns and continues, never failing the LLM call**. Telemetry is an audit aid, not the product; losing a record must not abort a paid run. This softens the Fork-1 "telemetry guaranteed" wording.
+
+**Doc-sync (no decision):** "CacheStats" is disambiguated — it names two distinct concepts (the cache *backend* vs the per-pass *stats block*); the ADR text now distinguishes them. The code rename is learner work (F-015-4).
+
+**New Confirmation items (from this amendment):**
+* The response-cache key includes `provider` (8 components); the same model via two providers yields two distinct keys (D-015-1).
+* `TelemetryRecord` carries `run_id`, the sidecar filename embeds it, and the telemetry schema version is 1.1 (D-015-2).
+* A telemetry write failure warns and the LLM call still succeeds (D-015-5).
+
+No reversal of the telemetry / cache-backend decisions; the cache key gains a component and the telemetry schema takes an additive `run_id`. Clarification and additive evolution only.
