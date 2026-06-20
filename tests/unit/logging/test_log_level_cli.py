@@ -141,7 +141,7 @@ class TestAreaFromContextFilter:
 
         filt = AreaFromContext()
         assert filt.filter(record) is True
-        assert record.area == "parser"
+        assert getattr(record, "area") == "parser"
 
     def test_area_falls_back_to_logger_name(self) -> None:
         record = logging.LogRecord(
@@ -156,4 +156,4 @@ class TestAreaFromContextFilter:
 
         filt = AreaFromContext()
         assert filt.filter(record) is True
-        assert record.area == "pass1"
+        assert getattr(record, "area") == "pass1"
