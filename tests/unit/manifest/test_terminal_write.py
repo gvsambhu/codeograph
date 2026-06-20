@@ -39,6 +39,7 @@ class TestNoManifestOnInterrupt:
         is_windows = platform.system() == "Windows"
         path_sep = ";" if is_windows else ":"
 
+        java_home: str | None = None
         if is_windows:
             java_home = "C:/alldev/Java/jdk-25.0.1"
             java_bin = "C:/alldev/Java/jdk-25.0.1/bin"
