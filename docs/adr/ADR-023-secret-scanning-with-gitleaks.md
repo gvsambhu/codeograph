@@ -556,3 +556,28 @@ An admin bypass mechanism is explicitly deferred. The v1.1 trigger is "a real fa
 * pre-commit framework — https://pre-commit.com/
 * GitHub Repository Rulesets — https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets
 * MADR template — https://github.com/adr/madr
+
+## Amendments
+
+### 2026-06-22 — D-023-1: Pre-commit framing correction (DC5-DDL)
+
+**Decision:** D-023-1 = A (locked 2026-06-22 via DC5 decision pass).
+
+**Correction to Fork 1 Decision Outcome:**
+
+The Fork 1 Decision Outcome and the pyproject.toml sketch both treated `.pre-commit-config.yaml` and the `pre-commit` Python framework as new introductions in DC5, including a `# NEW` annotation and an explicit "add `pre-commit` to dev deps" step.
+
+**This framing is incorrect.** The `pre-commit` framework has been present since DC2. The existing `.pre-commit-config.yaml` already contains four hooks: the ADR-014 prompt-hash and gen-constants freshness gates, plus two NFR-1 banned-terms hooks. The `pre-commit` package is already in `[project.optional-dependencies] dev`.
+
+**Corrected Fork 1 scope:** the DC5 action is to **add the gitleaks `repo` entry to the existing `.pre-commit-config.yaml`** — not to bootstrap the pre-commit framework. The Decision Outcome's "add `pre-commit` to dev deps" step and the `# NEW` annotation in the pyproject example are removed from the design intent; they were already satisfied before DC5.
+
+**Cascade:** The DC5 M8 implementation plan must **not** overwrite the existing `.pre-commit-config.yaml`; it must append the gitleaks hook entry. Overwriting would clobber the four existing hooks. This is the learner's dev fix (DC5-04 in `dev-dc5.md`).
+
+**No change to Confirmation items** — Confirmation #2 ("`.pre-commit-config.yaml` exists at repo root with one entry whose `repo` field is `https://github.com/gitleaks/gitleaks`") remains correct; it tests for the gitleaks entry specifically, not for other entries' presence.
+
+---
+
+**Doc-sync items cleared (Family-1, no decision required):**
+
+- **F-023-2** — Fork 1 runner `ubuntu-22.04` vs Fork 4 / project `ubuntu-latest`: corrected to `ubuntu-latest` throughout (matches shipped CI and project standard).
+- **F-023-3** — Gitleaks pin `8.30.1` documented in ADR forks may differ from the pin in the shipped `secrets-scan.yml`. This is a reconciliation pointer; the authoritative pin is in `secrets-scan.yml`. Verify at the reconciliation gate.
