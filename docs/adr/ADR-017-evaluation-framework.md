@@ -734,3 +734,68 @@ The `coverage` slot keeps feature-coverage semantics permanently. When rendered-
 * Lanza, M., & Marinescu, R. (2006). *Object-Oriented Metrics in Practice.* Springer. — indirect via ADR-004 / ADR-009 threshold rationale propagated into `internal_consistency` and `coverage` derivations.
 * JSON Schema specification — https://json-schema.org/ — for `scorecard.schema.json` and the auto-generation from Pydantic source.
 * MADR template — https://github.com/adr/madr
+
+## Amendments
+
+**2026-06-21 — Fork 5 eval CLI surface ratified to `eval run` / `eval report` subcommands.**
+Fork 5 locked the invocation surface as a bare positional `codeograph eval <output-dir>` *plus* a
+`codeograph eval report <output-dir...>` subcommand. That shape is not buildable in Click: a command
+group that carries both an optional positional argument and named subcommands is ambiguous, because
+the parser cannot decide whether the first token is an output directory or the `report` subcommand.
+The shipped implementation correctly diverged to two explicit subcommands — `codeograph eval run
+<output-dir>` and `codeograph eval report <output-dir...>` — and that surface is ratified here as
+canonical. Wherever Fork 5's command lines and Confirmations #1, #5, #6, #7, #8, and #12 read
+`codeograph eval <output-dir>`, the canonical form is now `codeograph eval run <output-dir>`; the
+`--scorecard` / `--check` / `--skip-check` / `--clean` flags, the exit-code contract, idempotent
+re-eval, and the missing-directory handling are all unchanged and attach to `eval run`. The
+`codeograph run <source> --out <out> --eval` opt-in sugar is unaffected; it composes `run` followed
+by `eval run`. The shipped `.github/workflows/ci.yml` already invokes `codeograph eval run`; ADR-018
+Fork 6's CI sketch, which carried the same impossible `eval <dir>` form, is corrected in the ADR-018
+Amendments as one shared family. No reversal of any prior decision; the chosen eval behaviour is
+unchanged — only the unbuildable command spelling is corrected to the buildable subcommand form.
+
+**2026-06-21 — Scorecard-schema freshness gate adopted (Fork 1).** Fork 1 commits
+`codeograph/evals/scorecard.schema.json` (auto-generated from `scorecard_schema.py`) for external
+consumers, but designed no mechanism to keep the committed JSON Schema in sync with its Pydantic
+source — the generator was generate-only with no `--check` mode and no CI gate, so the committed
+artefact could drift silently. The committed-generated-artefact family (prompt constants per ADR-014,
+schema models per ADR-006, and the run manifest) is gate-guarded elsewhere; the scorecard schema is
+brought into that family. The generator gains a `--check` mode that regenerates into a temp location
+and diffs against the committed file (non-zero exit on drift), and CI runs that check as a lint step
+alongside the existing prompt-artefact freshness gate. This makes the freshness-gate claims in
+ADR-022 / ADR-023 true for the scorecard schema as well. The generator `--check` implementation and
+the ci.yml lint step are downstream code/CI work (tracked with the broader committed-artefact gate
+effort); this amendment records the design decision. No reversal of any prior decision; clarification
+and tightening only.
+
+**2026-06-21 — Feature-coverage band (Fork 4) validated-then-locked against the shipped corpora.**
+The `coverage` slot's 95% sharp-pass / 85% band-floor is the only threshold in this ADR without an
+external citation; it was a judgment call calibrated against the v1 corpora, which did not exist when
+the ADR was locked (recorded as Negative #2 and an Open Question). The band is to be validated against
+the two shipped corpora (`spring-rest-sample`, `spring-blog-api`) on the first eval cycle, and the
+measured basis recorded — either confirming the 95% / 85% numbers with the corpus data behind them,
+or amending the band to the calibrated values. Until that measurement lands the band stands as the
+operational default. No reversal of any prior decision; this enacts the Open Question the ADR already
+posed.
+
+**2026-06-21 — Cross-ADR reference reconciliation (manifest version, skip taxonomy, golden path).**
+Three stale or incomplete references are corrected, none of which changes a decision:
+(1) *Manifest schema version.* Fork 1 and Fork 8 describe additive manifest bumps to schema `1.3.0`
+(the `scorecards` pointer field) and `1.4.0` (the `compile_checks` pointer field), and the
+Relationships note reads "`1.2.0 → 1.4.0`". ADR-025 subsequently restructured the manifest to a flat
+`2.0.0` shape and owns its schema; the `scorecards` and `compile_checks` pointer objects locked here
+live in that `2.0.0` manifest unchanged. The `1.3.0` / `1.4.0` version numbers are historical; the
+authoritative manifest version and shape are ADR-025's `2.0.0`.
+(2) *Skip-reason taxonomy.* Fork 2's enumeration of `details.skip_reason` values omits `explicit_skip`,
+which the framework already emits and Confirmation #6 already asserts (the `--skip-check` opt-out path).
+`explicit_skip` is added to the taxonomy: `details.skip_reason ∈ {"band_gap",
+"preflight_missing_tool", "deferred_v1.1", "explicit_skip", "target_not_rendered",
+"source_path_unavailable", "no_v1_translatable_features_in_corpus", "no_golden_committed",
+"compile_checks_sidecar_missing_or_corrupt"}`.
+(3) *Golden path and redundant timestamp.* Fork 3's `golden_graph_agreement` computation cites
+`tests/goldens/<corpus_id>/graph.json`; the amended ADR-007 path is `tests/golden/<corpus>/`. The
+check reads the golden from `tests/golden/<corpus>/graph.json`. The scorecard envelope's
+`run_timestamp` (Fork 1) duplicates information carried by `run_id` (which ADR-022 locked as a
+chronologically-sortable, timestamp-derived identifier); `run_id` is the canonical correlation field
+and `run_timestamp` is redundant. No reversal of any prior decision; these are consistency
+corrections against later-locked ADRs (ADR-007, ADR-022, ADR-025).
