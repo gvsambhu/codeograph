@@ -91,11 +91,16 @@ class NodeAnnotation(BaseModel):
 class AnnotationRecord(BaseModel):
     """Stored artifact unit in llm-annotations.json.
 
-    Separates orchestrator-owned state (`degraded`) from the LLM-response
-    schema (`NodeAnnotation`). When `degraded` is True the node was skipped
-    due to token-budget limits (ADR-005 O3); `annotation` is None.
+    Separates orchestrator-owned state (`degraded`, `extraction_mode`) from
+    the LLM-response schema (`NodeAnnotation`).
+
+    When `degraded` is True and `extraction_mode` is ``"signatures_only"``,
+    the node was oversized (ADR-005 O3 / D-005-1): signatures were extracted
+    and sent to the LLM, producing a degraded-but-real annotation.
+    When `annotation` is also None, the signatures-only LLM call itself failed.
     """
 
     node_id: str = Field(description="Graph node ID — matches NodeAnnotation.node_id when annotation is present.")
-    degraded: bool = Field(False, description="True when the orchestrator skipped this node due to size limits.")
-    annotation: NodeAnnotation | None = Field(None, description="The LLM-produced annotation. None when degraded=True.")
+    degraded: bool = Field(False, description="True when the orchestrator processed this node in degraded mode.")
+    annotation: NodeAnnotation | None = Field(None, description="The LLM-produced annotation. None on total failure.")
+    extraction_mode: str | None = None
