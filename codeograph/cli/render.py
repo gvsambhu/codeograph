@@ -90,10 +90,10 @@ def _list_targets_callback(ctx: click.Context, _param: click.Parameter, value: b
     help="Override TypeScriptConfig.db_layer (e.g. 'typeorm').",
 )
 @click.option(
-    "--render-budget",
+    "--max-classes-per-domain",
     default=None,
     type=int,
-    help="Override TypeScriptConfig.render_budget (per-group class cap).",
+    help="Override TypeScriptConfig.render_budget: max classes selected per domain group (FR-13).",
 )
 @click.option(
     "--no-scaffold",
@@ -116,7 +116,7 @@ def render_cli(
     target: str,
     force: bool,
     db_layer: str | None,
-    render_budget: int | None,
+    max_classes_per_domain: int | None,
     no_scaffold: bool,
 ) -> None:
     """Render a TypeScript/NestJS project from an existing codeograph output.
@@ -192,8 +192,8 @@ def render_cli(
     raw_config: dict[str, object] = {}
     if db_layer is not None:
         raw_config["db_layer"] = db_layer
-    if render_budget is not None:
-        raw_config["render_budget"] = render_budget
+    if max_classes_per_domain is not None:
+        raw_config["render_budget"] = max_classes_per_domain
     if no_scaffold:
         raw_config["include_scaffold"] = False
 

@@ -50,7 +50,8 @@ _LOW_CBO_THRESHOLD = 1  # CBO ≤ this → candidate for OR-low
 _LOW_WMC_THRESHOLD = 5  # WMC ≤ this → candidate for OR-low (AND with CBO)
 
 # Default per-group budget cap (overridden by TypeScriptConfig.render_budget)
-_DEFAULT_CAP = 50
+# FR-13: default = 3 (one per bucket at minimum cap) — DC3-02.
+_DEFAULT_CAP = 3
 
 
 # ---------------------------------------------------------------------------

@@ -17,7 +17,7 @@ class TestTypeScriptConfigDefaults:
         assert cfg.db_layer == "typeorm"
         assert cfg.db_adapter == "pg"
         assert cfg.render_strategy == "from_manifest"
-        assert cfg.render_budget == 50
+        assert cfg.render_budget == 3
         assert cfg.domain_mapping == {}
         assert cfg.unsupported_feature_policy == "stub_todo"
         assert cfg.security_feature_policy == "refuse"
