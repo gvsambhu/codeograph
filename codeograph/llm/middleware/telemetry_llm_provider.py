@@ -1,3 +1,4 @@
+import logging
 import time
 import uuid
 from datetime import UTC, datetime
@@ -82,7 +83,6 @@ class TelemetryLlmProvider(LlmProvider):
             try:
                 self._emitter.emit(record)
             except Exception as e:
-                import logging
                 logging.getLogger(__name__).warning("Telemetry emit failed: %s", e)
             return res
 
@@ -120,6 +120,5 @@ class TelemetryLlmProvider(LlmProvider):
             try:
                 self._emitter.emit(record)
             except Exception as e2:
-                import logging
                 logging.getLogger(__name__).warning("Telemetry emit failed: %s", e2)
             raise e

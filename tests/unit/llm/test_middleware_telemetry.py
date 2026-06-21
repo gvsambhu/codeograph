@@ -71,8 +71,7 @@ def test_telemetry_middleware_emits_record(mock_llm_provider, tmp_telemetry_json
     assert parsed["attempts"] == []
 
 
-def test_telemetry_middleware_emit_failure_warns_but_succeeds(mock_llm_provider, tmp_telemetry_jsonl, tmp_path, caplog):
-    import logging
+def test_telemetry_middleware_emit_failure_warns_but_succeeds(mock_llm_provider, tmp_telemetry_jsonl, tmp_path):
     from unittest.mock import patch
 
     ctx = CallContext("r1", "p1", "pr1", Purpose.ANNOTATE, "test_prompt", "v1", "hash", "corpus")
