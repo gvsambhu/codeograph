@@ -6,15 +6,21 @@ directly. Index builders and edge-addition methods are tested through the
 public assemble() method using minimal two-file corpora.
 """
 
+from __future__ import annotations
+
+from typing import cast
+
 from codeograph.graph.graph_assembler import GraphAssembler
 from codeograph.graph.graph_builder import GraphBuilder
 from codeograph.graph.models.graph_schema import (
     CallsResolvedEdge,
     CallsUnresolvedEdge,
     Cardinality,
+    CodeographKnowledgeGraph,
     DependsOnEdge,
     RelationEdge,
 )
+from codeograph.parser.models import FieldFact, MethodFact, ParsedFile
 
 # ---------------------------------------------------------------------------
 # Minimal ParsedFile factories
@@ -23,8 +29,8 @@ from codeograph.graph.models.graph_schema import (
 MODULE_ID = "mod:core"
 
 
-def _class_pf(**kwargs):
-    base = {
+def _class_pf(**kwargs: object) -> ParsedFile:
+    base: dict[str, object] = {
         "kind": "class",
         "id": "com.example.A",
         "name": "A",
@@ -47,11 +53,11 @@ def _class_pf(**kwargs):
         "methods": [],
     }
     base.update(kwargs)
-    return base
+    return cast(ParsedFile, base)
 
 
-def _field(**kwargs):
-    base = {
+def _field(**kwargs: object) -> FieldFact:
+    base: dict[str, object] = {
         "id": "com.example.A.dep",
         "name": "dep",
         "type": "B",
@@ -66,11 +72,11 @@ def _field(**kwargs):
         "constraints": [],
     }
     base.update(kwargs)
-    return base
+    return cast(FieldFact, base)
 
 
-def _method(**kwargs):
-    base = {
+def _method(**kwargs: object) -> MethodFact:
+    base: dict[str, object] = {
         "id": "com.example.A#doIt()",
         "name": "doIt",
         "return_type": "void",
@@ -90,15 +96,15 @@ def _method(**kwargs):
         "calls": [],
     }
     base.update(kwargs)
-    return base
+    return cast(MethodFact, base)
 
 
-def _build_fragment(parsed_file):
+def _build_fragment(parsed_file: ParsedFile) -> CodeographKnowledgeGraph:
     """Build a graph fragment from a ParsedFile using GraphBuilder."""
     return GraphBuilder().build(parsed_file, MODULE_ID)
 
 
-def _edges_of(graph, cls):
+def _edges_of[T](graph: CodeographKnowledgeGraph, cls: type[T]) -> list[T]:
     return [e.root for e in graph.edges if isinstance(e.root, cls)]
 
 
@@ -168,7 +174,9 @@ class TestStripCollectionWrapper:
 
 
 class TestAddDepEdges:
-    def _two_class_corpus(self, a_imports=None, a_fields=None):
+    def _two_class_corpus(
+        self, a_imports: list[str] | None = None, a_fields: list[FieldFact] | None = None
+    ) -> CodeographKnowledgeGraph:
         """A depends on B; B is a separate class in the corpus."""
         pf_a = _class_pf(
             id="com.example.A",
@@ -254,7 +262,7 @@ class TestAddDepEdges:
 
 
 class TestAddRelationEdges:
-    def _corpus_with_relation(self, annotation, field_type):
+    def _corpus_with_relation(self, annotation: str, field_type: str) -> CodeographKnowledgeGraph:
         field = _field(
             id="com.example.Owner.pets",
             name="pets",
@@ -321,7 +329,9 @@ class TestAddRelationEdges:
 
 
 class TestConvertUnresolvedToResolved:
-    def _corpus(self, caller_calls=None, callee_field=None, callee_param=None):
+    def _corpus(
+        self, caller_calls: list[str] | None = None, callee_field: bool = False, callee_param: bool = False
+    ) -> CodeographKnowledgeGraph:
         """
         Two-class corpus:
           - A has a field of type B (optional) and a method that calls B's method

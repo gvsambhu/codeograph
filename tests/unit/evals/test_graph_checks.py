@@ -21,6 +21,8 @@ from codeograph.graph.models.graph_schema import (
     Edge,
     ExtractionMode,
     MethodNode,
+    Modifier,
+    Modifier4,
     Node,
 )
 
@@ -38,7 +40,7 @@ def _class_node(
             id=fqcn,
             name=fqcn.rsplit(".", 1)[-1],
             kind="class",
-            modifiers=["public"],
+            modifiers=[Modifier.public],
             source_file=f"src/{fqcn.replace('.', '/')}.java",
             line_range=[1, 10],
             extraction_mode=ExtractionMode(extraction_mode),
@@ -53,7 +55,7 @@ def _method_node(fqcn: str = "com.example.Foo#bar()") -> Node:
             id=fqcn,
             name=fqcn.split("#")[1].split("(")[0],
             kind="method",
-            modifiers=["public"],
+            modifiers=[Modifier4.public],
             line_range=[2, 5],
             parameters=[],
             return_type="void",
@@ -155,6 +157,7 @@ class TestRelationshipCorrectness:
             edges=[_calls_resolved_edge("com.example.A", "com.example.Missing")],
         )
         result = check_relationship_correctness(graph)
+        assert result.value is not None
         assert result.value < 1.0
         assert result.result == "fail"
 
@@ -215,6 +218,7 @@ class TestInternalConsistency:
             edges=[],
         )
         result = check_internal_consistency(graph)
+        assert result.value is not None
         assert result.value >= 1
 
     def test_violations_listed_in_details(self):

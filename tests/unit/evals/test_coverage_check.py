@@ -97,6 +97,7 @@ def test_coverage_fail_when_many_refused(tmp_path: Path):
     )
     result = check_coverage(tmp_path, "ts")
     assert result.result == "fail"
+    assert result.value is not None
     assert result.value < 0.85
 
 

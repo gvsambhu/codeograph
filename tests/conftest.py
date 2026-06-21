@@ -9,7 +9,7 @@ Registers:
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeVar
 
 import pytest
 from pydantic import BaseModel
@@ -17,6 +17,8 @@ from pydantic import BaseModel
 from codeograph.llm.errors import LlmError
 from codeograph.llm.models import LlmResult, Message, Tier, TokenUsage
 from codeograph.llm.provider import LlmProvider
+
+T = TypeVar("T", bound=BaseModel)
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
@@ -40,7 +42,7 @@ def update_goldens(request: pytest.FixtureRequest) -> bool:
 class MockLlmProvider(LlmProvider):
     """A mock LLM provider for unit tests that avoids live API calls."""
 
-    mock_response: LlmResult[BaseModel] | None = None
+    mock_response: LlmResult[Any] | None = None
 
     def __init__(self) -> None:
         self.calls: list[dict[str, Any]] = []
@@ -52,11 +54,11 @@ class MockLlmProvider(LlmProvider):
         self,
         tier: Tier,
         messages: list[Message],
-        schema: type[BaseModel],
+        schema: type[T],
         *,
         override_model: str | None = None,
         max_tokens: int = 4096,
-    ) -> LlmResult[BaseModel]:
+    ) -> LlmResult[T]:
         self.calls.append(
             {
                 "tier": tier,
@@ -68,11 +70,12 @@ class MockLlmProvider(LlmProvider):
         )
         if self.mock_response is not None:
             return self.mock_response
-        # Dummy instantiation — might fail if schema has required fields without defaults
+        # Attempt zero-argument construction; fall back to model_construct() which
+        # creates an instance without validation so required fields stay at None.
         try:
-            val = schema()
+            val: T = schema()
         except Exception:
-            val = None  # Placeholder; learner should handle proper mocking
+            val = schema.model_construct()
 
         return LlmResult(
             value=val,
@@ -84,12 +87,12 @@ class MockLlmProvider(LlmProvider):
     def complete_structured_many(
         self,
         tier: Tier,
-        requests: list[tuple[list[Message], type[BaseModel]]],
+        requests: list[tuple[list[Message], type[T]]],
         *,
         max_concurrent: int = 5,
         override_model: str | None = None,
-    ) -> list[LlmResult[BaseModel] | LlmError]:
-        results = []
+    ) -> list[LlmResult[T] | LlmError]:
+        results: list[LlmResult[T] | LlmError] = []
         for msgs, schema in requests:
             try:
                 results.append(self.complete_structured(tier, msgs, schema, override_model=override_model))
@@ -97,8 +100,8 @@ class MockLlmProvider(LlmProvider):
                 results.append(e)
         return results
 
-    def count_tokens(self, text: str) -> int:
-        return len(text) // 4
+    def count_tokens(self, messages: list[Message]) -> int:
+        return sum(len(m.content) for m in messages) // 4
 
 
 @pytest.fixture

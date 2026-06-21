@@ -15,7 +15,13 @@ import pytest
 # ---------------------------------------------------------------------------
 # Helpers — build minimal ClassNode-like objects via the real Pydantic model
 # ---------------------------------------------------------------------------
-from codeograph.graph.models.graph_schema import ClassNode, CodeographKnowledgeGraph, Node
+from codeograph.graph.models.graph_schema import (
+    ClassNode,
+    CodeographKnowledgeGraph,
+    ExtractionMode,
+    Modifier,
+    Node,
+)
 from codeograph.rendering.class_selector import (
     _HIGH_CBO_THRESHOLD,
     _HIGH_WMC_THRESHOLD,
@@ -36,10 +42,10 @@ def _make_class_node(
         id=fqcn,
         kind="class",
         name=fqcn.rsplit(".", 1)[-1],
-        modifiers=["public"],
+        modifiers=[Modifier.public],
         source_file=f"src/main/java/{fqcn.replace('.', '/')}.java",
         line_range=[1, 50],
-        extraction_mode=extraction_mode,
+        extraction_mode=ExtractionMode(extraction_mode),
         cbo=cbo,
         wmc=wmc,
     )

@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from codeograph.graph.models.graph_schema import ClassNode
+from codeograph.graph.models.graph_schema import ClassNode, ExtractionMode, Modifier, Stereotype
 from codeograph.llm.prompts.loader import PromptLoader
 from codeograph.llm.provider import LlmProvider
 from codeograph.renderers.typescript_nestjs.typescript_config import TypeScriptConfig
@@ -29,18 +29,19 @@ def _make_renderer(config: TypeScriptConfig | None = None) -> TypeScriptRenderer
 
 def _make_class_node(
     fqcn: str = "com.example.orders.OrderService",
-    stereotype: str | None = "Service",
+    stereotype: str | Stereotype | None = Stereotype.Service,
     annotations: list[str] | None = None,
 ) -> ClassNode:
+    resolved_stereotype = Stereotype(stereotype) if isinstance(stereotype, str) else stereotype
     return ClassNode(
         id=fqcn,
         name=fqcn.rsplit(".", 1)[-1],
         kind="class",
-        modifiers=["public"],
+        modifiers=[Modifier.public],
         source_file="src/main/java/com/example/orders/OrderService.java",
         line_range=[1, 40],
-        extraction_mode="ast",
-        stereotype=stereotype,
+        extraction_mode=ExtractionMode.ast,
+        stereotype=resolved_stereotype,
         annotations=annotations or [],
     )
 
@@ -62,10 +63,10 @@ def test_render_group_basic():
         id="com.example.orders.OrderService",
         name="OrderService",
         kind="class",
-        modifiers=["public"],
+        modifiers=[Modifier.public],
         source_file="src/main/java/com/example/orders/OrderService.java",
         line_range=[1, 40],
-        extraction_mode="ast",
+        extraction_mode=ExtractionMode.ast,
         annotations=[],
     )
 
@@ -276,7 +277,7 @@ class TestRenderErrorHandling:
         result: SelectionResult,
         annotations: dict[str, Any],
         node_map: dict[str, Any],
-    ) -> dict[str, Any]:
+    ) -> dict[PurePosixPath, bytes]:
         semaphore = asyncio.Semaphore(5)
         return asyncio.run(renderer._render_group(result, annotations, node_map, semaphore))
 

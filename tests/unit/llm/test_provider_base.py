@@ -1,8 +1,12 @@
+from typing import Any, TypeVar, cast
+
 from pydantic import BaseModel
 
 from codeograph.llm.errors import LlmError
 from codeograph.llm.models import LlmResult, Message, Tier, TokenUsage
 from codeograph.llm.provider import LlmProvider
+
+T = TypeVar("T", bound=BaseModel)
 
 
 class DummySchema(BaseModel):
@@ -10,9 +14,9 @@ class DummySchema(BaseModel):
 
 
 class MockProviderBase(LlmProvider):
-    def __init__(self):
+    def __init__(self) -> None:
         self.count = 0
-        self.calls = []
+        self.calls: list[list[Message]] = []
 
     def count_tokens(self, messages: list[Message]) -> int:
         return len(messages)
@@ -24,17 +28,17 @@ class MockProviderBase(LlmProvider):
         self,
         tier: Tier,
         messages: list[Message],
-        schema: type[DummySchema],
+        schema: type[T],
         *,
         override_model: str | None = None,
         max_tokens: int = 4096,
-    ) -> LlmResult[DummySchema]:
+    ) -> LlmResult[T]:
         self.calls.append(messages)
         self.count += 1
         if self.count == 2:
             raise LlmError("Mock failure")
         return LlmResult(
-            value=schema(text=f"success {self.count}"),
+            value=cast(Any, schema)(text=f"success {self.count}"),
             usage=TokenUsage(1, 2, 0, None),
             model="mock-model",
             latency_ms=10,

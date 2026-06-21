@@ -61,7 +61,7 @@ jobs:
 
       - name: Type-check (mypy)
         shell: bash
-        run: mypy codeograph/
+        run: mypy codeograph/ tests/
 
       - name: Scorecard schema freshness (ADR-017 D-017-2)
         shell: bash
