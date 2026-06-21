@@ -233,6 +233,14 @@ class TypeScriptRenderer(Renderer[TypeScriptConfig]):  # noqa: UP046
 
             if rendered is not None:
                 path, content = rendered
+                # DC3-04: intra-group duplicate — two classes in the same domain
+                # resolving to the same output path is always a bug, not a runtime error.
+                if path in file_map:
+                    raise ValueError(
+                        f"Duplicate render output path '{path}' in group "
+                        f"'{result.group_name}'. Two classes resolved to the same "
+                        "output file — check class names and stereotypes."
+                    )
                 file_map[path] = content
 
         # Emit the domain module file for this group

@@ -30,7 +30,7 @@ def dispatch_feature_policies(
     class_node: ClassNode,
     annotations: dict[str, object],
     config: TypeScriptConfig,
-) -> dict[str, str] | str | None:
+) -> dict[str, str] | str:
     """Evaluate feature policies for *class_node*.
 
     Returns:

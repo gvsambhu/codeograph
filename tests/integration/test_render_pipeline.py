@@ -4,6 +4,8 @@ from pathlib import Path, PurePosixPath
 from typing import cast
 from unittest.mock import AsyncMock, patch
 
+import pytest
+
 from codeograph.graph.models.graph_schema import ClassNode
 from codeograph.llm.prompts.loader import PromptLoader
 from codeograph.llm.provider import LlmProvider
@@ -256,3 +258,122 @@ class TestRoleFileSuffix:
 
         controller_files = [p for p in file_map if p.name.endswith(".controller.ts")]
         assert controller_files
+
+
+# ---------------------------------------------------------------------------
+# DC3-03 — per-class LLM failure must not abort the whole group
+# DC3-04 — duplicate path within a group must raise a loud ValueError
+# DC3-05 — refused class must record the named refuse reason (ADR-010 D-010-2)
+# ---------------------------------------------------------------------------
+
+
+class TestRenderErrorHandling:
+    """D-008-2/5 + D-010-2 Confirmations: error isolation, dup detection, refuse audit."""
+
+    def _render_group_sync(
+        self,
+        renderer: TypeScriptRenderer,
+        result: SelectionResult,
+        annotations: dict,
+        node_map: dict,
+    ) -> dict:
+        semaphore = asyncio.Semaphore(5)
+        return asyncio.run(renderer._render_group(result, annotations, node_map, semaphore))
+
+    # -- DC3-03 ----------------------------------------------------------------
+
+    def test_llm_error_skips_failed_class_others_still_render(self):
+        """One LLM error must not abort the group — the surviving class still renders."""
+        renderer = _make_renderer()
+
+        ok_node = _make_class_node("com.example.orders.OrderService", stereotype="Service")
+        fail_node = _make_class_node("com.example.orders.PaymentService", stereotype="Service")
+
+        result = SelectionResult(
+            selected=(ok_node.id, fail_node.id),
+            excluded=(),
+            strategy="take_all",
+            group_name="orders",
+            cap=50,
+            total_in_group=2,
+            metrics_missing_count=0,
+            high_count=0,
+        )
+        node_map = {ok_node.id: ok_node, fail_node.id: fail_node}
+
+        async def selective_llm(node, ann, hints):
+            if node.id == fail_node.id:
+                raise RuntimeError("simulated LLM failure")
+            return "export class OrderService {}\n"
+
+        with patch.object(renderer, "_call_llm", new=selective_llm):
+            file_map = self._render_group_sync(renderer, result, {}, node_map)
+
+        assert any("order-service" in str(p) for p in file_map), "Successful class must appear in file_map"
+        assert not any("payment-service" in str(p) for p in file_map), "Failed class must be absent from file_map"
+
+    # -- DC3-04 ----------------------------------------------------------------
+
+    def test_duplicate_intra_group_path_raises_value_error(self):
+        """Two classes in the same group that resolve to the same path raise ValueError."""
+        renderer = _make_renderer()
+
+        # Same simple name + same stereotype in the same group → identical output path
+        node_a = _make_class_node("com.example.orders.OrderService", stereotype="Service")
+        node_b = _make_class_node("com.example.payments.OrderService", stereotype="Service")
+
+        result = SelectionResult(
+            selected=(node_a.id, node_b.id),
+            excluded=(),
+            strategy="take_all",
+            group_name="orders",
+            cap=50,
+            total_in_group=2,
+            metrics_missing_count=0,
+            high_count=0,
+        )
+        node_map = {node_a.id: node_a, node_b.id: node_b}
+
+        with patch.object(renderer, "_call_llm", new=AsyncMock(return_value="export class X {}")):
+            with pytest.raises(ValueError, match="Duplicate render output path"):
+                self._render_group_sync(renderer, result, {}, node_map)
+
+    # -- DC3-05 ----------------------------------------------------------------
+
+    def test_security_refuse_excludes_class_from_output(self):
+        """A class refused by security_feature_policy must not appear in the file map."""
+        renderer = _make_renderer(TypeScriptConfig(security_feature_policy="refuse"))
+
+        secured_node = _make_class_node(
+            "com.example.orders.OrderController",
+            stereotype="RestController",
+            annotations=["PreAuthorize"],
+        )
+        result = SelectionResult(
+            selected=(secured_node.id,),
+            excluded=(),
+            strategy="take_all",
+            group_name="orders",
+            cap=50,
+            total_in_group=1,
+            metrics_missing_count=0,
+            high_count=0,
+        )
+        node_map = {secured_node.id: secured_node}
+
+        with patch.object(renderer, "_call_llm", new=AsyncMock(return_value="export class X {}")):
+            file_map = self._render_group_sync(renderer, result, {}, node_map)
+
+        assert not any(str(p).endswith(".controller.ts") for p in file_map), (
+            "Security-refused class must not produce a .controller.ts file"
+        )
+
+    def test_security_refuse_reason_named_security(self):
+        """dispatch_feature_policies must return the string 'security' when refusing a secured class."""
+        from codeograph.renderers.typescript_nestjs.feature_policies import dispatch_feature_policies
+
+        secured_node = _make_class_node(annotations=["PreAuthorize"])
+        config = TypeScriptConfig(security_feature_policy="refuse")
+        result = dispatch_feature_policies(secured_node, {}, config)
+
+        assert result == "security", f"Expected refuse reason 'security', got {result!r}"
