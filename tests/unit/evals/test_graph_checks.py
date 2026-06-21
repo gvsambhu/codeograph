@@ -288,17 +288,10 @@ def test_reproducibility_skips_when_source_path_empty(tmp_path: Path):
 def test_golden_graph_agreement_skips_when_no_golden(tmp_path: Path):
     from codeograph.evals.checks.graph.golden_graph_agreement import check_golden_graph_agreement
 
-    manifest = {
-        "schema_version": "1.6.0",
-        "codeograph_version": "0.1.0",
-        "source_path": str(tmp_path),
-        "corpus_id": "corpus-that-has-no-golden-xyz",
-        "artefacts": {
-            "graph": {"path": "graph.json", "schema_version": "1.0.0", "sha256": "a" * 64},
-            "llm_annotations": {"path": "llm-annotations.json", "schema_version": "1.0.0", "sha256": None},
-        },
-    }
-    (tmp_path / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
-    result = check_golden_graph_agreement(tmp_path)
+    # Check now accepts corpus_id and current_sha256 directly (no manifest read).
+    result = check_golden_graph_agreement(
+        corpus_id="corpus-that-has-no-golden-xyz",
+        current_sha256="a" * 64,
+    )
     assert result.result == "skip"
     assert result.details["skip_reason"] == "no_golden_committed"

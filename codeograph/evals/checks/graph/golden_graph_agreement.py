@@ -1,5 +1,4 @@
 import hashlib
-import json
 import time
 from pathlib import Path
 
@@ -17,27 +16,18 @@ _RATIONALE = (
 _GOLDENS_BASE = Path(__file__).parents[4] / "tests" / "golden"
 
 
-def check_golden_graph_agreement(output_dir: Path) -> CheckResult:
-    """Compare the current graph.json sha256 against the committed golden.
+def check_golden_graph_agreement(corpus_id: str, current_sha256: str) -> CheckResult:
+    """Compare *current_sha256* against the committed golden for *corpus_id*.
 
-    Skips with no_golden_committed when no golden exists for this corpus_id.
-    corpus_id is read from manifest.json (added in manifest schema 1.6.0).
+    Both values are supplied by the caller (runner.py), which holds them in
+    memory from the manifest or from the graph artefact produced by Pass 0.
+    The check itself performs no I/O on the manifest — it only reads the
+    committed golden file.
+
+    Skips with ``no_golden_committed`` when no golden exists for this corpus.
     """
     start_time = time.perf_counter()
 
-    # ------------------------------------------------------------------ #
-    # 1. Read corpus_id and current graph sha256 from the manifest
-    # ------------------------------------------------------------------ #
-    manifest_path = output_dir / "manifest.json"
-    with open(manifest_path, encoding="utf-8") as f:
-        manifest = json.load(f)
-
-    corpus_id = manifest.get("corpus_id", "")
-    current_sha256 = manifest["artefacts"]["graph"]["sha256"]
-
-    # ------------------------------------------------------------------ #
-    # 2. Locate the committed golden
-    # ------------------------------------------------------------------ #
     golden_path = _GOLDENS_BASE / corpus_id / "graph.json"
 
     if not corpus_id or not golden_path.exists():
@@ -56,9 +46,6 @@ def check_golden_graph_agreement(output_dir: Path) -> CheckResult:
             },
         )
 
-    # ------------------------------------------------------------------ #
-    # 3. Compute golden sha256 and compare
-    # ------------------------------------------------------------------ #
     golden_sha256 = hashlib.sha256(golden_path.read_bytes()).hexdigest()
     value = current_sha256 == golden_sha256
 

@@ -23,6 +23,7 @@ from codeograph.cli.eval_report import report_cmd
 from codeograph.cli.mutually_exclusive_option import MutuallyExclusiveOption
 from codeograph.evals.runner import MissingOutputError, run_evals
 from codeograph.manifest.io import read as manifest_io_read
+from codeograph.manifest.io import write as manifest_io_write
 
 # ---------------------------------------------------------------------------
 # eval run — single-corpus scorecard
@@ -81,7 +82,7 @@ def run_cmd(
                     kinds.append(child.name)
             scorecard = tuple(kinds)
 
-        scorecards = run_evals(
+        scorecards, scorecard_pointers = run_evals(
             output_dir=Path(output_dir),
             scorecard_kinds=list(scorecard),
             check_filter=list(check) if check else None,
@@ -91,6 +92,11 @@ def run_cmd(
         has_failure = any(any(c.result == "fail" for c in s.checks) for s in scorecards)
 
         click.echo(json.dumps([json.loads(s.model_dump_json()) for s in scorecards], indent=2))
+
+        # Patch manifest with scorecard pointers — caller's responsibility (Option A).
+        # run_evals writes the scorecard files but does not touch manifest.json.
+        manifest.scorecards = scorecard_pointers
+        manifest_io_write(manifest, manifest_path)
 
         if has_failure:
             sys.exit(1)

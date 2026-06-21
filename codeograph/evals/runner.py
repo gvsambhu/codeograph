@@ -31,14 +31,11 @@ from codeograph.evals.models import (
     Scorecard,
 )
 from codeograph.manifest.io import read as manifest_io_read
-from codeograph.manifest.io import write as manifest_io_write
 from codeograph.manifest.models import ScorecardPointer
 
 logger = logging.getLogger(__name__)
 
 # Canonical scorecard filename templates (ADR-017 Fork 1).
-# graph scorecard → graph-scorecard.json
-# code scorecard  → <target>-scorecard.json  (e.g. ts-scorecard.json)
 _GRAPH_SCORECARD_NAME = "graph-scorecard.json"
 _CODE_SCORECARD_NAME = "{target}-scorecard.json"
 
@@ -61,34 +58,44 @@ class MissingOutputError(RuntimeError):
     """Raised when output_dir or manifest.json does not exist."""
 
 
-"""Orchestrates graph and code evaluation checks per ADR-017 Forks 5+6.
-
-Usage::
-
-    runner = EvalRunner()
-    scorecards = runner.run(
-        output_dir=Path("out/"),
-        scorecard_kinds=["graph", "ts"],
-    )
-"""
-
-
 def run_evals(
     output_dir: Path,
     scorecard_kinds: list[str],
     check_filter: list[str] | None = None,
     skip_checks: list[str] | None = None,
-) -> list[Scorecard]:
+    *,
+    corpus_id: str | None = None,
+    run_id: str | None = None,
+    codeograph_version: str | None = None,
+    graph_sha256: str | None = None,
+) -> tuple[list[Scorecard], dict[str, ScorecardPointer]]:
     """Run selected scorecards against *output_dir*.
 
-    :param output_dir:      Directory produced by ``codeograph run``.
-    :param scorecard_kinds: Which scorecards to produce. ``"graph"`` for
-                            graph-quality; any other string is a renderer
-                            target name (e.g. ``"ts"``).
-    :param check_filter:    If non-None, run only these check IDs.
-                            Mutually exclusive with *skip_checks*.
-    :param skip_checks:     Check IDs to skip; all others run.
-    :raises MissingOutputError: If output_dir or manifest.json absent.
+    Returns a ``(scorecards, scorecard_pointers)`` tuple. Writing the
+    scorecard pointers into the manifest is the **caller's responsibility**
+    — the standalone ``eval run`` CLI command patches the manifest after
+    calling this function; the ``run --eval`` path passes the pointers to
+    the run assembler's single terminal write.
+
+    Context params (``corpus_id``, ``run_id``, ``codeograph_version``,
+    ``graph_sha256``) are resolved from the on-disk manifest when not
+    supplied, which is the standalone ``codeograph eval run`` path.
+    The ``run --eval`` path passes them in-memory so no manifest read is
+    needed before the terminal write.
+
+    :param output_dir:          Directory produced by ``codeograph run``.
+    :param scorecard_kinds:     Which scorecards to produce. ``"graph"`` for
+                                graph-quality; any other string is a renderer
+                                target name (e.g. ``"ts"``).
+    :param check_filter:        If non-None, run only these check IDs.
+                                Mutually exclusive with *skip_checks*.
+    :param skip_checks:         Check IDs to skip; all others run.
+    :param corpus_id:           Corpus identifier. Read from manifest if None.
+    :param run_id:              Run identifier. Read from manifest if None.
+    :param codeograph_version:  Package version. Read from manifest if None.
+    :param graph_sha256:        SHA-256 of graph.json. Read from manifest if None.
+    :raises MissingOutputError: If output_dir absent, or manifest absent and
+                                context params are not fully provided.
     """
     scorecards: list[Scorecard] = []
 
@@ -96,15 +103,21 @@ def run_evals(
     graph_path = output_dir / "graph.json"
 
     # ---------------------------------------------------------------- #
-    # 1. Preflight — raise rather than sys.exit (CLI owns exit codes)
+    # 1. Preflight
     # ---------------------------------------------------------------- #
-    if not output_dir.exists() or not manifest_path.exists():
+    if not output_dir.exists():
         raise MissingOutputError(f"no rendered output at {output_dir}; run `codeograph run` first.")
 
-    manifest = manifest_io_read(manifest_path)
-    corpus_id = manifest.corpus_id
-    codeograph_version = manifest.codeograph_version
-    run_id = manifest.run_id
+    # Resolve context from manifest when any param is absent (standalone path).
+    if corpus_id is None or run_id is None or codeograph_version is None or graph_sha256 is None:
+        if not manifest_path.exists():
+            raise MissingOutputError(f"no rendered output at {output_dir}; run `codeograph run` first.")
+        manifest = manifest_io_read(manifest_path)
+        corpus_id = corpus_id or manifest.corpus_id
+        codeograph_version = codeograph_version or manifest.codeograph_version
+        run_id = run_id or manifest.run_id
+        graph_sha256 = graph_sha256 or manifest.artefacts["graph"].sha256
+
     run_ts = datetime.datetime.now(datetime.UTC).isoformat().replace("+00:00", "Z")
 
     # ---------------------------------------------------------------- #
@@ -118,7 +131,6 @@ def run_evals(
         return True
 
     def _explicit_skip(check_id: str) -> CheckResult:
-        """Return a skip record for a check excluded by --skip-check."""
         return CheckResult(
             id=check_id,
             category="graph" if check_id in _ALL_GRAPH_CHECK_IDS else "code",
@@ -146,7 +158,8 @@ def run_evals(
 
         _graph_dispatch: dict[str, CheckResult] = {}
         if _is_active("golden_graph_agreement"):
-            _graph_dispatch["golden_graph_agreement"] = check_golden_graph_agreement(output_dir)
+            # corpus_id and graph_sha256 are resolved above; no manifest read inside the check.
+            _graph_dispatch["golden_graph_agreement"] = check_golden_graph_agreement(corpus_id, graph_sha256)
         if _is_active("internal_consistency"):
             _graph_dispatch["internal_consistency"] = check_internal_consistency(graph_obj)
         if _is_active("relationship_correctness"):
@@ -189,7 +202,6 @@ def run_evals(
         code_checks: list[CheckResult] = []
 
         if not target_path.exists():
-            # Target not rendered → skip all three slots
             for check_id in _ALL_CODE_CHECK_IDS:
                 code_checks.append(
                     CheckResult(
@@ -233,7 +245,7 @@ def run_evals(
         scorecards.extend(results)
 
     # ---------------------------------------------------------------- #
-    # 5. Write scorecards to evals/ (ADR-017 Fork 1 filenames)
+    # 5. Write scorecard JSON files; build scorecard pointers
     # ---------------------------------------------------------------- #
     evals_dir = output_dir / "evals"
     evals_dir.mkdir(parents=True, exist_ok=True)
@@ -251,7 +263,6 @@ def run_evals(
         filepath.write_bytes(content)
         sha256 = hashlib.sha256(content).hexdigest()
 
-        # Derive overall: "pass" iff every check passes; skips don't fail overall
         overall = "pass" if all(c.result in ("pass", "skip") for c in scorecard.checks) else "fail"
 
         scorecard_pointers[scorecard.kind] = ScorecardPointer(
@@ -261,17 +272,7 @@ def run_evals(
         )
         logger.info("Wrote scorecard: %s (overall=%s)", filepath, overall)
 
-    # ---------------------------------------------------------------- #
-    # 6. Patch manifest with top-level scorecards pointer (2.0.0 schema)
-    # ---------------------------------------------------------------- #
-    # Per the ADR-025 write-protocol amendment: this is the standalone
-    # `codeograph eval` case — a previously-terminal manifest is
-    # transformed into another valid terminal manifest by adding a
-    # top-level `scorecards` pointer. `artefacts` and `llm_skipped` are
-    # never modified.
-    manifest = manifest_io_read(manifest_path)
-    manifest.scorecards = scorecard_pointers
-    manifest_io_write(manifest, manifest_path)
-    logger.info("Patched manifest scorecards pointer at %s", manifest_path)
-
-    return scorecards
+    # Manifest patching is the caller's responsibility:
+    #   - standalone `eval run`: cli/eval.py reads the manifest and patches it
+    #   - `run --eval`: main.py passes the pointers to the assembler's single terminal write
+    return scorecards, scorecard_pointers

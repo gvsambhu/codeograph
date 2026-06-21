@@ -1,10 +1,15 @@
 """
-CorpusEvaluator — orchestrates evaluation of a corpus and maps check outcomes to scorecard pointers.
+CorpusEvaluator — thin bridge between the run pipeline and run_evals.
+
+In the ``run --eval`` path, the run pipeline supplies corpus context
+in-memory (corpus_id, run_id, codeograph_version, graph_sha256) so
+run_evals can execute without needing manifest.json on disk. The caller
+(cli/main.py) then passes the returned scorecard pointers to the
+ManifestAssembler for the single terminal write.
 """
 
 from __future__ import annotations
 
-import hashlib
 import logging
 import sys
 from pathlib import Path
@@ -17,19 +22,26 @@ from codeograph.manifest.models import ScorecardPointer
 logger = logging.getLogger(__name__)
 
 
-"""Runs scorecard verification checks on a generated output directory.
+def evaluate_corpus(
+    out_dir: Path,
+    *,
+    corpus_id: str | None = None,
+    run_id: str | None = None,
+    codeograph_version: str | None = None,
+    graph_sha256: str | None = None,
+) -> dict[str, ScorecardPointer]:
+    """Run scorecard evaluations against *out_dir*; return scorecard pointers.
 
-Stateless service class.
-"""
+    Context params are forwarded to ``run_evals``. When all four are
+    provided (the ``run --eval`` path), no manifest read is performed.
+    When any is absent (standalone ``eval run`` path), ``run_evals``
+    reads the manifest itself.
 
+    Manifest patching is NOT performed here — the caller is responsible:
+    - ``run --eval``: cli/main.py passes pointers to the ManifestAssembler.
+    - standalone ``eval run``: cli/eval.py patches the manifest after this call.
 
-def evaluate_corpus(out_dir: Path) -> dict[str, ScorecardPointer]:
-    """Runs the deterministic scorecard evaluations against out_dir.
-
-    :param out_dir: Directory containing graph.json and other generated assets.
-    :returns:       A dictionary mapping scorecard kinds (e.g. 'graph', 'typescript')
-                    to ScorecardPointer schemas.
-    :raises click.ClickException: If evaluation fails or missing output is encountered.
+    :raises SystemExit(2): If the output directory or manifest is missing.
     """
     click.echo("Running evaluation (--eval requested)...")
     try:
@@ -37,31 +49,16 @@ def evaluate_corpus(out_dir: Path) -> dict[str, ScorecardPointer]:
         for child in out_dir.iterdir():
             if child.is_dir() and child.name not in ("evals", ".codeograph"):
                 kinds.append(child.name)
-        scorecard_models = run_evals(
+
+        _, scorecard_pointers = run_evals(
             output_dir=out_dir,
             scorecard_kinds=kinds,
+            corpus_id=corpus_id,
+            run_id=run_id,
+            codeograph_version=codeograph_version,
+            graph_sha256=graph_sha256,
         )
-
-        scorecards: dict[str, ScorecardPointer] = {}
-        for sc in scorecard_models:
-            sc_filename = "graph-scorecard.json" if sc.kind == "graph" else f"{sc.kind}-scorecard.json"
-            sc_path = out_dir / "evals" / sc_filename
-            if sc_path.exists():
-                sc_sha = hashlib.sha256(sc_path.read_bytes()).hexdigest()
-            else:
-                sc_sha = "0" * 64
-            overall = "pass" if all(c.result in ("pass", "skip") for c in sc.checks) else "fail"
-            scorecards[sc.kind] = ScorecardPointer(
-                path=f"evals/{sc_filename}",
-                sha256=sc_sha,
-                overall=overall,
-            )
-
-        has_failure = any(c.result == "fail" for sc in scorecard_models for c in sc.checks)
-        if has_failure:
-            click.echo("Evaluation failed overall.")
-            sys.exit(1)
-        return scorecards
+        return scorecard_pointers
     except MissingOutputError as e:
         click.echo(f"Eval Error: {e}", err=True)
         sys.exit(2)

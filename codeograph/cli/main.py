@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -290,11 +291,22 @@ def run(
         else:
             click.echo("AST-only mode requested. Skipping LLM passes.")
 
-        # --- Terminal manifest write ----------------------------------------
-        # Written before eval so that `codeograph eval run` (called by
-        # --eval below) can read corpus_id / run_id / graph sha256 from it.
-        # The eval job then patches the manifest in-place with scorecard
-        # pointers — the same write pattern as standalone `codeograph eval run`.
+        # --- Eval (opt-in; runs before terminal write) ---------------------
+        # Context is passed in-memory so run_evals needs no manifest on disk.
+        # Returns scorecard pointers included in the single terminal write below.
+        scorecards = None
+        if run_eval:
+            from codeograph.evals.corpus_evaluator import evaluate_corpus
+
+            scorecards = evaluate_corpus(
+                out_dir,
+                corpus_id=corpus_id,
+                run_id=run_id,
+                codeograph_version=__version__,
+                graph_sha256=graph_artefact.sha256,
+            )
+
+        # --- Terminal manifest write — single write, scorecards included ----
         assembler = ManifestAssembler()
         manifest = assembler.assemble(
             run_id=run_id,
@@ -305,20 +317,15 @@ def run(
             graph_artefact=graph_artefact,
             llm_annotations_artefact=llm_annotations_artefact,
             cache_stats=cache_stats,
-            scorecards=None,
+            scorecards=scorecards,
             compile_checks=None,
         )
         manifest_path = assembler.write_to(manifest, out_dir)
-
-        # --- Eval (runs for both ast-only and full-LLM paths) --------------
-        # Reads the manifest written above; patches it in-place with scorecard
-        # pointers (ADR-017 Fork 5 opt-in sugar).
-        if run_eval:
-            from codeograph.evals.corpus_evaluator import evaluate_corpus
-
-            evaluate_corpus(out_dir)
-
         click.echo(f"Done. Manifest: {manifest_path}")
+
+        if scorecards and any(p.overall == "fail" for p in scorecards.values()):
+            click.echo("One or more eval scorecards failed.", err=True)
+            sys.exit(1)
 
     finally:
         if corpus is not None:
