@@ -207,20 +207,11 @@ class TestStratifiedThresholdV1:
         returned [H1,H2,H3] with zero mid/low representation.
         """
         # high bucket: CBO ≥ 5 OR WMC ≥ 20
-        highs = [
-            _make_class_node(f"com.example.orders.H{i}", cbo=_HIGH_CBO_THRESHOLD, wmc=25 - i)
-            for i in range(3)
-        ]
+        highs = [_make_class_node(f"com.example.orders.H{i}", cbo=_HIGH_CBO_THRESHOLD, wmc=25 - i) for i in range(3)]
         # mid bucket: not high, not low
-        mids = [
-            _make_class_node(f"com.example.orders.M{i}", cbo=2, wmc=10)
-            for i in range(3)
-        ]
+        mids = [_make_class_node(f"com.example.orders.M{i}", cbo=2, wmc=10) for i in range(3)]
         # low bucket: CBO ≤ 1 AND WMC ≤ 5
-        lows = [
-            _make_class_node(f"com.example.orders.L{i}", cbo=0, wmc=1)
-            for i in range(3)
-        ]
+        lows = [_make_class_node(f"com.example.orders.L{i}", cbo=0, wmc=1) for i in range(3)]
         graph = _make_graph(highs + mids + lows)
         # n=9 ≥ 2*cap=6 → stratified_threshold_v1 fires
         selector = ClassSelector(cap=3)

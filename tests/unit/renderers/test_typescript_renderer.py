@@ -83,13 +83,7 @@ class TestFeaturePoliciesRefuseReason:
         """A WebFlux class with refuse policy returns 'webflux_refuse', not None."""
         node = _make_class_node("com.example.ReactiveService")
         # Simulate Mono< in return type via annotations dict
-        annotations = {
-            "com.example.ReactiveService": {
-                "annotation": {
-                    "methods": [{"return_type": "Mono<String>"}]
-                }
-            }
-        }
+        annotations = {"com.example.ReactiveService": {"annotation": {"methods": [{"return_type": "Mono<String>"}]}}}
         config = TypeScriptConfig(webflux_policy="refuse")
         result = dispatch_feature_policies(node, annotations, config)
         assert result == "webflux_refuse", f"Expected 'webflux_refuse', got {result!r}"
@@ -97,13 +91,7 @@ class TestFeaturePoliciesRefuseReason:
     def test_webflux_flux_only_refuse_returns_reason_string(self):
         """A Flux class with translate_mono_only policy returns 'webflux_flux_only'."""
         node = _make_class_node("com.example.FluxService")
-        annotations = {
-            "com.example.FluxService": {
-                "annotation": {
-                    "methods": [{"return_type": "Flux<Event>"}]
-                }
-            }
-        }
+        annotations = {"com.example.FluxService": {"annotation": {"methods": [{"return_type": "Flux<Event>"}]}}}
         config = TypeScriptConfig(webflux_policy="translate_mono_only")
         result = dispatch_feature_policies(node, annotations, config)
         assert result == "webflux_flux_only", f"Expected 'webflux_flux_only', got {result!r}"
@@ -119,9 +107,7 @@ class TestFeaturePoliciesRefuseReason:
         """DC3-05 integration: _render_class returns None for a security-refused class."""
         node = _make_class_node("com.example.SecureCtrl", annotations=["PreAuthorize"])
         renderer = _make_renderer(TypeScriptConfig(security_feature_policy="refuse"))
-        result = asyncio.run(
-            renderer._render_class(node, "orders", {})
-        )
+        result = asyncio.run(renderer._render_class(node, "orders", {}))
         assert result is None
 
 
@@ -168,4 +154,3 @@ class TestDuplicateRenderPath:
                             "Two classes resolved to the same output file — check class names and stereotypes."
                         )
                 file_map.update(gmap)
-
