@@ -159,9 +159,10 @@ def test_annotator_failure_ratio_abort(mock_llm_provider, mock_prompt_loader, tm
     with pytest.raises(LlmError, match="exceeds max"):
         annotator.annotate(nodes)
 
+
 def test_annotator_failure_below_n_floor(mock_llm_provider, mock_prompt_loader, tmp_path):
     from codeograph.llm.errors import LlmError
-    
+
     output_dir = tmp_path / "annotations"
     annotator = NodeAnnotator(
         provider=mock_llm_provider,
@@ -169,7 +170,7 @@ def test_annotator_failure_below_n_floor(mock_llm_provider, mock_prompt_loader, 
         output_dir=output_dir,
         max_pass1_failure_ratio=0.10,
     )
-    
+
     # 9 nodes is below the floor of 10
     nodes = [
         {
@@ -181,18 +182,18 @@ def test_annotator_failure_below_n_floor(mock_llm_provider, mock_prompt_loader, 
         }
         for i in range(9)
     ]
-    
+
     original_complete = mock_llm_provider.complete_structured
     call_count = [0]
-    
+
     def _mock_complete(*args, **kwargs):
         call_count[0] += 1
-        if call_count[0] <= 5: # 5/9 > 0.1 ratio
+        if call_count[0] <= 5:  # 5/9 > 0.1 ratio
             raise LlmError("Mock failure")
         return original_complete(*args, **kwargs)
-        
+
     mock_llm_provider.complete_structured = _mock_complete
-    
+
     expected_annotation = NodeAnnotation(
         node_id="test",
         class_name="A",
@@ -211,7 +212,7 @@ def test_annotator_failure_below_n_floor(mock_llm_provider, mock_prompt_loader, 
     # Should NOT raise LlmError
     records = annotator.annotate(nodes)
     assert len(records) == 9
-    
+
     # Check that the first 5 are degraded (due to failure recording fallback)
     degraded_count = sum(1 for r in records if r["degraded"])
     assert degraded_count == 5

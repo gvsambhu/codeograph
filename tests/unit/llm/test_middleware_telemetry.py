@@ -87,14 +87,14 @@ def test_telemetry_middleware_emit_failure_warns_but_succeeds(mock_llm_provider,
     # Mock JsonlEmitter instance to raise an error
     with patch.object(tmp_telemetry_jsonl, "emit") as mock_emit:
         mock_emit.side_effect = OSError("Disk full")
-        
+
         with patch("codeograph.llm.middleware.telemetry_llm_provider.logging.getLogger") as mock_logger:
             result = provider.complete_structured(
                 Tier.FAST,
                 [Message(role="user", content="Hello")],
                 DummySchema,
             )
-            
+
             assert result == mock_llm_provider.mock_response
             mock_logger.return_value.warning.assert_called()
             # check the first arg of the warning

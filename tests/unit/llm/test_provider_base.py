@@ -62,8 +62,9 @@ def test_provider_base_fan_out_failure():
 
 def test_provider_base_default_concurrency():
     from unittest.mock import patch
+
     provider = MockProviderBase()
-    
+
     with patch("codeograph.llm.provider.ThreadPoolExecutor") as tpe_mock:
         requests = [([Message(role="user", content="req1")], DummySchema)]
         provider.complete_structured_many(Tier.FAST, requests)
