@@ -1,33 +1,23 @@
-from typing import TypeVar
+from typing import Any
 
-from pydantic import BaseModel
+from langchain_openai import ChatOpenAI
+from pydantic import SecretStr
 
-from codeograph.llm.models import LlmResult, Message, Tier
-from codeograph.llm.provider import LlmProvider
+from codeograph.llm.models import Tier
+from codeograph.llm.providers.langchain_base import LangChainLlmProvider
 
-T = TypeVar("T", bound=BaseModel)
+_OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
 
-class OpenRouterProvider(LlmProvider):
-    # TODO(learner): implement OpenRouter provider (DC2-01)
+class OpenRouterProvider(LangChainLlmProvider):
+    def __init__(self, api_key: str, tier_map: dict[Tier, str], **kwargs: Any) -> None:
+        if not api_key:
+            raise ValueError("OpenRouter API key cannot be empty.")
+        if not tier_map:
+            raise ValueError("tier_map must map Tiers to model strings.")
+        for tier in Tier:
+            if tier not in tier_map:
+                raise ValueError(f"Missing model mapping for tier: {tier}")
 
-    def __init__(self, api_key: str, tier_map: dict[Tier, str]) -> None:
-        self._api_key = api_key
-        self._tier_map = tier_map
-
-    def count_tokens(self, messages: list[Message]) -> int:
-        raise NotImplementedError("OpenRouter provider not yet implemented.")
-
-    def resolve_model(self, tier: Tier, override_model: str | None = None) -> str:
-        return override_model or self._tier_map[tier]
-
-    def complete_structured(
-        self,
-        tier: Tier,
-        messages: list[Message],
-        schema: type[T],
-        *,
-        override_model: str | None = None,
-        max_tokens: int = 4096,
-    ) -> LlmResult[T]:
-        raise NotImplementedError("OpenRouter provider not yet implemented.")
+        chat = ChatOpenAI(api_key=SecretStr(api_key), base_url=_OPENROUTER_BASE_URL, **kwargs)
+        super().__init__(chat, tier_map)

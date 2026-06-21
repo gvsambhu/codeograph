@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 import json
 import logging
+import re
 from pathlib import Path
 from typing import Any
 
@@ -14,6 +17,17 @@ logger = logging.getLogger(__name__)
 
 # Per ADR-005 §3: oversized nodes are skipped rather than truncated.
 _MAX_SOURCE_CHARS = 240_000
+# Per ADR-005 D-005-6: absolute failure threshold for small batches (total < 10).
+_MIN_FAILURES_FOR_ABORT = 3
+# Floor below which ratio-gate does not apply (D-005-6 N-floor).
+_N_FLOOR = 10
+
+# Regex to extract Java method signatures for the signatures-only fallback (DC2-02).
+_METHOD_SIG_RE = re.compile(
+    r"(public|private|protected|static|final|abstract|synchronized|native)"
+    r"\s+[\w<>,?\[\] ]+\s+\w+\s*\([^)]*\)"
+    r"\s*(?:throws\s+[\w,\s]+)?\s*[{;]"
+)
 
 
 class NodeAnnotator:
@@ -44,19 +58,21 @@ class NodeAnnotator:
         """
         prompt = self._prompt_loader.get(PromptId.ANNOTATE_NODE)
 
-        # Partition: normal vs degraded (oversized)
+        # Partition: normal vs degraded (oversized — signatures-only)
         normal: list[dict[str, Any]] = []
         degraded_ids: list[str] = []
         for node in nodes:
             source = node.get("source_code", "")
             if len(source) > _MAX_SOURCE_CHARS:
                 logger.warning(
-                    "Node %s exceeds max source chars (%d > %d) — marking degraded",
+                    "Node %s exceeds max source chars (%d > %d) — extracting signatures only",
                     node.get("id"),
                     len(source),
                     _MAX_SOURCE_CHARS,
                 )
-                # TODO(learner): implement signatures-only extraction and extraction_mode tagging (ADR-005 O3, DC2-02)
+                sigs = _extract_signatures(source)
+                node["signatures"] = sigs
+                node["extraction_mode"] = "signatures_only"
                 degraded_ids.append(str(node.get("id", "")))
             else:
                 normal.append(node)
@@ -97,10 +113,15 @@ class NodeAnnotator:
         failures = sum(1 for r in results if isinstance(r, LlmError))
         total = len(requests)
 
-        if total >= 10:
+        if total >= _N_FLOOR:
             ratio = failures / total
             if ratio > self._max_pass1_failure_ratio:
                 raise LlmError(f"Pass 1 failure ratio {ratio:.2f} exceeds max {self._max_pass1_failure_ratio}")
+        elif failures > _MIN_FAILURES_FOR_ABORT:
+            raise LlmError(
+                f"Pass 1 failures ({failures}) exceeds absolute minimum"
+                f" ({_MIN_FAILURES_FOR_ABORT}) for batch size {total}"
+            )
 
         # Assemble output — normal nodes first, then degraded stubs.
         # Each entry is an AnnotationRecord envelope (orchestrator-owned `degraded`
@@ -109,7 +130,6 @@ class NodeAnnotator:
         for node, result in zip(normal, results):
             if isinstance(result, LlmError):
                 logger.warning("Pass 1 node %s failed: %s", node.get("id"), result)
-                # TODO(learner): how should failed nodes be recorded? Fallback to degraded for now.
                 records.append(
                     AnnotationRecord(
                         node_id=str(node.get("id", "")),
@@ -144,3 +164,9 @@ class NodeAnnotator:
         logger.info("Pass 1 complete — %d records written to %s", len(records), out_path)
 
         return records
+
+
+def _extract_signatures(source_code: str) -> list[str]:
+    """Extract Java method signatures from source code using regex (signatures-only fallback)."""
+    matches = _METHOD_SIG_RE.findall(source_code)
+    return [m.strip() for m in matches] if matches else []

@@ -1,8 +1,0 @@
-fix(llm): complete remaining DC2 review remediations
-
-- Catch LlmError and surface per-item in MockLlmProvider fan-out (DC2-03 test support)
-- Add confirmation test for N<10 floor ratio abort (DC2-04)
-- Wrap telemetry emit in try-except (DC2-07)
-
-AI-assistant: Google Antigravity (Gemini 2.5 Pro via Google)
-Model: gemini-2.5-pro
