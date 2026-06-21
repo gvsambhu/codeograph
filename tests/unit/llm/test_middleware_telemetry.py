@@ -11,7 +11,7 @@ class DummySchema(BaseModel):
 
 
 def test_telemetry_middleware_emits_record(mock_llm_provider, tmp_telemetry_jsonl, tmp_path):
-    ctx = CallContext(Purpose.ANNOTATE, "test_prompt", "v1", "hash", "corpus")
+    ctx = CallContext("r1", "p1", "pr1", Purpose.ANNOTATE, "test_prompt", "v1", "hash", "corpus")
 
     provider = TelemetryLlmProvider(mock_llm_provider, tmp_telemetry_jsonl, ctx)
 
@@ -69,3 +69,34 @@ def test_telemetry_middleware_emits_record(mock_llm_provider, tmp_telemetry_json
     assert parsed["cost_usd_est"] == 0.0
 
     assert parsed["attempts"] == []
+
+
+def test_telemetry_middleware_emit_failure_warns_but_succeeds(mock_llm_provider, tmp_telemetry_jsonl, tmp_path):
+    from unittest.mock import patch
+
+    ctx = CallContext("r1", "p1", "pr1", Purpose.ANNOTATE, "test_prompt", "v1", "hash", "corpus")
+    provider = TelemetryLlmProvider(mock_llm_provider, tmp_telemetry_jsonl, ctx)
+
+    mock_llm_provider.mock_response = LlmResult(
+        value=DummySchema(text="hello"),
+        usage=TokenUsage(10, 20, 0, None),
+        model="mock-model",
+        latency_ms=123,
+    )
+
+    # Mock JsonlEmitter instance to raise an error
+    with patch.object(tmp_telemetry_jsonl, "emit") as mock_emit:
+        mock_emit.side_effect = OSError("Disk full")
+
+        with patch("codeograph.llm.middleware.telemetry_llm_provider.logging.getLogger") as mock_logger:
+            result = provider.complete_structured(
+                Tier.FAST,
+                [Message(role="user", content="Hello")],
+                DummySchema,
+            )
+
+            assert result == mock_llm_provider.mock_response
+            mock_logger.return_value.warning.assert_called()
+            # check the first arg of the warning
+            call_args = mock_logger.return_value.warning.call_args[0]
+            assert "Telemetry emit failed" in call_args[0]

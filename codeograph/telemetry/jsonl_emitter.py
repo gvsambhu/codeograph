@@ -14,9 +14,14 @@ class JsonlEmitter(TelemetryEmitter):
 
     def emit(self, record: TelemetryRecord) -> None:
         line = json.dumps(record.to_dict(), separators=(",", ":"), ensure_ascii=False)
-        with self._lock:
-            self._fh.write(line + "\n")
-            self._fh.flush()
+        try:
+            with self._lock:
+                self._fh.write(line + "\n")
+                self._fh.flush()
+        except Exception as e:
+            import logging
+
+            logging.getLogger(__name__).warning("Telemetry emit failed: %s", e)
 
     def close(self) -> None:
         with self._lock:

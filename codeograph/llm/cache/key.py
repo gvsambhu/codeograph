@@ -21,6 +21,7 @@ def compute_output_hash(output_body: str) -> str:
 
 def compute_cache_key(
     *,
+    provider: str,
     model: str,
     prompt_id: str,
     prompt_version: str,
@@ -35,6 +36,7 @@ def compute_cache_key(
     and nothing that doesn't. See ADR-015 Fork 4 for the full rationale.
     """
     components = [
+        provider,
         model,
         prompt_id,
         prompt_version,

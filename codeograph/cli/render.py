@@ -125,7 +125,6 @@ def render_cli(
     rendered TypeScript source to OUT (organised by domain module).
     """
     # Lazy imports keep CLI startup fast — only loaded when `render` is invoked.
-    import datetime
 
     # Trigger self-registration of concrete renderer packages.
     import codeograph.renderers.typescript_nestjs  # noqa: F401
@@ -140,6 +139,7 @@ def render_cli(
     from codeograph.manifest.io import read as manifest_io_read
     from codeograph.manifest.io import write as manifest_io_write
     from codeograph.manifest.models import CompileChecksPointer
+    from codeograph.manifest.run_id import generate_run_id
     from codeograph.renderers import RendererRegistry
     from codeograph.telemetry.emitter import JsonlEmitter
 
@@ -207,8 +207,8 @@ def render_cli(
     telemetry_dir = settings.cache_dir / "telemetry"
     telemetry_dir.mkdir(parents=True, exist_ok=True)
 
-    run_ts = datetime.datetime.now(datetime.UTC).strftime("%Y%m%dT%H%M%SZ")
-    emitter_path = telemetry_dir / f"render-{target}-{run_ts}.jsonl"
+    run_id = generate_run_id()
+    emitter_path = telemetry_dir / f"render-{target}-{run_id}.jsonl"
     emitter = JsonlEmitter(emitter_path)
 
     tier_map = {
@@ -240,6 +240,9 @@ def render_cli(
     _render_prompt_hash = _render_prompt.metadata.content_hash_pin
 
     render_ctx = CallContext(
+        run_id=run_id,
+        pipeline_name="render",
+        pipeline_run_id=run_id,
         purpose=Purpose.RENDER,
         prompt_id="render_file",
         prompt_version="v1",

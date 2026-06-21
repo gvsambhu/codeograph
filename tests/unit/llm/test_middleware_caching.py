@@ -13,7 +13,7 @@ class DummySchema(BaseModel):
 
 
 def test_caching_middleware_hit(mock_llm_provider, tmp_cache_db):
-    ctx = CallContext(Purpose.ANNOTATE, "test_prompt", "v1", "hash", "corpus")
+    ctx = CallContext("r1", "p1", "pr1", Purpose.ANNOTATE, "test_prompt", "v1", "hash", "corpus")
     caching_provider = CachingLlmProvider(mock_llm_provider, tmp_cache_db, ctx)
 
     messages = [Message(role="user", content="Hello")]
@@ -21,6 +21,7 @@ def test_caching_middleware_hit(mock_llm_provider, tmp_cache_db):
     rendered_input = "\n".join(m.content for m in messages)
 
     key = compute_cache_key(
+        provider="unknown",
         model=mock_llm_provider.resolve_model(Tier.FAST),
         prompt_id=ctx.prompt_id,
         prompt_version=ctx.prompt_version,
@@ -73,7 +74,7 @@ def test_caching_middleware_hit(mock_llm_provider, tmp_cache_db):
 
 
 def test_caching_middleware_miss(mock_llm_provider, tmp_cache_db):
-    ctx = CallContext(Purpose.ANNOTATE, "test_prompt", "v1", "hash", "corpus")
+    ctx = CallContext("r1", "p1", "pr1", Purpose.ANNOTATE, "test_prompt", "v1", "hash", "corpus")
     caching_provider = CachingLlmProvider(mock_llm_provider, tmp_cache_db, ctx)
 
     messages = [Message(role="user", content="Hello")]
@@ -99,6 +100,7 @@ def test_caching_middleware_miss(mock_llm_provider, tmp_cache_db):
 
     rendered_input = "\n".join(m.content for m in messages)
     key = compute_cache_key(
+        provider="unknown",
         model=mock_llm_provider.resolve_model(Tier.FAST),
         prompt_id=ctx.prompt_id,
         prompt_version=ctx.prompt_version,
@@ -121,3 +123,31 @@ def test_caching_middleware_miss(mock_llm_provider, tmp_cache_db):
         "cached_tokens": 0,
         "input_estimated": None,
     }
+
+
+def test_caching_middleware_distinct_keys():
+    from codeograph.llm.cache.key import compute_cache_key
+
+    key1 = compute_cache_key(
+        provider="anthropic",
+        model="claude-3-5-sonnet",
+        prompt_id="test",
+        prompt_version="v1",
+        prompt_content_hash="abc",
+        rendered_input="hello",
+        schema=DummySchema,
+        max_tokens=100,
+    )
+
+    key2 = compute_cache_key(
+        provider="openai",
+        model="claude-3-5-sonnet",
+        prompt_id="test",
+        prompt_version="v1",
+        prompt_content_hash="abc",
+        rendered_input="hello",
+        schema=DummySchema,
+        max_tokens=100,
+    )
+
+    assert key1 != key2

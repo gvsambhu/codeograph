@@ -8,6 +8,7 @@ from codeograph.config.settings import Settings
 from codeograph.llm.models import ProviderType, Tier
 from codeograph.llm.provider import LlmProvider
 from codeograph.llm.providers.anthropic_provider import AnthropicProvider
+from codeograph.llm.providers.openrouter_provider import OpenRouterProvider
 
 
 class LlmProviderResolver:
@@ -29,6 +30,13 @@ class LlmProviderResolver:
                 return AnthropicProvider(
                     api_key=self._settings.anthropic_api_key.get_secret_value()
                     if self._settings.anthropic_api_key
+                    else "",
+                    tier_map=tier_map,
+                )
+            case ProviderType.OPENROUTER:
+                return OpenRouterProvider(
+                    api_key=self._settings.openrouter_api_key.get_secret_value()
+                    if self._settings.openrouter_api_key
                     else "",
                     tier_map=tier_map,
                 )

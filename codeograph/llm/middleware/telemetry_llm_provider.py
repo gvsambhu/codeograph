@@ -1,3 +1,4 @@
+import logging
 import time
 import uuid
 from datetime import UTC, datetime
@@ -51,10 +52,11 @@ class TelemetryLlmProvider(LlmProvider):
             output_body = res.value.model_dump_json()
 
             record = TelemetryRecord(
+                run_id=self._ctx.run_id,
                 ts=start_ts,
                 trace_id=str(uuid.uuid4()),
-                pipeline_name="UNKNOWN",
-                pipeline_run_id="UNKNOWN",
+                pipeline_name=self._ctx.pipeline_name,
+                pipeline_run_id=self._ctx.pipeline_run_id,
                 corpus_id=self._ctx.corpus_id,
                 provider=self._ctx.provider_name,
                 model=res.model,
@@ -78,16 +80,20 @@ class TelemetryLlmProvider(LlmProvider):
                 attempts=[],
                 cost_usd_est=0.0,
             )
-            self._emitter.emit(record)
+            try:
+                self._emitter.emit(record)
+            except Exception as e:
+                logging.getLogger(__name__).warning("Telemetry emit failed: %s", e)
             return res
 
         except LlmError as e:
             latency = int((time.monotonic() - start) * 1000)
             record = TelemetryRecord(
+                run_id=self._ctx.run_id,
                 ts=start_ts,
                 trace_id=str(uuid.uuid4()),
-                pipeline_name="UNKNOWN",
-                pipeline_run_id="UNKNOWN",
+                pipeline_name=self._ctx.pipeline_name,
+                pipeline_run_id=self._ctx.pipeline_run_id,
                 corpus_id=self._ctx.corpus_id,
                 provider=self._ctx.provider_name,
                 model=override_model or tier.value,
@@ -111,5 +117,8 @@ class TelemetryLlmProvider(LlmProvider):
                 attempts=[],
                 cost_usd_est=0.0,
             )
-            self._emitter.emit(record)
+            try:
+                self._emitter.emit(record)
+            except Exception as e2:
+                logging.getLogger(__name__).warning("Telemetry emit failed: %s", e2)
             raise e

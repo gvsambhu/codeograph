@@ -1,5 +1,8 @@
 import json
 
+import pytest
+
+from codeograph.llm.errors import LlmError
 from codeograph.llm.models import LlmResult, TokenUsage
 from codeograph.passes.pass1.models import AnnotationRecord, NodeAnnotation
 from codeograph.passes.pass1.node_annotator import NodeAnnotator
@@ -70,7 +73,7 @@ def test_annotator_degraded_nodes(mock_llm_provider, mock_prompt_loader, tmp_pat
         output_dir=output_dir,
     )
 
-    oversized_source = "x" * 120_001
+    oversized_source = "x" * 240_001
     nodes = [
         {
             "id": "HugeNode",
@@ -102,3 +105,161 @@ def test_annotator_degraded_nodes(mock_llm_provider, mock_prompt_loader, tmp_pat
     assert result == expected
     assert written == expected
     assert len(mock_llm_provider.calls) == 0
+
+
+def test_annotator_failure_ratio_abort(mock_llm_provider, mock_prompt_loader, tmp_path):
+    output_dir = tmp_path / "annotations"
+    annotator = NodeAnnotator(
+        provider=mock_llm_provider,
+        prompt_loader=mock_prompt_loader,
+        output_dir=output_dir,
+        max_pass1_failure_ratio=0.10,
+    )
+
+    nodes = [
+        {
+            "id": f"Node{i}",
+            "name": f"A{i}",
+            "category": "CLASS",
+            "source_code": f"class A{i} {{}}",
+            "dependencies": {"injected": []},
+        }
+        for i in range(10)
+    ]
+
+    # We mock complete_structured_many directly to return exactly 2 errors and 8 successes
+    # Or just mock the provider to raise error 2 times
+    original_complete = mock_llm_provider.complete_structured
+    call_count = [0]
+
+    def _mock_complete(*args, **kwargs):
+        call_count[0] += 1
+        if call_count[0] <= 2:
+            raise LlmError("Mock failure")
+        return original_complete(*args, **kwargs)
+
+    mock_llm_provider.complete_structured = _mock_complete
+
+    expected_annotation = NodeAnnotation(
+        node_id="test",
+        class_name="A",
+        stereotype="Entity",
+        domain_hint="test-domain",
+        description="Dummy annotation",
+        methods=[],
+    )
+    mock_llm_provider.mock_response = LlmResult(
+        value=expected_annotation,
+        usage=TokenUsage(10, 20, 0),
+        model="mock-model",
+        latency_ms=100,
+    )
+
+    with pytest.raises(LlmError, match="exceeds max"):
+        annotator.annotate(nodes)
+
+
+def test_annotator_failure_below_n_floor_abort(mock_llm_provider, mock_prompt_loader, tmp_path):
+    output_dir = tmp_path / "annotations"
+    annotator = NodeAnnotator(
+        provider=mock_llm_provider,
+        prompt_loader=mock_prompt_loader,
+        output_dir=output_dir,
+        max_pass1_failure_ratio=0.10,
+    )
+
+    # 9 nodes is below the floor of 10
+    nodes = [
+        {
+            "id": f"Node{i}",
+            "name": f"A{i}",
+            "category": "CLASS",
+            "source_code": f"class A{i} {{}}",
+            "dependencies": {"injected": []},
+        }
+        for i in range(9)
+    ]
+
+    original_complete = mock_llm_provider.complete_structured
+    call_count = [0]
+
+    def _mock_complete(*args, **kwargs):
+        call_count[0] += 1
+        if call_count[0] <= 5:  # 5/9 > 0.1 ratio, but more importantly 5 > 3 absolute
+            raise LlmError("Mock failure")
+        return original_complete(*args, **kwargs)
+
+    mock_llm_provider.complete_structured = _mock_complete
+
+    expected_annotation = NodeAnnotation(
+        node_id="test",
+        class_name="A",
+        stereotype="Entity",
+        domain_hint="test-domain",
+        description="Dummy annotation",
+        methods=[],
+    )
+    mock_llm_provider.mock_response = LlmResult(
+        value=expected_annotation,
+        usage=TokenUsage(10, 20, 0),
+        model="mock-model",
+        latency_ms=100,
+    )
+
+    # 5/9 failures exceeds absolute minimum of 3 — should abort
+    with pytest.raises(LlmError, match="exceeds absolute minimum"):
+        annotator.annotate(nodes)
+
+
+def test_annotator_failure_below_n_floor_ok(mock_llm_provider, mock_prompt_loader, tmp_path):
+    output_dir = tmp_path / "annotations"
+    annotator = NodeAnnotator(
+        provider=mock_llm_provider,
+        prompt_loader=mock_prompt_loader,
+        output_dir=output_dir,
+        max_pass1_failure_ratio=0.10,
+    )
+
+    # 9 nodes is below the floor of 10
+    nodes = [
+        {
+            "id": f"Node{i}",
+            "name": f"A{i}",
+            "category": "CLASS",
+            "source_code": f"class A{i} {{}}",
+            "dependencies": {"injected": []},
+        }
+        for i in range(9)
+    ]
+
+    original_complete = mock_llm_provider.complete_structured
+    call_count = [0]
+
+    expected_annotation = NodeAnnotation(
+        node_id="test",
+        class_name="A",
+        stereotype="Entity",
+        domain_hint="test-domain",
+        description="Dummy annotation",
+        methods=[],
+    )
+    mock_llm_provider.mock_response = LlmResult(
+        value=expected_annotation,
+        usage=TokenUsage(10, 20, 0),
+        model="mock-model",
+        latency_ms=100,
+    )
+
+    def _mock_complete(*args, **kwargs):
+        call_count[0] += 1
+        if call_count[0] <= 2:  # 2/9 failures — below absolute minimum of 3
+            raise LlmError("Mock failure")
+        return original_complete(*args, **kwargs)
+
+    mock_llm_provider.complete_structured = _mock_complete
+
+    records = annotator.annotate(nodes)
+    assert len(records) == 9
+
+    degraded_count = sum(1 for r in records if r["degraded"])
+    assert degraded_count == 2
