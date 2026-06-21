@@ -51,10 +51,11 @@ class TelemetryLlmProvider(LlmProvider):
             output_body = res.value.model_dump_json()
 
             record = TelemetryRecord(
+                run_id=self._ctx.run_id,
                 ts=start_ts,
                 trace_id=str(uuid.uuid4()),
-                pipeline_name="UNKNOWN",
-                pipeline_run_id="UNKNOWN",
+                pipeline_name=self._ctx.pipeline_name,
+                pipeline_run_id=self._ctx.pipeline_run_id,
                 corpus_id=self._ctx.corpus_id,
                 provider=self._ctx.provider_name,
                 model=res.model,
@@ -84,10 +85,11 @@ class TelemetryLlmProvider(LlmProvider):
         except LlmError as e:
             latency = int((time.monotonic() - start) * 1000)
             record = TelemetryRecord(
+                run_id=self._ctx.run_id,
                 ts=start_ts,
                 trace_id=str(uuid.uuid4()),
-                pipeline_name="UNKNOWN",
-                pipeline_run_id="UNKNOWN",
+                pipeline_name=self._ctx.pipeline_name,
+                pipeline_run_id=self._ctx.pipeline_run_id,
                 corpus_id=self._ctx.corpus_id,
                 provider=self._ctx.provider_name,
                 model=override_model or tier.value,

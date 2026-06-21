@@ -13,7 +13,8 @@ def test_jsonl_emitter_writes_lines(tmp_telemetry_jsonl, tmp_path):
     )
 
     record = TelemetryRecord(
-        ts="2026-05-24T10:00:00Z",
+        run_id="run-123",
+        ts="2025-01-01T12:00:00Z",
         trace_id="test_trace_123",
         pipeline_name="pass_1",
         pipeline_run_id="run_123",
@@ -61,7 +62,7 @@ def test_jsonl_emitter_writes_lines(tmp_telemetry_jsonl, tmp_path):
     assert parsed["output_tokens"] == 200
     assert parsed["cached_tokens"] == 0
     assert parsed["cache_hit"] is False
-    assert parsed["schema_version"] == "1.0"
+    assert parsed["schema_version"] == "1.1"
 
     assert isinstance(parsed["attempts"], list)
     assert len(parsed["attempts"]) == 1

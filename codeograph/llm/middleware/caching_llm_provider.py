@@ -38,6 +38,7 @@ class CachingLlmProvider(LlmProvider):
         rendered_input = "\n".join(m.content for m in messages)
 
         key = compute_cache_key(
+            provider=self._ctx.provider_name,
             model=model_name,
             prompt_id=self._ctx.prompt_id,
             prompt_version=self._ctx.prompt_version,

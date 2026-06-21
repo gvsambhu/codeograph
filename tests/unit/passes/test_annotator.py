@@ -70,7 +70,7 @@ def test_annotator_degraded_nodes(mock_llm_provider, mock_prompt_loader, tmp_pat
         output_dir=output_dir,
     )
 
-    oversized_source = "x" * 120_001
+    oversized_source = "x" * 240_001
     nodes = [
         {
             "id": "HugeNode",

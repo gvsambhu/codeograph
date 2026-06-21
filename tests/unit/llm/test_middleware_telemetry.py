@@ -11,7 +11,7 @@ class DummySchema(BaseModel):
 
 
 def test_telemetry_middleware_emits_record(mock_llm_provider, tmp_telemetry_jsonl, tmp_path):
-    ctx = CallContext(Purpose.ANNOTATE, "test_prompt", "v1", "hash", "corpus")
+    ctx = CallContext("r1", "p1", "pr1", Purpose.ANNOTATE, "test_prompt", "v1", "hash", "corpus")
 
     provider = TelemetryLlmProvider(mock_llm_provider, tmp_telemetry_jsonl, ctx)
 

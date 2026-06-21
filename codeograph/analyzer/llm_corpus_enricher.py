@@ -43,6 +43,7 @@ class LlmCorpusEnricher:
     def enrich(
         self,
         corpus_id: str,
+        run_id: str,
         graph_artefact: GraphArtefact,
         out_dir: Path,
     ) -> tuple[GraphArtefact, dict[str, CacheStats] | None]:
@@ -60,7 +61,7 @@ class LlmCorpusEnricher:
             click.echo("WARNING: CODEOGRAPH_ANTHROPIC_API_KEY is not set. LLM passes will fail unless mocked.")
 
         # Setup Cache & Telemetry Session
-        session = self._telemetry_manager.start_session(corpus_id)
+        session = self._telemetry_manager.start_session(corpus_id, run_id)
 
         # Resolve LLM provider
         base_provider = self._provider_resolver.resolve()
@@ -78,6 +79,9 @@ class LlmCorpusEnricher:
             click.echo("Running Pass 1 (Node Annotation)...")
             prompt_p1 = prompt_loader.get(PromptId.ANNOTATE_NODE)
             ctx_p1 = CallContext(
+                run_id=run_id,
+                pipeline_name="pass_1",
+                pipeline_run_id=run_id,
                 purpose=Purpose.ANNOTATE,
                 prompt_id=PromptId.ANNOTATE_NODE,
                 prompt_version=prompt_p1.metadata.version,
@@ -88,13 +92,16 @@ class LlmCorpusEnricher:
             provider_p1 = build_default_stack(
                 base_provider, retry_policy, session.cache_backend, session.emitter, ctx_p1
             )
-            annotator = NodeAnnotator(provider_p1, prompt_loader, out_dir, self._settings.llm_concurrency)
+            annotator = NodeAnnotator(provider_p1, prompt_loader, out_dir, self._settings.llm_concurrency, self._settings.max_pass1_failure_ratio)
             annotations = annotator.annotate(nodes)
 
             # --- Pass 2: Synthesize Corpus ---
             click.echo("Running Pass 2 (Corpus Synthesis)...")
             prompt_p2 = prompt_loader.get(PromptId.SYNTHESIZE_CORPUS)
             ctx_p2 = CallContext(
+                run_id=run_id,
+                pipeline_name="pass_2",
+                pipeline_run_id=run_id,
                 purpose=Purpose.SYNTHESIZE,
                 prompt_id=PromptId.SYNTHESIZE_CORPUS,
                 prompt_version=prompt_p2.metadata.version,

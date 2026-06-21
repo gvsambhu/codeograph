@@ -12,8 +12,8 @@ from codeograph.passes.pass1.models import AnnotationRecord, NodeAnnotation
 
 logger = logging.getLogger(__name__)
 
-# Per ADR-005 §6: oversized nodes are skipped rather than truncated.
-_MAX_SOURCE_CHARS = 120_000
+# Per ADR-005 §3: oversized nodes are skipped rather than truncated.
+_MAX_SOURCE_CHARS = 240_000
 
 
 class NodeAnnotator:
@@ -23,11 +23,13 @@ class NodeAnnotator:
         prompt_loader: PromptLoader,
         output_dir: Path,
         max_concurrent: int = 5,
+        max_pass1_failure_ratio: float = 0.10,
     ):
         self._provider = provider
         self._prompt_loader = prompt_loader
         self._output_dir = output_dir
         self._max_concurrent = max_concurrent
+        self._max_pass1_failure_ratio = max_pass1_failure_ratio
 
     def annotate(self, nodes: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """
@@ -54,6 +56,7 @@ class NodeAnnotator:
                     len(source),
                     _MAX_SOURCE_CHARS,
                 )
+                # TODO(learner): implement signatures-only extraction and extraction_mode tagging (ADR-005 O3, DC2-02)
                 degraded_ids.append(str(node.get("id", "")))
             else:
                 normal.append(node)
@@ -89,11 +92,33 @@ class NodeAnnotator:
             max_concurrent=self._max_concurrent,
         )
 
+        from codeograph.llm.errors import LlmError
+        
+        failures = sum(1 for r in results if isinstance(r, LlmError))
+        total = len(requests)
+        
+        if total >= 10:
+            ratio = failures / total
+            if ratio > self._max_pass1_failure_ratio:
+                raise LlmError(f"Pass 1 failure ratio {ratio:.2f} exceeds max {self._max_pass1_failure_ratio}")
+
         # Assemble output — normal nodes first, then degraded stubs.
         # Each entry is an AnnotationRecord envelope (orchestrator-owned `degraded`
         # is separated from the LLM-response NodeAnnotation per ADR-005 O3).
         records: list[dict[str, Any]] = []
         for node, result in zip(normal, results):
+            if isinstance(result, LlmError):
+                logger.warning("Pass 1 node %s failed: %s", node.get("id"), result)
+                # TODO(learner): how should failed nodes be recorded? Fallback to degraded for now.
+                records.append(
+                    AnnotationRecord(
+                        node_id=str(node.get("id", "")),
+                        degraded=True,
+                        annotation=None,
+                    ).model_dump()
+                )
+                continue
+
             annotation: NodeAnnotation = result.value
             records.append(
                 AnnotationRecord(
@@ -103,10 +128,10 @@ class NodeAnnotator:
                 ).model_dump()
             )
 
-        for node_id in degraded_ids:
+        for d_id in degraded_ids:
             records.append(
                 AnnotationRecord(
-                    node_id=node_id,
+                    node_id=d_id,
                     degraded=True,
                     annotation=None,
                 ).model_dump()

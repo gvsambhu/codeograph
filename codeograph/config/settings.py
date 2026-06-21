@@ -36,6 +36,11 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("ANTHROPIC_API_KEY", "CODEOGRAPH_ANTHROPIC_API_KEY"),
         description="Anthropic API key. Set via ANTHROPIC_API_KEY or CODEOGRAPH_ANTHROPIC_API_KEY.",
     )
+    openrouter_api_key: SecretStr | None = Field(
+        default=None,
+        validation_alias=AliasChoices("OPENROUTER_API_KEY", "CODEOGRAPH_OPENROUTER_API_KEY"),
+        description="OpenRouter API key. Set via OPENROUTER_API_KEY or CODEOGRAPH_OPENROUTER_API_KEY.",
+    )
     llm_provider: ProviderType = Field(
         default=ProviderType.ANTHROPIC,
         description="LLM provider: anthropic | ollama | bedrock.",

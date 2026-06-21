@@ -5,6 +5,7 @@ from typing import TypeVar
 from pydantic import BaseModel
 
 from codeograph.llm.models import LlmResult, Message, Tier
+from codeograph.llm.errors import LlmError
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -43,13 +44,21 @@ class LlmProvider(ABC):
         tier: Tier,
         requests: list[tuple[list[Message], type[T]]],
         *,
-        max_concurrent: int = 10,
+        max_concurrent: int = 5,
         override_model: str | None = None,
-    ) -> list[LlmResult[T]]:
+    ) -> list[LlmResult[T] | LlmError]:
         """Default impl uses ThreadPoolExecutor. Provider-uniform."""
         with ThreadPoolExecutor(max_workers=max_concurrent) as ex:
             futures = [
                 ex.submit(self.complete_structured, tier, msgs, schema, override_model=override_model, max_tokens=4096)
                 for msgs, schema in requests
             ]
-            return [f.result() for f in futures]
+            results: list[LlmResult[T] | LlmError] = []
+            for f in futures:
+                try:
+                    results.append(f.result())
+                except LlmError as e:
+                    results.append(e)
+                except Exception as e:
+                    results.append(LlmError(f"Unexpected execution error: {e}"))
+            return results

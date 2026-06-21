@@ -5,6 +5,7 @@ from codeograph.telemetry.attempt import Attempt
 
 @dataclass(frozen=True)
 class TelemetryRecord:
+    run_id: str
     ts: str  # ISO 8601 UTC
     trace_id: str
     pipeline_name: str  # pass_1 | pass_2 | pass_3
@@ -31,7 +32,7 @@ class TelemetryRecord:
     total_latency_ms: int
     attempts: list[Attempt]
     cost_usd_est: float
-    schema_version: str = "1.0"
+    schema_version: str = "1.1"
 
     def to_dict(self) -> dict[str, object]:
         d: dict[str, object] = self.__dict__.copy()

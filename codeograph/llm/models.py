@@ -11,6 +11,7 @@ class ProviderType(StrEnum):
     ANTHROPIC = "anthropic"
     OLLAMA = "ollama"
     BEDROCK = "bedrock"
+    OPENROUTER = "openrouter"
 
 
 class Tier(StrEnum):
@@ -33,6 +34,9 @@ class Purpose(StrEnum):
 class CallContext:
     """Pass-specific metadata carried into cache/telemetry wrappers."""
 
+    run_id: str
+    pipeline_name: str
+    pipeline_run_id: str
     purpose: Purpose
     prompt_id: str
     prompt_version: str

@@ -283,6 +283,7 @@ def run(
             )
             llm_annotations_artefact, cache_stats = enricher.enrich(
                 corpus_id=corpus_id,
+                run_id=run_id,
                 graph_artefact=graph_artefact,
                 out_dir=out_dir,
             )
