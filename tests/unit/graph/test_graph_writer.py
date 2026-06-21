@@ -26,10 +26,10 @@ from pathlib import Path
 from codeograph.graph.graph_writer import (
     _SORTABLE_NODE_ARRAYS,
     GRAPH_FILENAME,
-    GraphArtefact,
     GraphWriter,
 )
 from codeograph.graph.models.graph_schema import CodeographKnowledgeGraph
+from codeograph.manifest.artefact import GraphArtefact
 
 # ---------------------------------------------------------------------------
 # Helpers — minimal graph fixtures

@@ -9,6 +9,7 @@ Registers:
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import pytest
 from pydantic import BaseModel
@@ -39,8 +40,10 @@ def update_goldens(request: pytest.FixtureRequest) -> bool:
 class MockLlmProvider(LlmProvider):
     """A mock LLM provider for unit tests that avoids live API calls."""
 
-    def __init__(self):
-        self.calls: list[dict] = []
+    mock_response: LlmResult[BaseModel] | None = None
+
+    def __init__(self) -> None:
+        self.calls: list[dict[str, Any]] = []
 
     def resolve_model(self, tier: Tier, override_model: str | None = None) -> str:
         return override_model or "mock-model"
@@ -63,7 +66,7 @@ class MockLlmProvider(LlmProvider):
                 "max_tokens": max_tokens,
             }
         )
-        if getattr(self, "mock_response", None) is not None:
+        if self.mock_response is not None:
             return self.mock_response
         # Dummy instantiation — might fail if schema has required fields without defaults
         try:

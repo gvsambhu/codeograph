@@ -6,6 +6,7 @@ import json
 import re
 from contextlib import ExitStack
 from pathlib import Path
+from typing import Literal
 from unittest.mock import patch
 
 import pytest
@@ -45,11 +46,11 @@ def _write_manifest(out_dir: Path, corpus_id: str = "test-corpus") -> None:
 
 
 def _write_empty_graph(out_dir: Path) -> None:
-    graph = {"nodes": [], "edges": []}
+    graph: dict[str, list[object]] = {"nodes": [], "edges": []}
     (out_dir / "graph.json").write_text(json.dumps(graph), encoding="utf-8")
 
 
-def _make_pass_check(check_id: str, category: str = "graph") -> CheckResult:
+def _make_pass_check(check_id: str, category: Literal["graph", "code"] = "graph") -> CheckResult:
     return CheckResult(
         id=check_id,
         category=category,
@@ -60,7 +61,7 @@ def _make_pass_check(check_id: str, category: str = "graph") -> CheckResult:
     )
 
 
-def _make_skip_check(check_id: str, category: str = "graph") -> CheckResult:
+def _make_skip_check(check_id: str, category: Literal["graph", "code"] = "graph") -> CheckResult:
     return CheckResult(
         id=check_id,
         category=category,

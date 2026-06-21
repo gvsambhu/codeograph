@@ -129,3 +129,10 @@ exclude_also = [
 # Source of truth: codeograph/parser/java/pom.xml <javaparser.version>.
 # Bundled as: codeograph/parser/lib/parser.jar (shaded fat JAR).
 javaparser = "3.26.2"
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+disallow_untyped_decorators = false
+check_untyped_defs = true

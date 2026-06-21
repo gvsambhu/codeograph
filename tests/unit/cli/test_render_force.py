@@ -10,7 +10,7 @@ import json
 from pathlib import Path, PurePosixPath
 from unittest.mock import MagicMock, patch
 
-from click.testing import CliRunner
+from click.testing import CliRunner, Result
 
 from codeograph.cli.render import render_cli
 
@@ -52,7 +52,7 @@ def _minimal_from_dir(tmp_path: Path) -> Path:
     return from_dir
 
 
-def _render_patches(tmp_path: Path, file_map: dict):
+def _render_patches(tmp_path: Path, file_map: dict[str, bytes]):
     """Return the stack of patches needed to bypass the full LLM/provider stack.
 
     Patches are applied at their canonical module paths because render_cli
@@ -89,7 +89,7 @@ def _render_patches(tmp_path: Path, file_map: dict):
 
 
 class TestForceFlag:
-    def _invoke(self, tmp_path: Path, out_dir: Path, extra_args: list[str] = ()) -> object:
+    def _invoke(self, tmp_path: Path, out_dir: Path, extra_args: tuple[str, ...] = ()) -> Result:
         from_dir = _minimal_from_dir(tmp_path)
         file_map = {PurePosixPath("src/orders/order.service.ts"): b"export class OrderService {}"}
         patches = _render_patches(tmp_path, file_map)

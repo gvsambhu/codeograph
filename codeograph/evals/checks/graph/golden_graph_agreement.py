@@ -11,10 +11,10 @@ _RATIONALE = (
     "(requires --update-goldens) or an unintended regression."
 )
 
-# Goldens live at <repo_root>/tests/goldens/<corpus_id>/graph.json.
-# This file is at codeograph/evals/checks/graph/golden_graph_agreement.py,
-# so parents[4] is the repo root (codeograph/).
-_GOLDENS_BASE = Path(__file__).parents[4] / "tests" / "goldens"
+# Goldens live at <repo_root>/tests/golden/<corpus_id>/graph.json (singular,
+# per amended ADR-007 path convention). This file is 4 parents up from the
+# repo root (codeograph/).
+_GOLDENS_BASE = Path(__file__).parents[4] / "tests" / "golden"
 
 
 def check_golden_graph_agreement(output_dir: Path) -> CheckResult:

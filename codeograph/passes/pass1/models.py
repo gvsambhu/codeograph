@@ -75,7 +75,7 @@ class NodeAnnotation(BaseModel):
     )
     description: str = Field(description="1-2 sentences explaining the class responsibility. Use business language.")
     conversion_notes: str | None = Field(
-        None,
+        default=None,
         description=(
             "Class-level migration guidance for the conversion engineer — use when the entire class "
             "has a cross-cutting concern (e.g., heavy AOP usage, class-level @Transactional, unusual inheritance). "

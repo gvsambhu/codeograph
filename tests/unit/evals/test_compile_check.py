@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
+from typing import Any
 from unittest.mock import patch
 
 import pytest
@@ -16,9 +17,9 @@ from codeograph.evals.checks.code.compile import check_compile
 # ---------------------------------------------------------------------------
 
 
-def _write_manifest(out_dir: Path, sidecar_meta: dict | None = None) -> None:
+def _write_manifest(out_dir: Path, sidecar_meta: dict[str, Any] | None = None) -> None:
     """Write a minimal manifest.json with optional compile_checks pointer."""
-    artefacts: dict = {
+    artefacts: dict[str, Any] = {
         "graph": {"path": "graph.json", "schema_version": "1.0.0", "sha256": "a" * 64},
         "llm_annotations": {"path": "llm-annotations.json", "schema_version": "1.0.0", "sha256": None},
     }
@@ -34,7 +35,7 @@ def _write_manifest(out_dir: Path, sidecar_meta: dict | None = None) -> None:
     (out_dir / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
 
 
-def _write_sidecar(out_dir: Path, checks: list[dict]) -> tuple[Path, str]:
+def _write_sidecar(out_dir: Path, checks: list[dict[str, Any]]) -> tuple[Path, str]:
     """Write compile-checks.ts.json and return (path, sha256)."""
     evals_dir = out_dir / "evals"
     evals_dir.mkdir(exist_ok=True)
@@ -192,7 +193,7 @@ def test_compile_timeout_counts_as_fail(tmp_path: Path):
     with patch("subprocess.run", side_effect=exc):
         result = check_compile(tmp_path, "ts")
     assert result.result == "fail"
-    assert result.details["check_results"][0]["timeout"] is True  # type: ignore[index]
+    assert result.details["check_results"][0]["timeout"] is True
 
 
 def test_compile_empty_sidecar_passes(tmp_path: Path):

@@ -105,7 +105,7 @@ def run_evals(
     corpus_id = manifest.corpus_id
     codeograph_version = manifest.codeograph_version
     run_id = manifest.run_id
-    run_ts = datetime.datetime.now(datetime.UTC).isoformat()
+    run_ts = datetime.datetime.now(datetime.UTC).isoformat().replace("+00:00", "Z")
 
     # ---------------------------------------------------------------- #
     # 2. Resolve active check IDs from filter / skip parameters

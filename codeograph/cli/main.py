@@ -290,14 +290,11 @@ def run(
         else:
             click.echo("AST-only mode requested. Skipping LLM passes.")
 
-        # --- Eval (runs for both ast-only and full-LLM paths).
-        scorecards = None
-        if run_eval:
-            from codeograph.evals.corpus_evaluator import evaluate_corpus
-
-            scorecards = evaluate_corpus(out_dir)
-
         # --- Terminal manifest write ----------------------------------------
+        # Written before eval so that `codeograph eval run` (called by
+        # --eval below) can read corpus_id / run_id / graph sha256 from it.
+        # The eval job then patches the manifest in-place with scorecard
+        # pointers — the same write pattern as standalone `codeograph eval run`.
         assembler = ManifestAssembler()
         manifest = assembler.assemble(
             run_id=run_id,
@@ -308,10 +305,19 @@ def run(
             graph_artefact=graph_artefact,
             llm_annotations_artefact=llm_annotations_artefact,
             cache_stats=cache_stats,
-            scorecards=scorecards,
+            scorecards=None,
             compile_checks=None,
         )
         manifest_path = assembler.write_to(manifest, out_dir)
+
+        # --- Eval (runs for both ast-only and full-LLM paths) --------------
+        # Reads the manifest written above; patches it in-place with scorecard
+        # pointers (ADR-017 Fork 5 opt-in sugar).
+        if run_eval:
+            from codeograph.evals.corpus_evaluator import evaluate_corpus
+
+            evaluate_corpus(out_dir)
+
         click.echo(f"Done. Manifest: {manifest_path}")
 
     finally:
