@@ -814,3 +814,66 @@ The encoding (`encoding="utf-8"`) and line-ending (`.gitattributes eol=lf`) disc
 * `coverage.py` documentation — https://coverage.readthedocs.io/
 * GitHub Actions documentation — https://docs.github.com/en/actions
 * MADR template — https://github.com/adr/madr
+
+## Amendments
+
+**2026-06-21 — Determinism helper count corrected to seven; count-based Confirmations reframed.**
+Fork 7 specified six determinism helpers in `tests/helpers/determinism.py`, and Confirmation #6
+asserts that the module "exports exactly six helpers." ADR-022 Fork 3 subsequently added a seventh
+helper, `assert_run_id_format`, which validates the locked `run_id` format
+(`YYYY-MM-DDTHH-MM-SSZ-<6 hex>`) and classifies `run_id` as a structural / regex-validated row of the
+determinism table; ADR-022 declared a downstream edit to this ADR that had not yet been recorded.
+The helper roster is now seven: `assert_byte_equal_except`, `assert_scorecard_structural`,
+`assert_compile_check_byte_equal`, `assert_log_contains`, `assert_iso8601`, `assert_sha256`, and
+`assert_run_id_format`. More broadly, several Confirmations assert exact counts that auto-falsify on
+the additive growth this ADR's Deferred-items section explicitly anticipates; they are reframed from
+"exactly N" to "at least N / includes" so that adding a helper, marker, or job does not break a
+Confirmation that is meant to test presence:
+- **Confirmation #6** — read as: the module exports *at least* the seven named helpers
+  (`assert_byte_equal_except`, `assert_scorecard_structural`, `assert_compile_check_byte_equal`,
+  `assert_log_contains`, `assert_iso8601`, `assert_sha256`, `assert_run_id_format`); each has at
+  least one unit test in `tests/unit/test_helpers.py`.
+- **Confirmation #7** — read as: `pyproject.toml` registers *at least* the three markers `slow`,
+  `external`, `eval`; `addopts` carries the `-m 'not slow and not external and not eval'` default.
+- **Confirmation #8** — read as: `.github/workflows/ci.yml` defines *at least* the five jobs `lint`,
+  `unit`, `integration-external`, `eval`, `report`, with the matrix and `needs` relationships named.
+Fork 7's "six helpers" prose reads "seven helpers" accordingly. No reversal of any prior decision;
+this records the ADR-022 helper addition and removes the brittleness of exact-count assertions.
+
+**2026-06-21 — CI mypy gate extended to `tests/` (Fork 6).** Fork 6's `lint` job type-checks source
+only (`mypy codeograph/`). The project guidelines now expect the test layer to be type-checked too —
+catching over-narrowed empty-collection inference and missing annotations that source-only checking
+misses. The mypy gate is extended to `mypy codeograph/ tests/`. Because the project is `strict = true`
+and test code cannot satisfy strict checking as-is (untyped test-function signatures, untyped fixture
+parameters), a relaxed `[[tool.mypy.overrides]]` entry for the `tests.*` module path is the
+prerequisite: it disables the strict untyped-def rules for tests while keeping the body of each test
+type-checked (`check_untyped_defs`). The `pyproject.toml` override and the `ci.yml` lint-step change
+are the enacting code/CI work. No reversal of any prior decision; this extends an existing gate to a
+layer the guidelines now require.
+
+**2026-06-21 — Fork 6 CI sketch corrected to the buildable `eval run` surface.** Fork 6's CI sketch
+invokes `codeograph eval <dir>` (the unbuildable bare-positional form) and renders with `--target ts`.
+The ratified eval surface is `codeograph eval run <output-dir>` (see ADR-017 Amendments,
+2026-06-21), and the shipped `.github/workflows/ci.yml` renders the example corpora with `--ast-only`
+(eval runs deterministically on the AST-only render; no LLM annotation in CI). The Fork 6 sketch's
+`eval` job is read as: render with `codeograph run <corpus> --out <out> --ast-only`, then
+`codeograph eval run <out>`. This is the same shared correction as ADR-017 Finding 1 / Fork 5. No
+reversal of any prior decision; the CI intent is unchanged — only the command spelling is corrected to
+match the buildable surface and the shipped workflow.
+
+**2026-06-21 — Cross-ADR reference reconciliation (golden path, manifest fields, Go-eval scope).**
+Three stale references are corrected, none of which changes a decision:
+(1) *Golden path.* Fork 1, Fork 2, and the Fork 7 classification table reference
+`tests/goldens/<corpus_id>/`; the amended ADR-007 path is `tests/golden/<corpus>/`, and the goldens
+runner reads from there. (Shared with ADR-017's golden-path reconciliation.)
+(2) *Manifest fields.* Fork 7's classification table lists a manifest `run_timestamp` field that
+ADR-022 removed (superseded by the chronologically-sortable `run_id`), and pre-ADR-025 manifest 1.x
+field paths (`scorecards.*`, `compile_checks.*`); ADR-025 restructured the manifest to a flat `2.0.0`
+shape that carries those pointer objects. The classification table's byte-stable manifest rows read
+against the ADR-025 `2.0.0` manifest, and the non-deterministic-fields row drops `run_timestamp` in
+favour of `run_id`. (Shared with ADR-017's manifest reconciliation.)
+(3) *NFR-4 Go-eval scope.* NFR-4 names "TS and Go eval paths each push"; v1 ships the TS renderer only
+(the Go renderer is v1.1), so the `eval` job matrix runs the TS path only. The Go-eval path is a v1.1
+deferral, consistent with the v1-vs-v1.1 renderer scope. No reversal of any prior decision; these are
+consistency corrections against later-locked ADRs (ADR-007, ADR-022, ADR-025) and the v1 renderer
+scope.
