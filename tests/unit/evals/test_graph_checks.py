@@ -21,6 +21,8 @@ from codeograph.graph.models.graph_schema import (
     Edge,
     ExtractionMode,
     MethodNode,
+    Modifier,
+    Modifier4,
     Node,
 )
 
@@ -38,7 +40,7 @@ def _class_node(
             id=fqcn,
             name=fqcn.rsplit(".", 1)[-1],
             kind="class",
-            modifiers=["public"],
+            modifiers=[Modifier.public],
             source_file=f"src/{fqcn.replace('.', '/')}.java",
             line_range=[1, 10],
             extraction_mode=ExtractionMode(extraction_mode),
@@ -53,7 +55,7 @@ def _method_node(fqcn: str = "com.example.Foo#bar()") -> Node:
             id=fqcn,
             name=fqcn.split("#")[1].split("(")[0],
             kind="method",
-            modifiers=["public"],
+            modifiers=[Modifier4.public],
             line_range=[2, 5],
             parameters=[],
             return_type="void",
@@ -155,6 +157,7 @@ class TestRelationshipCorrectness:
             edges=[_calls_resolved_edge("com.example.A", "com.example.Missing")],
         )
         result = check_relationship_correctness(graph)
+        assert result.value is not None
         assert result.value < 1.0
         assert result.result == "fail"
 
@@ -215,6 +218,7 @@ class TestInternalConsistency:
             edges=[],
         )
         result = check_internal_consistency(graph)
+        assert result.value is not None
         assert result.value >= 1
 
     def test_violations_listed_in_details(self):
@@ -281,24 +285,48 @@ def test_reproducibility_skips_when_source_path_empty(tmp_path: Path):
 
 
 # ---------------------------------------------------------------------------
-# golden_graph_agreement — skip path (no golden committed)
+# golden_graph_agreement — skip / pass / fail paths
 # ---------------------------------------------------------------------------
 
 
 def test_golden_graph_agreement_skips_when_no_golden(tmp_path: Path):
     from codeograph.evals.checks.graph.golden_graph_agreement import check_golden_graph_agreement
 
-    manifest = {
-        "schema_version": "1.6.0",
-        "codeograph_version": "0.1.0",
-        "source_path": str(tmp_path),
-        "corpus_id": "corpus-that-has-no-golden-xyz",
-        "artefacts": {
-            "graph": {"path": "graph.json", "schema_version": "1.0.0", "sha256": "a" * 64},
-            "llm_annotations": {"path": "llm-annotations.json", "schema_version": "1.0.0", "sha256": None},
-        },
-    }
-    (tmp_path / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
-    result = check_golden_graph_agreement(tmp_path)
+    result = check_golden_graph_agreement(
+        corpus_id="corpus-that-has-no-golden-xyz",
+        current_sha256="a" * 64,
+    )
     assert result.result == "skip"
     assert result.details["skip_reason"] == "no_golden_committed"
+
+
+def test_golden_graph_agreement_passes_when_sha256_matches(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    import codeograph.evals.checks.graph.golden_graph_agreement as _mod
+    from codeograph.evals.checks.graph.golden_graph_agreement import check_golden_graph_agreement
+
+    golden_content = b'{"nodes":[],"edges":[]}\n'
+    corpus_id = "test-corpus"
+    golden_sha = __import__("hashlib").sha256(golden_content).hexdigest()
+
+    golden_dir = tmp_path / corpus_id
+    golden_dir.mkdir()
+    (golden_dir / "graph.json").write_bytes(golden_content)
+    monkeypatch.setattr(_mod, "_GOLDENS_BASE", tmp_path)
+
+    result = check_golden_graph_agreement(corpus_id=corpus_id, current_sha256=golden_sha)
+    assert result.result == "pass"
+    assert result.value is True
+
+
+def test_golden_graph_agreement_fails_when_sha256_differs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    import codeograph.evals.checks.graph.golden_graph_agreement as _mod
+    from codeograph.evals.checks.graph.golden_graph_agreement import check_golden_graph_agreement
+
+    corpus_id = "test-corpus"
+    (tmp_path / corpus_id).mkdir()
+    (tmp_path / corpus_id / "graph.json").write_bytes(b'{"nodes":[],"edges":[]}\n')
+    monkeypatch.setattr(_mod, "_GOLDENS_BASE", tmp_path)
+
+    result = check_golden_graph_agreement(corpus_id=corpus_id, current_sha256="0" * 64)
+    assert result.result == "fail"
+    assert result.value is False

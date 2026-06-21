@@ -18,6 +18,7 @@ Coverage plan:
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
@@ -30,17 +31,17 @@ from codeograph.parser.java_file_parser import JavaParseError
 # ---------------------------------------------------------------------------
 
 
-def _ast_pf(fqcn: str = "com.example.Foo") -> dict:
+def _ast_pf(fqcn: str = "com.example.Foo") -> dict[str, Any]:
     return {"id": fqcn, "kind": "class", "name": "Foo", "extraction_mode": "ast"}
 
 
-def _regex_pf(fqcn: str = "com.example.Foo") -> dict:
+def _regex_pf(fqcn: str = "com.example.Foo") -> dict[str, Any]:
     return {"id": fqcn, "kind": "class", "name": "Foo", "extraction_mode": "regex"}
 
 
 def _make_dispatcher(
-    ast_result: dict | Exception | None = None,
-    regex_result: dict | None = None,
+    ast_result: dict[str, Any] | Exception | None = None,
+    regex_result: dict[str, Any] | None = None,
 ) -> tuple[FileParserDispatcher, MagicMock, MagicMock]:
     """
     Build a FileParserDispatcher with mocked java_parser and fallback.

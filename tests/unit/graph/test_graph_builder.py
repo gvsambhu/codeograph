@@ -6,6 +6,10 @@ Each test verifies one behaviour; assertions are on the returned
 CodeographKnowledgeGraph (node types, edge types, field values).
 """
 
+from __future__ import annotations
+
+from typing import cast
+
 from codeograph.graph.graph_builder import GraphBuilder
 from codeograph.graph.models.graph_schema import (
     AnnotationTypeNode,
@@ -13,6 +17,7 @@ from codeograph.graph.models.graph_schema import (
     BeanFactoryEdge,
     CallsUnresolvedEdge,
     ClassNode,
+    CodeographKnowledgeGraph,
     ContainsEdge,
     EnumNode,
     ExtractionMode,
@@ -25,6 +30,7 @@ from codeograph.graph.models.graph_schema import (
     RecordNode,
     Stereotype,
 )
+from codeograph.parser.models import FieldFact, MethodFact, ParameterFact, ParsedFile
 
 # ---------------------------------------------------------------------------
 # Shared helpers — minimal valid TypedDicts for each kind
@@ -33,9 +39,9 @@ from codeograph.graph.models.graph_schema import (
 MODULE_ID = "mod:core"
 
 
-def _class_pf(**kwargs):
+def _class_pf(**kwargs: object) -> ParsedFile:
     """Minimal valid ParsedFile for a class."""
-    base = {
+    base: dict[str, object] = {
         "kind": "class",
         "id": "com.example.Foo",
         "name": "Foo",
@@ -58,12 +64,12 @@ def _class_pf(**kwargs):
         "methods": [],
     }
     base.update(kwargs)
-    return base
+    return cast(ParsedFile, base)
 
 
-def _field(**kwargs):
+def _field(**kwargs: object) -> FieldFact:
     """Minimal valid FieldFact."""
-    base = {
+    base: dict[str, object] = {
         "id": "com.example.Foo.bar",
         "name": "bar",
         "type": "String",
@@ -78,12 +84,12 @@ def _field(**kwargs):
         "constraints": [],
     }
     base.update(kwargs)
-    return base
+    return cast(FieldFact, base)
 
 
-def _method(**kwargs):
+def _method(**kwargs: object) -> MethodFact:
     """Minimal valid MethodFact."""
-    base = {
+    base: dict[str, object] = {
         "id": "com.example.Foo#doIt()",
         "name": "doIt",
         "return_type": "void",
@@ -103,12 +109,12 @@ def _method(**kwargs):
         "calls": [],
     }
     base.update(kwargs)
-    return base
+    return cast(MethodFact, base)
 
 
-def _param(**kwargs):
+def _param(**kwargs: object) -> ParameterFact:
     """Minimal valid ParameterFact."""
-    base = {
+    base: dict[str, object] = {
         "name": "arg",
         "type": "String",
         "validate": False,
@@ -116,7 +122,7 @@ def _param(**kwargs):
         "binding": None,
     }
     base.update(kwargs)
-    return base
+    return cast(ParameterFact, base)
 
 
 # ---------------------------------------------------------------------------
@@ -124,11 +130,11 @@ def _param(**kwargs):
 # ---------------------------------------------------------------------------
 
 
-def _nodes_of(graph, cls):
+def _nodes_of[T](graph: CodeographKnowledgeGraph, cls: type[T]) -> list[T]:
     return [n.root for n in graph.nodes if isinstance(n.root, cls)]
 
 
-def _edges_of(graph, cls):
+def _edges_of[T](graph: CodeographKnowledgeGraph, cls: type[T]) -> list[T]:
     return [e.root for e in graph.edges if isinstance(e.root, cls)]
 
 
@@ -195,8 +201,8 @@ class TestBuildClass:
 
 
 class TestBuildInterface:
-    def _pf(self, **kwargs):
-        base = {
+    def _pf(self, **kwargs: object) -> ParsedFile:
+        base: dict[str, object] = {
             "kind": "interface",
             "id": "com.example.IFoo",
             "name": "IFoo",
@@ -210,7 +216,7 @@ class TestBuildInterface:
             "methods": [],
         }
         base.update(kwargs)
-        return base
+        return cast(ParsedFile, base)
 
     def test_emits_interface_node(self):
         graph = GraphBuilder().build(self._pf(), MODULE_ID)
@@ -228,8 +234,8 @@ class TestBuildInterface:
 
 
 class TestBuildEnum:
-    def _pf(self, **kwargs):
-        base = {
+    def _pf(self, **kwargs: object) -> ParsedFile:
+        base: dict[str, object] = {
             "kind": "enum",
             "id": "com.example.Status",
             "name": "Status",
@@ -245,7 +251,7 @@ class TestBuildEnum:
             "methods": [],
         }
         base.update(kwargs)
-        return base
+        return cast(ParsedFile, base)
 
     def test_emits_enum_node(self):
         graph = GraphBuilder().build(self._pf(), MODULE_ID)
@@ -263,8 +269,8 @@ class TestBuildEnum:
 
 
 class TestBuildRecord:
-    def _pf(self, **kwargs):
-        base = {
+    def _pf(self, **kwargs: object) -> ParsedFile:
+        base: dict[str, object] = {
             "kind": "record",
             "id": "com.example.Point",
             "name": "Point",
@@ -280,7 +286,7 @@ class TestBuildRecord:
             "implements": [],
         }
         base.update(kwargs)
-        return base
+        return cast(ParsedFile, base)
 
     def test_emits_record_node(self):
         graph = GraphBuilder().build(self._pf(), MODULE_ID)
@@ -295,8 +301,8 @@ class TestBuildRecord:
 
 
 class TestBuildAnnotationType:
-    def _pf(self, **kwargs):
-        base = {
+    def _pf(self, **kwargs: object) -> ParsedFile:
+        base: dict[str, object] = {
             "kind": "annotation_type",
             "id": "com.example.MyAnnotation",
             "name": "MyAnnotation",
@@ -309,7 +315,7 @@ class TestBuildAnnotationType:
             "elements": [{"name": "value", "type": "String", "default_value": None}],
         }
         base.update(kwargs)
-        return base
+        return cast(ParsedFile, base)
 
     def test_emits_annotation_type_node(self):
         graph = GraphBuilder().build(self._pf(), MODULE_ID)
@@ -318,13 +324,14 @@ class TestBuildAnnotationType:
     def test_elements_count(self):
         graph = GraphBuilder().build(self._pf(), MODULE_ID)
         node = _nodes_of(graph, AnnotationTypeNode)[0]
+        assert node.elements is not None
         assert len(node.elements) == 1
         assert node.elements[0].name == "value"
 
 
 class TestUnknownKind:
     def test_unknown_kind_returns_empty_graph(self):
-        pf = {
+        pf: ParsedFile = {
             "kind": "module-info",
             "id": "com.example",
             "name": "example",
@@ -536,7 +543,9 @@ class TestEmbedParameter:
         m = _method(parameters=[p])
         graph = GraphBuilder().build(_class_pf(methods=[m]), MODULE_ID)
         node = _nodes_of(graph, MethodNode)[0]
-        assert node.parameters[0].binding.kind.value == "body"
+        binding = node.parameters[0].binding
+        assert binding is not None
+        assert binding.kind.value == "body"
 
     def test_parameter_validate_flag(self):
         p = _param(validate=True)

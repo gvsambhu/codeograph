@@ -156,7 +156,7 @@ def test_eval_run_routed_through_top_level_cli(tmp_path: Path):
     mock_sc.checks = []
 
     with patch("codeograph.cli.eval.run_evals") as mock_run_evals:
-        mock_run_evals.return_value = [mock_sc]
+        mock_run_evals.return_value = ([mock_sc], {})
         runner = CliRunner()
         result = runner.invoke(eval_cli, ["run", str(tmp_path)])
 

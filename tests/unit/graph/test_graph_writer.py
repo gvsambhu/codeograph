@@ -26,10 +26,10 @@ from pathlib import Path
 from codeograph.graph.graph_writer import (
     _SORTABLE_NODE_ARRAYS,
     GRAPH_FILENAME,
-    GraphArtefact,
     GraphWriter,
 )
 from codeograph.graph.models.graph_schema import CodeographKnowledgeGraph
+from codeograph.manifest.artefact import GraphArtefact
 
 # ---------------------------------------------------------------------------
 # Helpers — minimal graph fixtures
@@ -87,7 +87,7 @@ def _graph_with_class_node(
             kind="class",
             name=fqcn.rsplit(".", 1)[-1],
             source_file=fqcn.replace(".", "/") + ".java",
-            extraction_mode="ast",
+            extraction_mode=gs.ExtractionMode.ast,
             modifiers=[gs.Modifier(m) for m in (modifiers or [])],
             annotations=annotations or [],
             is_inner_class=False,
@@ -198,7 +198,7 @@ class TestCanonicalBytes:
                 kind="class",
                 name="Foo",
                 source_file="com/example/Foo.java",
-                extraction_mode="ast",
+                extraction_mode=gs.ExtractionMode.ast,
                 modifiers=[],
                 annotations=[],
                 is_inner_class=False,

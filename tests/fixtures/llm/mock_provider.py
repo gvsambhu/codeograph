@@ -50,7 +50,7 @@ class MockLlmProvider(LlmProvider):
 
     def _compute_hash(self, messages: list[Message]) -> str:
         # Simple hash of messages for responses_by_prompt_hash lookup
-        msg_str = json.dumps([{"role": m.role.value, "content": m.content} for m in messages], sort_keys=True)
+        msg_str = json.dumps([{"role": m.role, "content": m.content} for m in messages], sort_keys=True)
         return hashlib.sha256(msg_str.encode("utf-8")).hexdigest()
 
     def complete_structured(

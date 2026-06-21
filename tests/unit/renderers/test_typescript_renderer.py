@@ -5,7 +5,7 @@ from typing import cast
 
 import pytest
 
-from codeograph.graph.models.graph_schema import ClassNode
+from codeograph.graph.models.graph_schema import ClassNode, ExtractionMode, Modifier
 from codeograph.llm.prompts.loader import PromptLoader
 from codeograph.llm.provider import LlmProvider
 from codeograph.renderers.typescript_nestjs.feature_policies import dispatch_feature_policies
@@ -28,10 +28,10 @@ def _make_class_node(fqcn: str, *, annotations: list[str] | None = None) -> Clas
         id=fqcn,
         kind="class",
         name=fqcn.rsplit(".", 1)[-1],
-        modifiers=["public"],
+        modifiers=[Modifier.public],
         source_file=f"src/{fqcn}.java",
         line_range=[1, 10],
-        extraction_mode="ast",
+        extraction_mode=ExtractionMode.ast,
         annotations=annotations or [],
     )
 
@@ -83,7 +83,9 @@ class TestFeaturePoliciesRefuseReason:
         """A WebFlux class with refuse policy returns 'webflux_refuse', not None."""
         node = _make_class_node("com.example.ReactiveService")
         # Simulate Mono< in return type via annotations dict
-        annotations = {"com.example.ReactiveService": {"annotation": {"methods": [{"return_type": "Mono<String>"}]}}}
+        annotations: dict[str, object] = {
+            "com.example.ReactiveService": {"annotation": {"methods": [{"return_type": "Mono<String>"}]}}
+        }
         config = TypeScriptConfig(webflux_policy="refuse")
         result = dispatch_feature_policies(node, annotations, config)
         assert result == "webflux_refuse", f"Expected 'webflux_refuse', got {result!r}"
@@ -91,7 +93,9 @@ class TestFeaturePoliciesRefuseReason:
     def test_webflux_flux_only_refuse_returns_reason_string(self):
         """A Flux class with translate_mono_only policy returns 'webflux_flux_only'."""
         node = _make_class_node("com.example.FluxService")
-        annotations = {"com.example.FluxService": {"annotation": {"methods": [{"return_type": "Flux<Event>"}]}}}
+        annotations: dict[str, object] = {
+            "com.example.FluxService": {"annotation": {"methods": [{"return_type": "Flux<Event>"}]}}
+        }
         config = TypeScriptConfig(webflux_policy="translate_mono_only")
         result = dispatch_feature_policies(node, annotations, config)
         assert result == "webflux_flux_only", f"Expected 'webflux_flux_only', got {result!r}"

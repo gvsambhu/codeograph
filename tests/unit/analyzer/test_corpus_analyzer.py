@@ -22,8 +22,8 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 from codeograph.analyzer.corpus_analyzer import CorpusAnalyzer
-from codeograph.graph.graph_writer import GraphArtefact
 from codeograph.input.models import AcquisitionSource, BuildTool, CorpusSpec, ModuleSpec
+from codeograph.manifest.artefact import GraphArtefact
 
 # ---------------------------------------------------------------------------
 # Helpers

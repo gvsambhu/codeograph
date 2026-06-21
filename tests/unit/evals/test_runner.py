@@ -6,6 +6,7 @@ import json
 import re
 from contextlib import ExitStack
 from pathlib import Path
+from typing import Literal
 from unittest.mock import patch
 
 import pytest
@@ -45,11 +46,11 @@ def _write_manifest(out_dir: Path, corpus_id: str = "test-corpus") -> None:
 
 
 def _write_empty_graph(out_dir: Path) -> None:
-    graph = {"nodes": [], "edges": []}
+    graph: dict[str, list[object]] = {"nodes": [], "edges": []}
     (out_dir / "graph.json").write_text(json.dumps(graph), encoding="utf-8")
 
 
-def _make_pass_check(check_id: str, category: str = "graph") -> CheckResult:
+def _make_pass_check(check_id: str, category: Literal["graph", "code"] = "graph") -> CheckResult:
     return CheckResult(
         id=check_id,
         category=category,
@@ -60,7 +61,7 @@ def _make_pass_check(check_id: str, category: str = "graph") -> CheckResult:
     )
 
 
-def _make_skip_check(check_id: str, category: str = "graph") -> CheckResult:
+def _make_skip_check(check_id: str, category: Literal["graph", "code"] = "graph") -> CheckResult:
     return CheckResult(
         id=check_id,
         category=category,
@@ -75,7 +76,7 @@ def _make_skip_check(check_id: str, category: str = "graph") -> CheckResult:
 
 # Patch target for all graph checks (they're imported into runner namespace)
 _GRAPH_CHECK_PATCHES = {
-    "codeograph.evals.runner.check_golden_graph_agreement": lambda od: _make_pass_check("golden_graph_agreement"),
+    "codeograph.evals.runner.check_golden_graph_agreement": lambda cid, sha: _make_pass_check("golden_graph_agreement"),
     "codeograph.evals.runner.check_internal_consistency": lambda g: _make_pass_check("internal_consistency"),
     "codeograph.evals.runner.check_relationship_correctness": lambda g: _make_pass_check("relationship_correctness"),
     "codeograph.evals.runner.check_reproducibility": lambda od: _make_skip_check("reproducibility"),
@@ -143,7 +144,7 @@ def test_runner_produces_graph_scorecard(tmp_path: Path):
     with ExitStack() as stack:
         for name, fn in _GRAPH_CHECK_PATCHES.items():
             stack.enter_context(patch(name, side_effect=fn))
-        scorecards = run_evals(tmp_path, scorecard_kinds=["graph"])
+        scorecards, _ = run_evals(tmp_path, scorecard_kinds=["graph"])
 
     assert len(scorecards) == 1
     sc = scorecards[0]
@@ -169,49 +170,30 @@ def test_graph_scorecard_written_to_disk(tmp_path: Path):
     assert data["kind"] == "graph"
 
 
-def test_manifest_scorecards_pointer_updated(tmp_path: Path):
+def test_run_evals_returns_scorecard_pointers(tmp_path: Path):
+    """run_evals returns (scorecards, pointers); manifest patching is the caller's job."""
     _write_manifest(tmp_path)
     _write_empty_graph(tmp_path)
 
     with ExitStack() as stack:
         for name, fn in _GRAPH_CHECK_PATCHES.items():
             stack.enter_context(patch(name, side_effect=fn))
-        run_evals(tmp_path, scorecard_kinds=["graph"])
+        _, pointers = run_evals(tmp_path, scorecard_kinds=["graph"])
 
+    # Manifest on disk must NOT have scorecards — run_evals does not patch it.
     manifest = json.loads((tmp_path / "manifest.json").read_text(encoding="utf-8"))
-    # 2.0.0: scorecards is TOP-LEVEL, not nested under artefacts (ADR-025 Fork 2)
-    assert "artefacts" in manifest  # graph + llm_annotations still nested
-    assert "scorecards" in manifest  # top-level in 2.0.0
-    assert "scorecards" not in manifest["artefacts"]
-    scorecards_ptr = manifest["scorecards"]
-    assert "graph" in scorecards_ptr
-    assert "path" in scorecards_ptr["graph"]
-    assert "sha256" in scorecards_ptr["graph"]
-    assert "overall" in scorecards_ptr["graph"]
+    assert "scorecards" not in manifest, "run_evals must not patch manifest (caller's job)"
 
-
-def test_manifest_scorecards_pointer_is_valid_against_schema(tmp_path: Path):
-    """The written scorecards pointer satisfies the 2.0.0 schema invariants.
-
-    Per ADR-025 Invariants: sha256 is required and 64-hex; overall must
-    match the ``pass|fail|skip|mixed`` regex; the path follows the
-    canonical ``evals/{kind}-scorecard.json`` form.
-    """
-    _write_manifest(tmp_path)
-    _write_empty_graph(tmp_path)
-
-    with ExitStack() as stack:
-        for name, fn in _GRAPH_CHECK_PATCHES.items():
-            stack.enter_context(patch(name, side_effect=fn))
-        run_evals(tmp_path, scorecard_kinds=["graph"])
-
-    manifest = json.loads((tmp_path / "manifest.json").read_text(encoding="utf-8"))
-    sc = manifest["scorecards"]["graph"]
-    assert re.fullmatch(r"^[0-9a-f]{64}$", sc["sha256"]), f"sha256 {sc['sha256']!r} is not 64-hex"
-    assert re.fullmatch(r"^(pass|fail|skip|mixed)$", sc["overall"]), (
-        f"overall {sc['overall']!r} is not in the pass|fail|skip|mixed set"
+    # Returned pointers carry the full scorecard pointer shape.
+    assert "graph" in pointers
+    assert pointers["graph"].path == "evals/graph-scorecard.json"
+    assert re.fullmatch(r"^[0-9a-f]{64}$", pointers["graph"].sha256), (
+        f"sha256 {pointers['graph'].sha256!r} is not 64-hex"
     )
-    assert sc["path"] == "evals/graph-scorecard.json"
+    assert re.fullmatch(r"^(pass|fail|skip|mixed)$", pointers["graph"].overall), (
+        f"overall {pointers['graph'].overall!r} is not in the pass|fail|skip|mixed set"
+    )
+    assert pointers["graph"].path == "evals/graph-scorecard.json"
 
 
 # ---------------------------------------------------------------------------
@@ -221,7 +203,7 @@ def test_manifest_scorecards_pointer_is_valid_against_schema(tmp_path: Path):
 
 def test_runner_skips_code_scorecard_when_target_not_rendered(tmp_path: Path):
     _write_manifest(tmp_path)
-    scorecards = run_evals(tmp_path, scorecard_kinds=["ts"])
+    scorecards, _ = run_evals(tmp_path, scorecard_kinds=["ts"])
     assert len(scorecards) == 1
     sc = scorecards[0]
     assert sc.kind == "ts"
@@ -236,7 +218,7 @@ def test_runner_runs_code_checks_when_target_exists(tmp_path: Path):
     with ExitStack() as stack:
         for name, fn in _CODE_CHECK_PATCHES.items():
             stack.enter_context(patch(name, side_effect=fn))
-        scorecards = run_evals(tmp_path, scorecard_kinds=["ts"])
+        scorecards, _ = run_evals(tmp_path, scorecard_kinds=["ts"])
 
     assert len(scorecards) == 1
     sc = scorecards[0]
@@ -257,7 +239,7 @@ def test_skip_checks_excludes_named_check(tmp_path: Path):
     with ExitStack() as stack:
         for name, fn in _GRAPH_CHECK_PATCHES.items():
             stack.enter_context(patch(name, side_effect=fn))
-        scorecards = run_evals(
+        scorecards, _ = run_evals(
             tmp_path,
             scorecard_kinds=["graph"],
             skip_checks=["reproducibility"],
@@ -275,7 +257,7 @@ def test_check_filter_runs_only_named_checks(tmp_path: Path):
     with ExitStack() as stack:
         for name, fn in _GRAPH_CHECK_PATCHES.items():
             stack.enter_context(patch(name, side_effect=fn))
-        scorecards = run_evals(
+        scorecards, _ = run_evals(
             tmp_path,
             scorecard_kinds=["graph"],
             check_filter=["structural_completeness"],

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 from codeograph.evals.checks.code.coverage import check_coverage
 
@@ -22,7 +23,7 @@ def _write_manifest(out_dir: Path) -> None:
     (out_dir / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
 
 
-def _write_sidecar(out_dir: Path, groups: list[dict]) -> None:
+def _write_sidecar(out_dir: Path, groups: list[dict[str, Any]]) -> None:
     evals_dir = out_dir / "evals"
     evals_dir.mkdir(exist_ok=True)
     sidecar = {"schema_version": "1.0.0", "target": "ts", "groups": groups}
@@ -96,6 +97,7 @@ def test_coverage_fail_when_many_refused(tmp_path: Path):
     )
     result = check_coverage(tmp_path, "ts")
     assert result.result == "fail"
+    assert result.value is not None
     assert result.value < 0.85
 
 

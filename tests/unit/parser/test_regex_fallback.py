@@ -21,7 +21,9 @@ Coverage plan:
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -169,10 +171,10 @@ class TestImports:
 
 
 class TestFields:
-    def _field_names(self, pf: dict) -> list[str]:
+    def _field_names(self, pf: Mapping[str, Any]) -> list[str]:
         return [ff["name"] for ff in pf["fields"]]
 
-    def _field_types(self, pf: dict) -> dict[str, str]:
+    def _field_types(self, pf: Mapping[str, Any]) -> dict[str, str]:
         return {ff["name"]: ff["type"] for ff in pf["fields"]}
 
     def test_private_field_extracted(self, fb: RegexFallback, tmp_path: Path) -> None:
@@ -225,7 +227,7 @@ class TestFields:
 
 
 class TestMethods:
-    def _method_names(self, pf: dict) -> list[str]:
+    def _method_names(self, pf: Mapping[str, Any]) -> list[str]:
         return [m["name"] for m in pf["methods"]]
 
     def test_public_method_extracted(self, fb: RegexFallback, tmp_path: Path) -> None:

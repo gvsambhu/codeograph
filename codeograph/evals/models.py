@@ -55,7 +55,7 @@ class CheckResult(BaseModel):
         # If value is missing, it's inherently a skip.
         # If details already specify a skip reason like preflight_missing_tool or deferred_v1.1,
         # we honour it and remain a skip regardless of value (which should be None anyway).
-        if v is None or self.result == "skip" and self.details.get("skip_reason") not in (None, "band_gap"):
+        if v is None or (self.result == "skip" and self.details.get("skip_reason") not in (None, "band_gap")):
             self.result = "skip"
             return self
 

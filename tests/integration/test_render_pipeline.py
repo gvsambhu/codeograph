@@ -1,12 +1,12 @@
 import asyncio
 import tempfile
 from pathlib import Path, PurePosixPath
-from typing import cast
+from typing import Any, cast
 from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from codeograph.graph.models.graph_schema import ClassNode
+from codeograph.graph.models.graph_schema import ClassNode, ExtractionMode, Modifier, Stereotype
 from codeograph.llm.prompts.loader import PromptLoader
 from codeograph.llm.provider import LlmProvider
 from codeograph.renderers.typescript_nestjs.typescript_config import TypeScriptConfig
@@ -29,18 +29,19 @@ def _make_renderer(config: TypeScriptConfig | None = None) -> TypeScriptRenderer
 
 def _make_class_node(
     fqcn: str = "com.example.orders.OrderService",
-    stereotype: str | None = "Service",
+    stereotype: str | Stereotype | None = Stereotype.Service,
     annotations: list[str] | None = None,
 ) -> ClassNode:
+    resolved_stereotype = Stereotype(stereotype) if isinstance(stereotype, str) else stereotype
     return ClassNode(
         id=fqcn,
         name=fqcn.rsplit(".", 1)[-1],
         kind="class",
-        modifiers=["public"],
+        modifiers=[Modifier.public],
         source_file="src/main/java/com/example/orders/OrderService.java",
         line_range=[1, 40],
-        extraction_mode="ast",
-        stereotype=stereotype,
+        extraction_mode=ExtractionMode.ast,
+        stereotype=resolved_stereotype,
         annotations=annotations or [],
     )
 
@@ -62,10 +63,10 @@ def test_render_group_basic():
         id="com.example.orders.OrderService",
         name="OrderService",
         kind="class",
-        modifiers=["public"],
+        modifiers=[Modifier.public],
         source_file="src/main/java/com/example/orders/OrderService.java",
         line_range=[1, 40],
-        extraction_mode="ast",
+        extraction_mode=ExtractionMode.ast,
         annotations=[],
     )
 
@@ -122,7 +123,7 @@ def test_render_group_basic():
 class TestWebFluxTranslateMonoOnly:
     """ADR-010 Fork 9: translate_mono_only refuses Flux, passes Mono."""
 
-    def _render_class_sync(self, renderer: TypeScriptRenderer, class_node: ClassNode, annotations: dict):
+    def _render_class_sync(self, renderer: TypeScriptRenderer, class_node: ClassNode, annotations: dict[str, Any]):
         """Run _render_class in a fresh event loop (avoids nested-loop issues in tests)."""
         return asyncio.run(renderer._render_class(class_node, "orders", annotations))
 
@@ -159,7 +160,7 @@ class TestWebFluxTranslateMonoOnly:
 class TestSecurityFeaturePolicy:
     """ADR-010 Fork 9: security policy dispatch — refuse/stub_todo/silent_skip."""
 
-    def _render_class_sync(self, renderer: TypeScriptRenderer, class_node: ClassNode, annotations: dict):
+    def _render_class_sync(self, renderer: TypeScriptRenderer, class_node: ClassNode, annotations: dict[str, Any]):
         return asyncio.run(renderer._render_class(class_node, "orders", annotations))
 
     def _secured_node(self) -> ClassNode:
@@ -173,7 +174,7 @@ class TestSecurityFeaturePolicy:
 
     def test_stub_todo_injects_hint(self):
         renderer = _make_renderer(TypeScriptConfig(security_feature_policy="stub_todo"))
-        captured: list[dict] = []
+        captured: list[dict[str, Any]] = []
 
         async def capture_hints(_node, _ann, hints):
             captured.append(dict(hints))
@@ -187,7 +188,7 @@ class TestSecurityFeaturePolicy:
 
     def test_silent_skip_no_hint(self):
         renderer = _make_renderer(TypeScriptConfig(security_feature_policy="silent_skip"))
-        captured: list[dict] = []
+        captured: list[dict[str, Any]] = []
 
         async def capture_hints(_node, _ann, hints):
             captured.append(dict(hints))
@@ -274,9 +275,9 @@ class TestRenderErrorHandling:
         self,
         renderer: TypeScriptRenderer,
         result: SelectionResult,
-        annotations: dict,
-        node_map: dict,
-    ) -> dict:
+        annotations: dict[str, Any],
+        node_map: dict[str, Any],
+    ) -> dict[PurePosixPath, bytes]:
         semaphore = asyncio.Semaphore(5)
         return asyncio.run(renderer._render_group(result, annotations, node_map, semaphore))
 

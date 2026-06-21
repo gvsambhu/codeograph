@@ -5,6 +5,8 @@ Verifies defaults, field validation, and extra='forbid' policy.
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 from pydantic import ValidationError
 
@@ -27,7 +29,8 @@ class TestTypeScriptConfigDefaults:
 
     def test_extra_fields_forbidden(self):
         with pytest.raises(ValidationError, match="extra_inputs_not_permitted|Extra"):
-            TypeScriptConfig(**{"db_layer": "typeorm", "unknown_field": "bad"})  # type: ignore[call-arg]
+            extra_args: dict[str, Any] = {"db_layer": "typeorm", "unknown_field": "bad"}
+            TypeScriptConfig(**extra_args)
 
 
 class TestTypeScriptConfigValidation:

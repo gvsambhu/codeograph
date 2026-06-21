@@ -25,10 +25,10 @@ class _MinimalConfig(BaseModel):
 class _MinimalRenderer(Renderer[_MinimalConfig]):
     config_class = _MinimalConfig
 
-    def __init__(self, config, provider, prompt_loader, concurrency=5):  # type: ignore[override]
+    def __init__(self, config, provider, prompt_loader, concurrency=5):
         self._config = config
 
-    def render(self, graph, annotations):  # type: ignore[override]
+    def render(self, graph, annotations):
         return {}
 
 
@@ -65,15 +65,15 @@ class TestRegistration:
             pass
 
         with pytest.raises(TypeError, match="Renderer subclasses"):
-            RendererRegistry.register("bad")(NotARenderer)  # type: ignore[arg-type]
+            RendererRegistry.register("bad")(NotARenderer)
 
     def test_missing_config_class_raises_type_error(self):
         class RendererWithoutConfigClass(Renderer[_MinimalConfig]):
             # Deliberately omit config_class
-            def __init__(self, config, provider, prompt_loader, concurrency=5):  # type: ignore[override]
+            def __init__(self, config, provider, prompt_loader, concurrency=5):
                 pass
 
-            def render(self, graph, annotations):  # type: ignore[override]
+            def render(self, graph, annotations):
                 return {}
 
         with pytest.raises(TypeError, match="config_class"):
