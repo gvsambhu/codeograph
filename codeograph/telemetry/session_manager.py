@@ -4,8 +4,6 @@ TelemetrySessionManager — manages lifecycle, files, folders, and resources for
 
 from __future__ import annotations
 
-import datetime
-
 from codeograph.config.settings import Settings
 from codeograph.llm.cache.sqlite_backend import SQLiteCacheBackend
 from codeograph.telemetry.emitter import JsonlEmitter

@@ -92,7 +92,13 @@ class LlmCorpusEnricher:
             provider_p1 = build_default_stack(
                 base_provider, retry_policy, session.cache_backend, session.emitter, ctx_p1
             )
-            annotator = NodeAnnotator(provider_p1, prompt_loader, out_dir, self._settings.llm_concurrency, self._settings.max_pass1_failure_ratio)
+            annotator = NodeAnnotator(
+                provider_p1,
+                prompt_loader,
+                out_dir,
+                self._settings.llm_concurrency,
+                self._settings.max_pass1_failure_ratio,
+            )
             annotations = annotator.annotate(nodes)
 
             # --- Pass 2: Synthesize Corpus ---

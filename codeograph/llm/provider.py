@@ -4,8 +4,8 @@ from typing import TypeVar
 
 from pydantic import BaseModel
 
-from codeograph.llm.models import LlmResult, Message, Tier
 from codeograph.llm.errors import LlmError
+from codeograph.llm.models import LlmResult, Message, Tier
 
 T = TypeVar("T", bound=BaseModel)
 

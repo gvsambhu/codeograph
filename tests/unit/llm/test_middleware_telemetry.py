@@ -69,3 +69,32 @@ def test_telemetry_middleware_emits_record(mock_llm_provider, tmp_telemetry_json
     assert parsed["cost_usd_est"] == 0.0
 
     assert parsed["attempts"] == []
+
+
+def test_telemetry_middleware_emit_failure_warns_but_succeeds(mock_llm_provider, tmp_telemetry_jsonl, tmp_path, caplog):
+    import logging
+    from unittest.mock import patch
+
+    ctx = CallContext("r1", "p1", "pr1", Purpose.ANNOTATE, "test_prompt", "v1", "hash", "corpus")
+    provider = TelemetryLlmProvider(mock_llm_provider, tmp_telemetry_jsonl, ctx)
+
+    mock_llm_provider.mock_response = LlmResult(
+        value=DummySchema(text="hello"),
+        usage=TokenUsage(10, 20, 0, None),
+        model="mock-model",
+        latency_ms=123,
+    )
+
+    # Mock JsonlEmitter instance to raise an error
+    with patch.object(tmp_telemetry_jsonl, "emit") as mock_emit:
+        mock_emit.side_effect = OSError("Disk full")
+        
+        with caplog.at_level(logging.WARNING):
+            result = provider.complete_structured(
+                Tier.FAST,
+                [Message(role="user", content="Hello")],
+                DummySchema,
+            )
+            
+        assert result == mock_llm_provider.mock_response
+        assert "Telemetry emit failed" in caplog.text

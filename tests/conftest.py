@@ -13,6 +13,7 @@ from pathlib import Path
 import pytest
 from pydantic import BaseModel
 
+from codeograph.llm.errors import LlmError
 from codeograph.llm.models import LlmResult, Message, Tier, TokenUsage
 from codeograph.llm.provider import LlmProvider
 
@@ -84,11 +85,14 @@ class MockLlmProvider(LlmProvider):
         *,
         max_concurrent: int = 5,
         override_model: str | None = None,
-    ) -> list[LlmResult[BaseModel]]:
-        # Default fallback to sequential for easy mocking
-        return [
-            self.complete_structured(tier, msgs, schema, override_model=override_model) for msgs, schema in requests
-        ]
+    ) -> list[LlmResult[BaseModel] | LlmError]:
+        results = []
+        for msgs, schema in requests:
+            try:
+                results.append(self.complete_structured(tier, msgs, schema, override_model=override_model))
+            except LlmError as e:
+                results.append(e)
+        return results
 
     def count_tokens(self, text: str) -> int:
         return len(text) // 4

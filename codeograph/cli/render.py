@@ -125,7 +125,6 @@ def render_cli(
     rendered TypeScript source to OUT (organised by domain module).
     """
     # Lazy imports keep CLI startup fast — only loaded when `render` is invoked.
-    import datetime
 
     # Trigger self-registration of concrete renderer packages.
     import codeograph.renderers.typescript_nestjs  # noqa: F401

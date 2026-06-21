@@ -93,10 +93,10 @@ class NodeAnnotator:
         )
 
         from codeograph.llm.errors import LlmError
-        
+
         failures = sum(1 for r in results if isinstance(r, LlmError))
         total = len(requests)
-        
+
         if total >= 10:
             ratio = failures / total
             if ratio > self._max_pass1_failure_ratio:

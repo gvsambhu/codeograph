@@ -1,4 +1,5 @@
 from typing import TypeVar
+
 from pydantic import BaseModel
 
 from codeograph.llm.models import LlmResult, Message, Tier
@@ -9,7 +10,7 @@ T = TypeVar("T", bound=BaseModel)
 
 class OpenRouterProvider(LlmProvider):
     # TODO(learner): implement OpenRouter provider (DC2-01)
-    
+
     def __init__(self, api_key: str, tier_map: dict[Tier, str]) -> None:
         self._api_key = api_key
         self._tier_map = tier_map

@@ -79,7 +79,11 @@ class TelemetryLlmProvider(LlmProvider):
                 attempts=[],
                 cost_usd_est=0.0,
             )
-            self._emitter.emit(record)
+            try:
+                self._emitter.emit(record)
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).warning("Telemetry emit failed: %s", e)
             return res
 
         except LlmError as e:
@@ -113,5 +117,9 @@ class TelemetryLlmProvider(LlmProvider):
                 attempts=[],
                 cost_usd_est=0.0,
             )
-            self._emitter.emit(record)
+            try:
+                self._emitter.emit(record)
+            except Exception as e2:
+                import logging
+                logging.getLogger(__name__).warning("Telemetry emit failed: %s", e2)
             raise e

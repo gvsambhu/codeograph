@@ -123,3 +123,31 @@ def test_caching_middleware_miss(mock_llm_provider, tmp_cache_db):
         "cached_tokens": 0,
         "input_estimated": None,
     }
+
+
+def test_caching_middleware_distinct_keys():
+    from codeograph.llm.cache.key import compute_cache_key
+
+    key1 = compute_cache_key(
+        provider="anthropic",
+        model="claude-3-5-sonnet",
+        prompt_id="test",
+        prompt_version="v1",
+        prompt_content_hash="abc",
+        rendered_input="hello",
+        schema=DummySchema,
+        max_tokens=100,
+    )
+
+    key2 = compute_cache_key(
+        provider="openai",
+        model="claude-3-5-sonnet",
+        prompt_id="test",
+        prompt_version="v1",
+        prompt_content_hash="abc",
+        rendered_input="hello",
+        schema=DummySchema,
+        max_tokens=100,
+    )
+
+    assert key1 != key2
