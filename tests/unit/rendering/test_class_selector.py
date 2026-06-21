@@ -200,6 +200,70 @@ class TestStratifiedThresholdV1:
         for result in results:
             assert len(result.selected) <= 3
 
+    def test_small_budget_round_robin_spread(self):
+        """D-009-1 Confirmation: cap=3 with all three buckets populated must yield
+        exactly one class from each difficulty band (high, mid, low), not three highs.
+        This is the DC3-01 regression test — the old sequential fill would have
+        returned [H1,H2,H3] with zero mid/low representation.
+        """
+        # high bucket: CBO ≥ 5 OR WMC ≥ 20
+        highs = [
+            _make_class_node(f"com.example.orders.H{i}", cbo=_HIGH_CBO_THRESHOLD, wmc=25 - i)
+            for i in range(3)
+        ]
+        # mid bucket: not high, not low
+        mids = [
+            _make_class_node(f"com.example.orders.M{i}", cbo=2, wmc=10)
+            for i in range(3)
+        ]
+        # low bucket: CBO ≤ 1 AND WMC ≤ 5
+        lows = [
+            _make_class_node(f"com.example.orders.L{i}", cbo=0, wmc=1)
+            for i in range(3)
+        ]
+        graph = _make_graph(highs + mids + lows)
+        # n=9 ≥ 2*cap=6 → stratified_threshold_v1 fires
+        selector = ClassSelector(cap=3)
+        results = selector.select(graph)
+
+        assert len(results) == 1
+        result = results[0]
+        assert result.strategy == "stratified_threshold_v1"
+        assert len(result.selected) == 3
+
+        selected_set = set(result.selected)
+        # Must include at least one from each bucket
+        assert any(s.startswith("com.example.orders.H") for s in selected_set), (
+            "Round-robin must pick at least one high-complexity class"
+        )
+        assert any(s.startswith("com.example.orders.M") for s in selected_set), (
+            "Round-robin must pick at least one mid-complexity class"
+        )
+        assert any(s.startswith("com.example.orders.L") for s in selected_set), (
+            "Round-robin must pick at least one low-complexity class"
+        )
+
+    def test_round_robin_exhausted_buckets_filled_from_remaining(self):
+        """When one bucket is exhausted mid-run, subsequent cycles skip it and continue
+        pulling from the remaining populated buckets until cap is reached.
+        """
+        # Only 1 low class — after cycle 1 it is exhausted; cycles 2+ skip low.
+        # n=7, cap=3 → 7 ≥ 2*3=6 → stratified_threshold_v1 fires.
+        highs = [_make_class_node(f"com.example.orders.H{i}", cbo=_HIGH_CBO_THRESHOLD, wmc=20) for i in range(3)]
+        mids = [_make_class_node(f"com.example.orders.M{i}", cbo=2, wmc=10) for i in range(3)]
+        lows = [_make_class_node("com.example.orders.L0", cbo=0, wmc=1)]
+        graph = _make_graph(highs + mids + lows)
+        selector = ClassSelector(cap=3)
+        results = selector.select(graph)
+        result = results[0]
+        assert result.strategy == "stratified_threshold_v1"
+        assert len(result.selected) == 3
+        # Cycle 1 picks one from each: H0, M0, L0. Cap reached.
+        selected = set(result.selected)
+        assert "com.example.orders.L0" in selected  # the only low must be picked in cycle 1
+        assert any(s.startswith("com.example.orders.H") for s in selected)
+        assert any(s.startswith("com.example.orders.M") for s in selected)
+
 
 # ---------------------------------------------------------------------------
 # SelectionResult immutability
