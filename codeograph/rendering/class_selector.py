@@ -16,7 +16,8 @@ Tier 3 — stratified_threshold_v1
         OR-low   : ``CBO ≤ 1  AND WMC ≤ 5``     (simple/isolated)
         mid      : everything else
 
-    Fill order: high → mid → low, each tier sorted by descending WMC.
+    Fill order: round-robin high → mid → low per cycle so a small budget
+    yields at least one class from each populated difficulty band.
     Thresholds cite Lanza & Marinescu (2006) *Object-Oriented Metrics in
     Practice*, pp 16-18, as required by ADR-004.
 
@@ -49,7 +50,8 @@ _LOW_CBO_THRESHOLD = 1  # CBO ≤ this → candidate for OR-low
 _LOW_WMC_THRESHOLD = 5  # WMC ≤ this → candidate for OR-low (AND with CBO)
 
 # Default per-group budget cap (overridden by TypeScriptConfig.render_budget)
-_DEFAULT_CAP = 50
+# FR-13: default = 3 (one per bucket at minimum cap) — DC3-02.
+_DEFAULT_CAP = 3
 
 
 # ---------------------------------------------------------------------------
@@ -202,13 +204,24 @@ class ClassSelector:
         mid.sort(key=_wmc_key)
         low.sort(key=_wmc_key)
 
-        # Fill cap: high → mid → low
+        # Round-robin fill: take one from each populated bucket per cycle
+        # until cap is reached (D-009-1). Sequential fill (old: high → mid → low)
+        # caused a small cap to select only high-complexity classes, defeating
+        # the difficulty-spread that D-009-1 explicitly locked.
+        nonempty = [b for b in (high, mid, low) if b]
+        pointers = [0] * len(nonempty)
         selected: list[ClassNode] = []
-        for bucket in (high, mid, low):
-            remaining = cap - len(selected)
-            if remaining <= 0:
-                break
-            selected.extend(bucket[:remaining])
+        while len(selected) < cap:
+            added_this_cycle = 0
+            for i, bucket in enumerate(nonempty):
+                if len(selected) >= cap:
+                    break
+                if pointers[i] < len(bucket):
+                    selected.append(bucket[pointers[i]])
+                    pointers[i] += 1
+                    added_this_cycle += 1
+            if added_this_cycle == 0:
+                break  # all buckets exhausted
 
         selected_ids = {m.id for m in selected}
         excluded = [m for m in members if m.id not in selected_ids]

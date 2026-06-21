@@ -111,7 +111,7 @@ class TypeScriptConfig(BaseModel):
     )
 
     render_budget: int = Field(
-        default=50,
+        default=3,
         ge=1,
         le=500,
         description=(

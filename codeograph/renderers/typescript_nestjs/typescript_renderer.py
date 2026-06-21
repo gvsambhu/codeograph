@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING, ClassVar
 
@@ -42,7 +43,14 @@ from codeograph.llm.prompts.renderer import render as render_prompt
 from codeograph.renderers.base import Renderer
 from codeograph.renderers.models import CompileCheck
 from codeograph.renderers.renderer_registry import RendererRegistry
+from codeograph.renderers.typescript_nestjs.feature_policies import dispatch_feature_policies
+from codeograph.renderers.typescript_nestjs.helpers import (
+    stereotype_to_role_suffix,
+    to_kebab_case,
+    to_pascal_case,
+)
 from codeograph.renderers.typescript_nestjs.models import RenderedSource
+from codeograph.renderers.typescript_nestjs.scaffold_emitter import ScaffoldEmitter
 from codeograph.renderers.typescript_nestjs.typescript_config import TypeScriptConfig
 from codeograph.rendering.base import DomainGrouping
 from codeograph.rendering.class_selector import ClassSelector
@@ -56,13 +64,7 @@ if TYPE_CHECKING:
 
 __all__ = ["TypeScriptRenderer"]
 
-from codeograph.renderers.typescript_nestjs.feature_policies import dispatch_feature_policies
-from codeograph.renderers.typescript_nestjs.helpers import (
-    stereotype_to_role_suffix,
-    to_kebab_case,
-    to_pascal_case,
-)
-from codeograph.renderers.typescript_nestjs.scaffold_emitter import ScaffoldEmitter
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Renderer
@@ -155,9 +157,26 @@ class TypeScriptRenderer(Renderer[TypeScriptConfig]):  # noqa: UP046
         # Step 2 — LLM rendering with concurrency cap
         semaphore = asyncio.Semaphore(self._concurrency)
         render_tasks = [self._render_group(result, annotations, node_map, semaphore) for result in selection_results]
-        group_maps: list[dict[PurePosixPath, bytes]] = await asyncio.gather(*render_tasks)
+        # DC3-03: return_exceptions=True prevents one failing group from aborting all others.
+        # Per-class isolation is handled inside _render_group itself.
+        group_maps: list[dict[PurePosixPath, bytes] | BaseException] = await asyncio.gather(
+            *render_tasks, return_exceptions=True
+        )
 
-        for gmap in group_maps:
+        for i, gmap in enumerate(group_maps):
+            if isinstance(gmap, BaseException):
+                # An entire group failed unexpectedly — log and skip it.
+                group_name = selection_results[i].group_name
+                logger.error("Render group '%s' failed entirely: %s", group_name, gmap)
+                continue
+            # DC3-04: detect duplicate output paths before merging.
+            for path in gmap:
+                if path in file_map:
+                    raise ValueError(
+                        f"Duplicate render output path '{path}' produced by group "
+                        f"'{selection_results[i].group_name}'. "
+                        "Two classes resolved to the same output file — check class names and stereotypes."
+                    )
             file_map.update(gmap)
 
         # Step 3 — emit scaffold if configured
@@ -170,6 +189,13 @@ class TypeScriptRenderer(Renderer[TypeScriptConfig]):  # noqa: UP046
                 for r in selection_results
             ]
             scaffold_map = self._scaffold_emitter.render_scaffold(domain_groups)
+            # DC3-04: scaffold keys must not clash with rendered class files.
+            for path in scaffold_map:
+                if path in file_map:
+                    raise ValueError(
+                        f"Scaffold output path '{path}' collides with a rendered class file. "
+                        "This is a renderer bug — report it."
+                    )
             file_map.update(scaffold_map)
 
         return file_map
@@ -191,11 +217,30 @@ class TypeScriptRenderer(Renderer[TypeScriptConfig]):  # noqa: UP046
                 # graph, so this path should never be reached in normal operation.
                 continue
 
-            async with semaphore:
-                rendered = await self._render_class(class_node, result.group_name, annotations)
+            # DC3-03: isolate per-class render failures — one bad class must not
+            # abort the rest of the group (D-008-2).
+            try:
+                async with semaphore:
+                    rendered = await self._render_class(class_node, result.group_name, annotations)
+            except Exception as exc:
+                logger.warning(
+                    "Failed to render class '%s' in group '%s': %s — skipping.",
+                    fqcn,
+                    result.group_name,
+                    exc,
+                )
+                continue
 
             if rendered is not None:
                 path, content = rendered
+                # DC3-04: intra-group duplicate — two classes in the same domain
+                # resolving to the same output path is always a bug, not a runtime error.
+                if path in file_map:
+                    raise ValueError(
+                        f"Duplicate render output path '{path}' in group "
+                        f"'{result.group_name}'. Two classes resolved to the same "
+                        "output file — check class names and stereotypes."
+                    )
                 file_map[path] = content
 
         # Emit the domain module file for this group
@@ -219,8 +264,15 @@ class TypeScriptRenderer(Renderer[TypeScriptConfig]):  # noqa: UP046
             by a feature policy.
         """
         # --- Feature policies dispatch ---
+        # DC3-05: dispatch_feature_policies returns a str refuse-reason when the class
+        # is skipped, or a dict of render hints when it should proceed.
         hints = dispatch_feature_policies(class_node, annotations, self._config)
-        if hints is None:
+        if isinstance(hints, str):
+            logger.debug(
+                "Class '%s' refused by policy '%s' — skipping.",
+                class_node.id,
+                hints,
+            )
             return None
 
         # --- Derive output path ---

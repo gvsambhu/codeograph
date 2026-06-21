@@ -30,12 +30,15 @@ def dispatch_feature_policies(
     class_node: ClassNode,
     annotations: dict[str, object],
     config: TypeScriptConfig,
-) -> dict[str, str] | None:
+) -> dict[str, str] | str:
     """Evaluate feature policies for *class_node*.
 
     Returns:
-        A dictionary of hints to inject into the prompt, or ``None`` if
-        the class is refused by a feature policy.
+        A dict of prompt hints to inject when the class should be rendered.
+        A ``str`` refuse-reason (e.g. ``"security"``, ``"webflux_refuse"``,
+        ``"webflux_flux_only"``) when the class is skipped by policy.
+        ``None`` is never returned — callers treat ``str`` as a skip signal
+        and ``dict`` (possibly empty) as a render signal.
     """
     hints: dict[str, str] = {}
 
@@ -44,7 +47,7 @@ def dispatch_feature_policies(
     security_hits = _SPRING_SECURITY_ANNOTATIONS & class_annotations
     if security_hits:
         if config.security_feature_policy == "refuse":
-            return None
+            return "security"  # DC3-05: named refuse reason
         elif config.security_feature_policy == "stub_todo":
             hints["security_hint"] = (
                 f"This class carries Spring Security annotation(s): "
@@ -69,10 +72,10 @@ def dispatch_feature_policies(
 
     if uses_webflux:
         if config.webflux_policy == "refuse":
-            return None
+            return "webflux_refuse"  # DC3-05: named refuse reason
         if config.webflux_policy == "translate_mono_only":
             if uses_flux:
-                return None
+                return "webflux_flux_only"  # DC3-05: named refuse reason
             hints["webflux_hint"] = (
                 "This class uses Spring WebFlux reactive return types. "
                 "Translate Mono<T> to Promise<T> and render async NestJS methods. "
