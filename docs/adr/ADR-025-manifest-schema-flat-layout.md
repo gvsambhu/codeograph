@@ -425,3 +425,14 @@ change any Fork 1–5 decision or the manifest shape. The decision status remain
     leaves **no** `manifest.json` on disk (`graph.json` may exist; the manifest appears only at the
     terminal write). Equivalently: at no point during a run does an on-disk manifest violate the
     §Invariants (integration test).
+
+### 2026-06-23 — DC5 reconciliation: committed-schema path is git-root-relative (DC5R-03)
+
+The §Validation discipline section and Confirmation #8 reference the committed JSON Schema as
+`codeograph/_generated/manifest.schema.json`. Read package-relative (as the surrounding ADR text reads),
+that points to the wrong directory. The shipped location is **`_generated/manifest.schema.json` relative
+to the git repository root**: `schema_cli.py` anchors it at `Path(__file__).resolve().parents[2]` — the
+outer `codeograph/` git-repo directory, which is the *parent* of the `codeograph/` Python package. The CI
+freshness gate (`python -m codeograph.manifest.schema_cli --check`) validates against that path. No
+behaviour change; the address is clarified. Joint with the ADR-022 2026-06-23 amendment (item 3); the
+`status` remains `accepted`.
