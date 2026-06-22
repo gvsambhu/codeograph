@@ -176,20 +176,56 @@ final class ParsedFileAssembler {
 
 		// 15. Class-level complexity metrics
 		// WMC = sum of method cyclomatic complexities. C&K (1994) IEEE TSE 20(6).
-		int wmc = 0;
+		// Input set = regular methods only (not constructors — D-004-1).
+		// D-004-1: a method-less class emits null, not 0, to avoid eval skew.
+		long methodCount = 0;
 		for (int i = 0; i < methodsArr.length(); i++) {
-			Object cc = methodsArr.getJSONObject(i).get("cyclomatic_complexity");
-			if (cc instanceof Integer ccInt)
-				wmc += ccInt;
+			if (!methodsArr.getJSONObject(i).optBoolean("is_constructor", false))
+				methodCount++;
 		}
-		obj.put("wmc", wmc);
+		Object wmcValue;
+		if (methodCount == 0) {
+			wmcValue = JSONObject.NULL;
+		} else {
+			int wmc = 0;
+			for (int i = 0; i < methodsArr.length(); i++) {
+				JSONObject m = methodsArr.getJSONObject(i);
+				if (m.optBoolean("is_constructor", false))
+					continue;
+				Object cc = m.get("cyclomatic_complexity");
+				if (cc instanceof Integer ccInt)
+					wmc += ccInt;
+			}
+			wmcValue = wmc;
+		}
+		obj.put("wmc", wmcValue);
 
 		// CBO = distinct non-trivial type references. C&K (1994) IEEE TSE 20(6).
+		// Always computed — not in D-004-1's omission list.
 		obj.put("cbo", ComplexityCalculator.computeCbo(decl));
 
 		// LCOM4 = weakly connected components in method-field access graph.
 		// Hitz & Montazeri (1995). Reads accessed_fields from the finished methodsArr.
-		obj.put("lcom4", Lcom4Calculator.computeLcom4(methodsArr));
+		// Node set = non-static methods + constructors (Lcom4Calculator definition).
+		// D-004-1: null when the node set is empty (no non-static methods or ctors).
+		long lcom4NodeCount = 0;
+		for (int i = 0; i < methodsArr.length(); i++) {
+			JSONObject m = methodsArr.getJSONObject(i);
+			JSONArray mods = m.optJSONArray("modifiers");
+			boolean isStatic = false;
+			if (mods != null) {
+				for (int k = 0; k < mods.length(); k++) {
+					if ("static".equals(mods.getString(k))) {
+						isStatic = true;
+						break;
+					}
+				}
+			}
+			if (!isStatic)
+				lcom4NodeCount++;
+		}
+		Object lcom4Value = (lcom4NodeCount == 0) ? JSONObject.NULL : Lcom4Calculator.computeLcom4(methodsArr);
+		obj.put("lcom4", lcom4Value);
 
 		return obj;
 	}

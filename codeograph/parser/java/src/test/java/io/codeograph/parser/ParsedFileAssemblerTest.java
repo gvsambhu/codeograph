@@ -332,6 +332,37 @@ class ParsedFileAssemblerTest {
 			assertTrue(method.isNull("cognitive_complexity"), "bodyless method must have null cognitive_complexity");
 			assertTrue(method.isNull("method_loc"), "bodyless method must have null method_loc");
 		}
+
+		@Test
+		void methodless_class_emits_null_wmc_and_lcom4() {
+			// D-004-1: a class with no methods (and no Lombok-synthesised methods)
+			// must emit null for wmc and lcom4 — not 0 / 1 — to avoid eval skew.
+			// cbo is always computed (not in D-004-1's omission list).
+			JSONObject env = parse("""
+					package com.example;
+					public class Marker {
+					    private String tag;
+					}
+					""");
+			assertTrue(env.isNull("wmc"), "method-less class must have null wmc");
+			assertTrue(env.isNull("lcom4"), "method-less class must have null lcom4");
+			assertFalse(env.isNull("cbo"), "cbo must always be present (not in D-004-1 omission list)");
+		}
+
+		@Test
+		void constructor_only_class_has_null_wmc_but_integer_lcom4() {
+			// A constructor-only class: no methods → wmc=null.
+			// But the constructor IS in LCOM4's node set (non-static) → lcom4 is an int.
+			JSONObject env = parse("""
+					package com.example;
+					public class Token {
+					    private final String value;
+					    public Token(String value) { this.value = value; }
+					}
+					""");
+			assertTrue(env.isNull("wmc"), "constructor-only class must have null wmc (no methods)");
+			assertFalse(env.isNull("lcom4"), "constructor-only class must have integer lcom4 (constructor is a node)");
+		}
 	}
 
 	// =========================================================================
