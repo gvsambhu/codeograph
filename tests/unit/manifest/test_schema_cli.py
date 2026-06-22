@@ -50,6 +50,7 @@ class TestFreshnessGate:
         finally:
             GENERATED_SCHEMA_PATH.write_text(original_content, encoding="utf-8")
 
+
 # ---------------------------------------------------------------------------
 # TestCommittedSchema
 # ---------------------------------------------------------------------------
