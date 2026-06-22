@@ -543,9 +543,18 @@ final class ParsedFileAssembler {
 
 			mObj.put("http_metadata", buildHttpMetadata(annotationList, method.getAnnotations()));
 
-			mObj.put("cyclomatic_complexity", ComplexityCalculator.computeCyclomatic(method));
-			mObj.put("cognitive_complexity", ComplexityCalculator.computeCognitive(method));
-			mObj.put("method_loc", ComplexityCalculator.computeMethodLoc(method));
+			if (method.getBody().isPresent()) {
+				mObj.put("cyclomatic_complexity", ComplexityCalculator.computeCyclomatic(method));
+				mObj.put("cognitive_complexity", ComplexityCalculator.computeCognitive(method));
+				mObj.put("method_loc", ComplexityCalculator.computeMethodLoc(method));
+			} else {
+				// Bodyless method (interface default-less / abstract) — metrics omitted per
+				// D-004-1
+				// to avoid eval-weighting / class-selection skew (DC1R-10).
+				mObj.put("cyclomatic_complexity", JSONObject.NULL);
+				mObj.put("cognitive_complexity", JSONObject.NULL);
+				mObj.put("method_loc", JSONObject.NULL);
+			}
 
 			JSONArray calls = new JSONArray();
 			method.findAll(MethodCallExpr.class).forEach(call -> calls.put(call.toString()));

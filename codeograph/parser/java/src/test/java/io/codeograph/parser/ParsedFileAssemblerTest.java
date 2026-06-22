@@ -318,6 +318,20 @@ class ParsedFileAssemblerTest {
 			JSONObject method = findMethod(env, "doWork");
 			// TODO: assertTrue(method.isNull("http_metadata"));
 		}
+
+		@Test
+		void bodyless_method_omits_complexity_metrics() {
+			JSONObject env = parse("""
+					package com.example;
+					public interface Auditable {
+					    void audit();
+					}
+					""");
+			JSONObject method = findMethod(env, "audit");
+			assertTrue(method.isNull("cyclomatic_complexity"), "bodyless method must have null cyclomatic_complexity");
+			assertTrue(method.isNull("cognitive_complexity"), "bodyless method must have null cognitive_complexity");
+			assertTrue(method.isNull("method_loc"), "bodyless method must have null method_loc");
+		}
 	}
 
 	// =========================================================================
