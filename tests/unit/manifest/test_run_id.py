@@ -31,24 +31,30 @@ class TestFormat:
     """The run_id is chronologically sortable + collision-resistant."""
 
     def test_pattern_compiles(self) -> None:
-        # TODO(learner): assert re.compile(RUN_ID_PATTERN) succeeds.
-        ...
+        compiled = re.compile(RUN_ID_PATTERN)
+        assert isinstance(compiled, re.Pattern)
 
     def test_generated_run_id_matches_pattern(self) -> None:
-        # TODO(learner): assert re.fullmatch(RUN_ID_PATTERN, generate_run_id())
-        # is not None.
-        ...
+        run_id = generate_run_id()
+        assert re.fullmatch(RUN_ID_PATTERN, run_id) is not None
 
-    def test_run_id_is_26_chars(self) -> None:
-        # TODO(learner): assert len(generate_run_id()) == 26.
-        # (YYYY-MM-DDTHH-MM-SSZ-<6hex> = 10 + 1 + 8 + 1 + 6 = 26)
-        ...
+    def test_run_id_is_27_chars(self) -> None:
+        run_id = generate_run_id()
+        assert len(run_id) == 27
 
     def test_run_id_timestamp_prefix_is_sortable(self) -> None:
-        # TODO(learner): call generate_run_id() twice with a sleep(>1s)
-        # between them (or use a mocked datetime); assert the first
-        # generated id < the second (lexicographic == chronological).
-        ...
+        from datetime import UTC
+        import datetime as dt
+        from unittest.mock import patch
+
+        with patch("codeograph.manifest.run_id.datetime") as mock_datetime:
+            mock_datetime.now.return_value = dt.datetime(2026, 6, 22, 18, 0, 0, tzinfo=UTC)
+            id1 = generate_run_id()
+
+            mock_datetime.now.return_value = dt.datetime(2026, 6, 22, 18, 0, 1, tzinfo=UTC)
+            id2 = generate_run_id()
+
+            assert id1 < id2
 
 
 # ---------------------------------------------------------------------------

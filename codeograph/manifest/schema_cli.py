@@ -41,7 +41,8 @@ GENERATED_SCHEMA_PATH = Path(__file__).resolve().parents[2] / "_generated" / "ma
 
 def _current_schema() -> dict[str, object]:
     """Regenerate the JSON Schema from the Pydantic source of truth."""
-    return Manifest.model_json_schema()
+    schema = Manifest.model_json_schema()
+    return {"$schema": "https://json-schema.org/draft/2020-12/schema", **schema}
 
 
 @click.command()

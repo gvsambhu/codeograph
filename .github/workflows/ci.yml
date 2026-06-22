@@ -67,6 +67,10 @@ jobs:
         shell: bash
         run: python scripts/gen_scorecard_schema.py --check
 
+      - name: Manifest schema freshness (ADR-022 / ADR-025)
+        shell: bash
+        run: python -m codeograph.manifest.schema_cli --check
+
   # ---------------------------------------------------------------------------
   # Unit — pytest fast suite (excludes slow/external/eval markers)
   # strategy.matrix.os: [ubuntu-latest] — extension hook for multi-OS (v1.1)

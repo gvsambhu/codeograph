@@ -6,7 +6,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 import click
 
@@ -57,6 +60,15 @@ class LlmCorpusEnricher:
                                  - Dict of pass names to :class:`CacheStats` aggregates.
         :raises click.ClickException: If LLM execution succeeds but output file is missing.
         """
+        from codeograph.logging_config import RunIdLoggerAdapter
+
+        run_logger = RunIdLoggerAdapter(logger, run_id)
+        run_logger.info(
+            "LlmCorpusEnricher: starting semantic enrichment for corpus %s",
+            corpus_id,
+            extra={"context": {"area": "enricher"}},
+        )
+
         if not self._settings.anthropic_api_key:
             click.echo("WARNING: CODEOGRAPH_ANTHROPIC_API_KEY is not set. LLM passes will fail unless mocked.")
 
@@ -76,6 +88,10 @@ class LlmCorpusEnricher:
 
         try:
             # --- Pass 1: Annotate Nodes ---
+            run_logger.info(
+                "LlmCorpusEnricher: starting Pass 1 (Node Annotation)",
+                extra={"context": {"area": "enricher"}},
+            )
             click.echo("Running Pass 1 (Node Annotation)...")
             prompt_p1 = prompt_loader.get(PromptId.ANNOTATE_NODE)
             ctx_p1 = CallContext(
@@ -102,6 +118,10 @@ class LlmCorpusEnricher:
             annotations = annotator.annotate(nodes)
 
             # --- Pass 2: Synthesize Corpus ---
+            run_logger.info(
+                "LlmCorpusEnricher: starting Pass 2 (Corpus Synthesis)",
+                extra={"context": {"area": "enricher"}},
+            )
             click.echo("Running Pass 2 (Corpus Synthesis)...")
             prompt_p2 = prompt_loader.get(PromptId.SYNTHESIZE_CORPUS)
             ctx_p2 = CallContext(
@@ -141,5 +161,9 @@ class LlmCorpusEnricher:
 
         # --- Aggregate cache_stats from telemetry.
         cache_stats = self._stats_aggregator.aggregate(session.emitter_path)
+        run_logger.info(
+            "LlmCorpusEnricher: semantic enrichment complete",
+            extra={"context": {"area": "enricher"}},
+        )
 
         return llm_annotations_artefact, cache_stats

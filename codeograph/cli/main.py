@@ -259,7 +259,7 @@ def run(
         )
 
         # --- Pass 0: deterministic graph (graph_writer returns a GraphArtefact).
-        graph_artefact: GraphArtefact = analyzer.analyze(corpus, out_dir)
+        graph_artefact: GraphArtefact = analyzer.analyze(corpus, out_dir, run_id=run_id)
         click.echo(f"Done Pass 0. Graph: {graph_artefact.path} (sha256={graph_artefact.sha256[:12]}…)")
 
         # --- LLM passes (full run only) ------------------------------------

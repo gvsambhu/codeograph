@@ -120,6 +120,10 @@ def run_evals(
 
     run_ts = datetime.datetime.now(datetime.UTC).isoformat().replace("+00:00", "Z")
 
+    from codeograph.logging_config import RunIdLoggerAdapter
+
+    run_logger = RunIdLoggerAdapter(logger, run_id)
+
     # ---------------------------------------------------------------- #
     # 2. Resolve active check IDs from filter / skip parameters
     # ---------------------------------------------------------------- #
@@ -270,7 +274,7 @@ def run_evals(
             sha256=sha256,
             overall=overall,
         )
-        logger.info("Wrote scorecard: %s (overall=%s)", filepath, overall)
+        run_logger.info("Wrote scorecard: %s (overall=%s)", filepath, overall)
 
     # Manifest patching is the caller's responsibility:
     #   - standalone `eval run`: cli/eval.py reads the manifest and patches it
