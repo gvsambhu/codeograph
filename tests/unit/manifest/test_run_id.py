@@ -66,10 +66,10 @@ class TestUniqueness:
     """Two calls produce different values; 1000-call uniqueness."""
 
     def test_two_calls_differ(self) -> None:
-        # TODO(learner): assert generate_run_id() != generate_run_id().
-        ...
+        id1 = generate_run_id()
+        id2 = generate_run_id()
+        assert id1 != id2
 
     def test_thousand_calls_are_unique(self) -> None:
-        # TODO(learner): call generate_run_id() 1000 times in a tight
-        # loop; assert len(set(ids)) == 1000 (all distinct).
-        ...
+        run_ids = [generate_run_id() for _ in range(1000)]
+        assert len(set(run_ids)) == 1000

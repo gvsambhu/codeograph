@@ -30,25 +30,35 @@ class TestFreshnessGate:
     """``--check`` exits 0 on a clean tree; non-zero on drift."""
 
     def test_check_exits_0_on_clean_tree(self) -> None:
-        # TODO(learner): invoke `python -m codeograph.manifest.schema_cli
-        # --check` as a subprocess; assert returncode == 0. (The
-        # committed manifest.schema.json was regenerated in M4 to
-        # match the current Pydantic source, so the check is green.)
-        ...
+        res = subprocess.run(
+            [sys.executable, "-m", "codeograph.manifest.schema_cli", "--check"],
+            capture_output=True,
+            text=True,
+        )
+        assert res.returncode == 0
 
     def test_check_exits_nonzero_when_schema_stale(self, tmp_path: Path) -> None:
-        # TODO(learner): mutate the committed manifest.schema.json
-        # (e.g. write "{}" over it), invoke --check, assert returncode
-        # != 0; then restore the original. (This is the freshness-gate
-        # failure scenario the CI lint job guards against.)
-        ...
+        from codeograph.manifest.schema_cli import GENERATED_SCHEMA_PATH
+
+        original_content = GENERATED_SCHEMA_PATH.read_text(encoding="utf-8")
+        try:
+            GENERATED_SCHEMA_PATH.write_text("{}", encoding="utf-8")
+            res = subprocess.run(
+                [sys.executable, "-m", "codeograph.manifest.schema_cli", "--check"],
+                capture_output=True,
+                text=True,
+            )
+            assert res.returncode != 0
+        finally:
+            GENERATED_SCHEMA_PATH.write_text(original_content, encoding="utf-8")
 
     def test_check_is_invokable_via_python_module(self) -> None:
-        # TODO(learner): assert the CLI can be invoked as
-        # `python -m codeograph.manifest.schema_cli --check` (proves
-        # it's a proper Click module; the conftest auto-cd's to
-        # repo root in subprocess calls; use absolute path to python).
-        ...
+        res = subprocess.run(
+            [sys.executable, "-m", "codeograph.manifest.schema_cli", "--check"],
+            capture_output=True,
+            text=True,
+        )
+        assert res.returncode == 0
 
 
 # ---------------------------------------------------------------------------
@@ -60,15 +70,25 @@ class TestCommittedSchema:
     """Properties of the committed ``_generated/manifest.schema.json``."""
 
     def test_schema_declares_draft_2020_12(self) -> None:
-        # TODO(learner): read
-        # codeograph/_generated/manifest.schema.json; assert the
-        # ``$schema`` field equals
-        # "https://json-schema.org/draft/2020-12/schema".
-        ...
+        from codeograph.manifest.schema_cli import GENERATED_SCHEMA_PATH
+
+        schema_data = json.loads(GENERATED_SCHEMA_PATH.read_text(encoding="utf-8"))
+        assert schema_data.get("$schema") == "https://json-schema.org/draft/2020-12/schema"
 
     def test_schema_contains_required_top_level_fields(self) -> None:
-        # TODO(learner): assert the schema's "required" list includes
-        # all five required scalars (schema_version, codeograph_version,
-        # source_path, corpus_id, run_id) and that "artefacts" is
-        # required too.
-        ...
+        from codeograph.manifest.schema_cli import GENERATED_SCHEMA_PATH
+
+        schema_data = json.loads(GENERATED_SCHEMA_PATH.read_text(encoding="utf-8"))
+        required_fields = schema_data.get("required", [])
+
+        expected_required = [
+            "schema_version",
+            "codeograph_version",
+            "source_path",
+            "corpus_id",
+            "run_id",
+        ]
+        for field in expected_required:
+            assert field in required_fields
+
+        assert "artefacts" in schema_data.get("properties", {})
