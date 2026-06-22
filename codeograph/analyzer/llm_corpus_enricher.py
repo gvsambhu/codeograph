@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 from pathlib import Path
 
 import click
@@ -17,12 +18,15 @@ from codeograph.llm.middleware.retry_policy import RetryPolicy
 from codeograph.llm.models import CallContext, Purpose
 from codeograph.llm.prompts.loader import PromptLoader
 from codeograph.llm.resolver import LlmProviderResolver
+from codeograph.logging_config import RunIdLoggerAdapter
 from codeograph.manifest.artefact import GraphArtefact
 from codeograph.manifest.models import CacheStats
 from codeograph.passes.pass1.node_annotator import NodeAnnotator
 from codeograph.passes.pass2.corpus_synthesizer import CorpusSynthesizer
 from codeograph.telemetry.session_manager import TelemetrySessionManager
 from codeograph.telemetry.stats_aggregator import TelemetryStatsAggregator
+
+logger = logging.getLogger(__name__)
 
 
 class LlmCorpusEnricher:
@@ -57,6 +61,13 @@ class LlmCorpusEnricher:
                                  - Dict of pass names to :class:`CacheStats` aggregates.
         :raises click.ClickException: If LLM execution succeeds but output file is missing.
         """
+        run_logger = RunIdLoggerAdapter(logger, run_id)
+        run_logger.info(
+            "LlmCorpusEnricher: starting semantic enrichment for corpus %s",
+            corpus_id,
+            extra={"context": {"area": "enricher"}},
+        )
+
         if not self._settings.anthropic_api_key:
             click.echo("WARNING: CODEOGRAPH_ANTHROPIC_API_KEY is not set. LLM passes will fail unless mocked.")
 
@@ -76,6 +87,10 @@ class LlmCorpusEnricher:
 
         try:
             # --- Pass 1: Annotate Nodes ---
+            run_logger.info(
+                "LlmCorpusEnricher: starting Pass 1 (Node Annotation)",
+                extra={"context": {"area": "enricher"}},
+            )
             click.echo("Running Pass 1 (Node Annotation)...")
             prompt_p1 = prompt_loader.get(PromptId.ANNOTATE_NODE)
             ctx_p1 = CallContext(
@@ -102,6 +117,10 @@ class LlmCorpusEnricher:
             annotations = annotator.annotate(nodes)
 
             # --- Pass 2: Synthesize Corpus ---
+            run_logger.info(
+                "LlmCorpusEnricher: starting Pass 2 (Corpus Synthesis)",
+                extra={"context": {"area": "enricher"}},
+            )
             click.echo("Running Pass 2 (Corpus Synthesis)...")
             prompt_p2 = prompt_loader.get(PromptId.SYNTHESIZE_CORPUS)
             ctx_p2 = CallContext(
@@ -141,5 +160,9 @@ class LlmCorpusEnricher:
 
         # --- Aggregate cache_stats from telemetry.
         cache_stats = self._stats_aggregator.aggregate(session.emitter_path)
+        run_logger.info(
+            "LlmCorpusEnricher: semantic enrichment complete",
+            extra={"context": {"area": "enricher"}},
+        )
 
         return llm_annotations_artefact, cache_stats

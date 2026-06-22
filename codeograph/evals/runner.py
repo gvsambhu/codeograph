@@ -30,6 +30,7 @@ from codeograph.evals.models import (
     ReproducibilityInfo,
     Scorecard,
 )
+from codeograph.logging_config import RunIdLoggerAdapter
 from codeograph.manifest.io import read as manifest_io_read
 from codeograph.manifest.models import ScorecardPointer
 
@@ -119,6 +120,8 @@ def run_evals(
         graph_sha256 = graph_sha256 or manifest.artefacts["graph"].sha256
 
     run_ts = datetime.datetime.now(datetime.UTC).isoformat().replace("+00:00", "Z")
+
+    run_logger = RunIdLoggerAdapter(logger, run_id)
 
     # ---------------------------------------------------------------- #
     # 2. Resolve active check IDs from filter / skip parameters
@@ -270,7 +273,7 @@ def run_evals(
             sha256=sha256,
             overall=overall,
         )
-        logger.info("Wrote scorecard: %s (overall=%s)", filepath, overall)
+        run_logger.info("Wrote scorecard: %s (overall=%s)", filepath, overall)
 
     # Manifest patching is the caller's responsibility:
     #   - standalone `eval run`: cli/eval.py reads the manifest and patches it

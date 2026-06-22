@@ -7,29 +7,29 @@
 Types: `feat`, `fix`, `docs`, `chore`, `refactor`, `test`, `perf`.
 Scopes follow the codebase layout: `parser`, `graph`, `input`, `analyzer`, `cli`, `schema`, `ci`, `adr`, `golden`.
 
-Every AI-assisted commit ends with two attribution trailers:
+Every AI-assisted commit ends with two attribution trailers (no email required):
 
 ```
-Co-authored-by: <AI brand> <noreply@<provider>>
-AI-Model: <api-model-identifier-with-release-date>
+AI-assistant: <tool> v<version> (<provider-note>)
+Model: <api-model-identifier>
 ```
 
 Concrete forms by tool:
 
 ```
 # Claude Code (Opus / Sonnet)
-Co-authored-by: Claude <noreply@anthropic.com>
-AI-Model: claude-opus-4-1-20250805
+AI-assistant: Claude Code v0.2.6 (Claude Opus 4.1 via Anthropic)
+Model: claude-opus-4-1-20250514
 
 # Google Antigravity (Gemini)
-Co-authored-by: Gemini <noreply@google.com>
-AI-Model: gemini-2.5-pro-20251201
+AI-assistant: Google Antigravity (Gemini 3.5 Flash via Google)
+Model: gemini-3.5-flash
 ```
 
 Rules:
 
-- Use the **bare brand** in `Co-authored-by:` — never pin a model version inline, it dates the history.
-- Put the model identifier (with release date when available) on the separate `AI-Model:` line — preserves audit traceability if a model release has a known regression.
+- **No email domain guessing.** Never fabricate an email to fit the old `Co-authored-by:` pattern.
+- **`Model:` value must match the API identifier** as reported by the tool (date-stamp included for audit traceability where available). Do not guess or default to generic names.
 - Mixed-tool commits (rare) include both trailer pairs.
 - Hand-written commits (no AI assistance) include neither trailer.
 

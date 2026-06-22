@@ -39,6 +39,7 @@ from codeograph.graph.graph_builder import GraphBuilder
 from codeograph.graph.graph_writer import GraphWriter
 from codeograph.graph.models.graph_schema import CodeographKnowledgeGraph
 from codeograph.input.models import CorpusSpec
+from codeograph.logging_config import RunIdLoggerAdapter
 from codeograph.manifest.artefact import GraphArtefact
 from codeograph.parser.file_parser_dispatcher import FileParserDispatcher
 from codeograph.parser.models import ParsedFile
@@ -76,7 +77,12 @@ class CorpusAnalyzer:
     # Public API
     # ------------------------------------------------------------------
 
-    def analyze(self, corpus: CorpusSpec, output_dir: Path) -> GraphArtefact:
+    def analyze(
+        self,
+        corpus: CorpusSpec,
+        output_dir: Path,
+        run_id: str | None = None,
+    ) -> GraphArtefact:
         """
         Run the full AST pipeline for the given corpus.
 
@@ -89,22 +95,24 @@ class CorpusAnalyzer:
                             does not exist (GraphWriter handles mkdir).
                             The manifest is NOT written here; the run
                             orchestrator writes it at the terminal write.
+        :param run_id:      Optional run identifier to propagate into the logging adapter.
         :returns:           :class:`GraphArtefact` carrying the path,
                             schema version, and sha256 of the just-written
                             graph.json. Consumed by the manifest assembler.
         :raises OSError:    If graph.json cannot be written.
         """
+        run_logger = RunIdLoggerAdapter(logger, run_id)
         fragments: list[tuple[ParsedFile, CodeographKnowledgeGraph]] = []
 
         total_files = sum(len(m.java_files) for m in corpus.modules)
-        logger.info(
+        run_logger.info(
             "CorpusAnalyzer: starting — %d module(s), %d file(s)",
             len(corpus.modules),
             total_files,
         )
 
         for module in corpus.modules:
-            logger.info(
+            run_logger.info(
                 "CorpusAnalyzer: analyzing module %s (%d file(s))",
                 module.module_id,
                 len(module.java_files),
@@ -114,13 +122,13 @@ class CorpusAnalyzer:
                 graph_fragment = self._builder.build(parsed_file, module.module_id)
                 fragments.append((parsed_file, graph_fragment))
 
-        logger.info("CorpusAnalyzer: assembling %d fragment(s)", len(fragments))
+        run_logger.info("CorpusAnalyzer: assembling %d fragment(s)", len(fragments))
         assembled = self._assembler.assemble(fragments)
 
-        logger.info("CorpusAnalyzer: writing graph to %s", output_dir)
+        run_logger.info("CorpusAnalyzer: writing graph to %s", output_dir)
         graph_artefact = self._writer.write(assembled, output_dir)
 
-        logger.info(
+        run_logger.info(
             "CorpusAnalyzer: done — graph at %s (sha256=%s…)",
             graph_artefact.path,
             graph_artefact.sha256[:12],
