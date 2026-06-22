@@ -43,8 +43,8 @@ class TestFormat:
         assert len(run_id) == 27
 
     def test_run_id_timestamp_prefix_is_sortable(self) -> None:
-        from datetime import UTC
         import datetime as dt
+        from datetime import UTC
         from unittest.mock import patch
 
         with patch("codeograph.manifest.run_id.datetime") as mock_datetime:
