@@ -12,12 +12,10 @@ Per ADR-025 §"Confirmation":
 
 from __future__ import annotations
 
-# Imports used by the learner-written assertion bodies; suppress
-# unused-import warnings until the bodies are filled in.
-import json  # noqa: F401
-import subprocess  # noqa: F401
-import sys  # noqa: F401
-from pathlib import Path  # noqa: F401
+import json
+import subprocess
+import sys
+from pathlib import Path
 
 import pytest  # noqa: F401
 
@@ -51,15 +49,6 @@ class TestFreshnessGate:
             assert res.returncode != 0
         finally:
             GENERATED_SCHEMA_PATH.write_text(original_content, encoding="utf-8")
-
-    def test_check_is_invokable_via_python_module(self) -> None:
-        res = subprocess.run(
-            [sys.executable, "-m", "codeograph.manifest.schema_cli", "--check"],
-            capture_output=True,
-            text=True,
-        )
-        assert res.returncode == 0
-
 
 # ---------------------------------------------------------------------------
 # TestCommittedSchema

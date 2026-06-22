@@ -39,6 +39,7 @@ from codeograph.graph.graph_builder import GraphBuilder
 from codeograph.graph.graph_writer import GraphWriter
 from codeograph.graph.models.graph_schema import CodeographKnowledgeGraph
 from codeograph.input.models import CorpusSpec
+from codeograph.logging_config import RunIdLoggerAdapter
 from codeograph.manifest.artefact import GraphArtefact
 from codeograph.parser.file_parser_dispatcher import FileParserDispatcher
 from codeograph.parser.models import ParsedFile
@@ -100,8 +101,6 @@ class CorpusAnalyzer:
                             graph.json. Consumed by the manifest assembler.
         :raises OSError:    If graph.json cannot be written.
         """
-        from codeograph.logging_config import RunIdLoggerAdapter
-
         run_logger = RunIdLoggerAdapter(logger, run_id)
         fragments: list[tuple[ParsedFile, CodeographKnowledgeGraph]] = []
 

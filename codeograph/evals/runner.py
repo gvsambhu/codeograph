@@ -30,6 +30,7 @@ from codeograph.evals.models import (
     ReproducibilityInfo,
     Scorecard,
 )
+from codeograph.logging_config import RunIdLoggerAdapter
 from codeograph.manifest.io import read as manifest_io_read
 from codeograph.manifest.models import ScorecardPointer
 
@@ -119,8 +120,6 @@ def run_evals(
         graph_sha256 = graph_sha256 or manifest.artefacts["graph"].sha256
 
     run_ts = datetime.datetime.now(datetime.UTC).isoformat().replace("+00:00", "Z")
-
-    from codeograph.logging_config import RunIdLoggerAdapter
 
     run_logger = RunIdLoggerAdapter(logger, run_id)
 

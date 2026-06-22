@@ -9,8 +9,6 @@ import json
 import logging
 from pathlib import Path
 
-logger = logging.getLogger(__name__)
-
 import click
 
 from codeograph.config.settings import Settings
@@ -20,12 +18,15 @@ from codeograph.llm.middleware.retry_policy import RetryPolicy
 from codeograph.llm.models import CallContext, Purpose
 from codeograph.llm.prompts.loader import PromptLoader
 from codeograph.llm.resolver import LlmProviderResolver
+from codeograph.logging_config import RunIdLoggerAdapter
 from codeograph.manifest.artefact import GraphArtefact
 from codeograph.manifest.models import CacheStats
 from codeograph.passes.pass1.node_annotator import NodeAnnotator
 from codeograph.passes.pass2.corpus_synthesizer import CorpusSynthesizer
 from codeograph.telemetry.session_manager import TelemetrySessionManager
 from codeograph.telemetry.stats_aggregator import TelemetryStatsAggregator
+
+logger = logging.getLogger(__name__)
 
 
 class LlmCorpusEnricher:
@@ -60,8 +61,6 @@ class LlmCorpusEnricher:
                                  - Dict of pass names to :class:`CacheStats` aggregates.
         :raises click.ClickException: If LLM execution succeeds but output file is missing.
         """
-        from codeograph.logging_config import RunIdLoggerAdapter
-
         run_logger = RunIdLoggerAdapter(logger, run_id)
         run_logger.info(
             "LlmCorpusEnricher: starting semantic enrichment for corpus %s",
