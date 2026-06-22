@@ -729,3 +729,51 @@ generation), Fork 4 (dual-emission logging), Fork 5 (per-run directory layout), 
 and CLI) — **remain in force and are not affected.** This ADR's `status` therefore stays `accepted`;
 consult ADR-025 for the current manifest schema, and this ADR for the logging substrate. Explicit
 reversal: ADR-025 reverses Fork 1's "v1 ships `1.x.x` only" for the manifest schema (now `2.0.0`).
+
+### 2026-06-23 — DC5 reconciliation-gate clarifications
+
+Five corrections surfaced by the DC5 reconciliation gate (guideline 08; `reconciliation-dc5.md`,
+DC5R-01…05). Each is a **documentation correction where the shipped code is design-correct** — no
+behaviour change and no decision reversal. The `status` remains `accepted`.
+
+**1. Fork 7 read path — the `strict=False` wording was wrong (DC5R-01).** The Fork 7 `read()` sketch and
+Confirmation #2 state that `Manifest.model_validate(raw, strict=False)` "succeeds and drops unknown
+fields." It does not: with `model_config = ConfigDict(extra="forbid")`, `strict=False` controls *type
+coercion only*, and the call **raises `ValidationError`** on an unknown field. The shipped
+`codeograph/manifest/io.py` implements the load-bearing requirement correctly by **pre-filtering** the
+raw dict to the model's declared fields (`Manifest.model_fields`), emitting a DEBUG log per dropped key,
+then validating the filtered dict. **Corrected Fork 7 read contract:** lenient-read drops unknown
+top-level fields via pre-filter + per-key DEBUG log, then validates; it does **not** rely on
+`strict=False`. **Confirmation #2 is corrected** to assert this pre-filter behaviour (an unknown field is
+dropped with a DEBUG record naming it; the filtered manifest validates), not the `strict=False` path.
+
+**2. `run_id` is the implemented manifest↔logs↔telemetry join key (DC5R-02; joint with ADR-015 / D-022-L1).**
+Fork 4 (`LoggerAdapter` `run_id` injection) and Fork 5 (`telemetry/run-<run_id>-*.jsonl`) + Relationships
+("cross-reference via `run_id`") assumed a shared `run_id` across the manifest, `logs.jsonl`, and
+telemetry. That key now exists: `TelemetryRecord` carries `run_id` and the telemetry schema is `1.1`
+(ADR-015 amendment 2026-06-20, D-015-2 — ADR-015 is the canonical telemetry-schema owner). The
+cross-reference Fork 4/5 describes is therefore real, not aspirational. **Filename correction:** the
+shipped sidecar is `telemetry/run-<run_id>.jsonl` (`codeograph/telemetry/session_manager.py`), not
+`run-<run_id>-*.jsonl`; the `-*` in the Fork 5 tree sketch was illustrative and is corrected to the
+single-file form.
+
+**3. The committed JSON Schema path is git-root-relative (DC5R-03; joint with ADR-025).** Fork 7's
+references to `codeograph/_generated/manifest.schema.json` read as package-relative (every other path in
+this ADR is), which resolves to `<git-root>/codeograph/_generated/`. The shipped location is
+**`_generated/manifest.schema.json` relative to the git repository root**: `schema_cli.py` anchors it at
+`Path(__file__).resolve().parents[2]` — the outer `codeograph/` git-repo directory, which is the *parent*
+of the `codeograph/` Python package. The CI freshness gate validates against that path. **Canonical
+address:** `<git-root>/_generated/manifest.schema.json`.
+
+**4. Manifest and graph schema-generation run in opposite directions (DC5R-04).** Fork 7 makes the
+manifest **Pydantic → JSON Schema** (Pydantic is the source; `schema_cli.py` emits the committed schema).
+The graph and llm-annotations schemas remain **JSON Schema → Pydantic** via datamodel-codegen (ADR-006).
+After DC5 the two flows run in opposite directions and `codeograph/schema/` splits accordingly
+(hand-authored graph + llm-annotations sources; the manifest's generated schema at `_generated/`). This
+asymmetry is **intentional** — a future reader should not "reconcile" it by reverting the manifest flip.
+
+**5. The Fork 2 `CacheStats` example is superseded (DC5R-05).** The Fork 2 decision-matrix illustration
+(`cache_stats: {pass1: {hits, misses, hit_rate}}`) and the locked five-field class with
+`saved_usd_est`/`incurred_usd_est` are **superseded by ADR-025 Fork 5**, under which the v1 block is
+`{calls, hits, hit_rate}` only. The `misses` field never shipped. Consult ADR-025 for the canonical
+`CacheStats` shape (per the 2026-06-07 supersession entry above).
