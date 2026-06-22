@@ -1,4 +1,5 @@
-"""Manifest IO per ADR-022 Fork 7.
+"""Manifest IO per ADR-022 Fork 7 (validation discipline), as amended by
+ADR-025 (manifest schema 2.0.0).
 
 Two-phase write/read discipline:
 
@@ -7,11 +8,12 @@ Two-phase write/read discipline:
   ``json`` for human readability; the manifest is not subject to the
   golden-graph byte-equal contract.
 * :func:`read` — lenient on read. Unknown top-level fields (from a
-  newer codeograph release writing a ``1.x.x`` manifest the current
+  newer codeograph release writing a ``2.x.x`` manifest the current
   codeograph doesn't yet know about) are dropped with a DEBUG log
   record; the rest of the manifest validates against the current
   Pydantic schema. This is the forward-compat path within
-  ``1.x.x`` per ADR-022 Fork 1's strict-additive rule.
+  ``2.x.x`` per ADR-025's strict-additive rule (resumed after the
+  ``2.0.0`` restructure).
 
 The read path is implemented by *pre-filtering* the raw JSON dict to
 the set of fields the current Pydantic model declares, rather than
@@ -52,14 +54,15 @@ def write(manifest: Manifest, path: Path) -> None:
 def read(path: Path) -> Manifest:
     """Lenient-on-read per ADR-022 Fork 7.
 
-    Forward-compatible across ``1.x.x`` versions: unknown top-level
+    Forward-compatible across ``2.x.x`` versions: unknown top-level
     fields (introduced by a newer codeograph release that the current
     Pydantic schema doesn't know about) are dropped with a DEBUG log
     record naming the dropped key. The remaining fields validate
-    against the current schema. This honours ADR-022 Fork 1's
-    strict-additive rule: an old codeograph install reading a
-    new-codeograph manifest succeeds silently for additive fields
-    and surfaces any genuine contract violation as a ValidationError.
+    against the current schema. This honours ADR-025's strict-additive
+    rule (resumed within ``2.x`` after the ``2.0.0`` restructure): an
+    old codeograph install reading a new-codeograph manifest succeeds
+    silently for additive fields and surfaces any genuine contract
+    violation as a ValidationError.
 
     The DEBUG log key is the dropped top-level field name; the value
     is truncated to 80 chars in the log to avoid dumping
