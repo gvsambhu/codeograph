@@ -3,6 +3,7 @@ import time
 from pathlib import Path
 
 from codeograph.evals.models import BooleanThreshold, CheckResult
+from codeograph.evals.path_display import display_path
 
 _RATIONALE = (
     "ADR-007 golden-graph pattern — current graph.json must byte-match the "
@@ -42,7 +43,7 @@ def check_golden_graph_agreement(corpus_id: str, current_sha256: str) -> CheckRe
             details={
                 "skip_reason": "no_golden_committed",
                 "corpus_id": corpus_id,
-                "expected_golden_path": str(golden_path),
+                "expected_golden_path": display_path(golden_path, base=_GOLDENS_BASE.parents[1]),
             },
         )
 
@@ -61,6 +62,6 @@ def check_golden_graph_agreement(corpus_id: str, current_sha256: str) -> CheckRe
             "corpus_id": corpus_id,
             "current_sha256": current_sha256,
             "golden_sha256": golden_sha256,
-            "golden_path": str(golden_path),
+            "golden_path": display_path(golden_path, base=_GOLDENS_BASE.parents[1]),
         },
     )
