@@ -6,6 +6,7 @@ import time
 from pathlib import Path
 
 from codeograph.evals.models import BooleanThreshold, CheckResult
+from codeograph.evals.path_display import display_path
 
 _RATIONALE = (
     "ADR-007 §8 reproducibility envelope — three consecutive --ast-only runs on "
@@ -47,7 +48,7 @@ def check_reproducibility(output_dir: Path) -> CheckResult:
             duration_ms=int((time.perf_counter() - start_time) * 1000),
             details={
                 "skip_reason": "source_path_unavailable",
-                "source_path": source_path,
+                "source_path": display_path(source_path),
             },
         )
 
@@ -106,7 +107,7 @@ def check_reproducibility(output_dir: Path) -> CheckResult:
         details: dict[str, object] = {
             "failed_runs": failed_runs,
             "successful_hashes": hashes,
-            "source_path": source_path,
+            "source_path": display_path(source_path),
         }
     else:
         # All three ran — check hash agreement
@@ -114,7 +115,7 @@ def check_reproducibility(output_dir: Path) -> CheckResult:
         details = {
             "hashes": hashes,
             "all_identical": value,
-            "source_path": source_path,
+            "source_path": display_path(source_path),
         }
 
     duration_ms = int((time.perf_counter() - start_time) * 1000)
