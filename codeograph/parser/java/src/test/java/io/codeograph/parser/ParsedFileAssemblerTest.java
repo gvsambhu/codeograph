@@ -334,8 +334,8 @@ class ParsedFileAssemblerTest {
 		}
 
 		@Test
-		void methodless_class_emits_null_wmc_and_lcom4() {
-			// D-004-1: a class with no methods (and no Lombok-synthesised methods)
+void methodless_class_emits_null_wmc_and_lcom4() {
+			// D-004-1: a class with no methods and no constructors
 			// must emit null for wmc and lcom4 — not 0 / 1 — to avoid eval skew.
 			// cbo is always computed (not in D-004-1's omission list).
 			JSONObject env = parse("""
@@ -350,9 +350,9 @@ class ParsedFileAssemblerTest {
 		}
 
 		@Test
-		void constructor_only_class_has_null_wmc_but_integer_lcom4() {
-			// A constructor-only class: no methods → wmc=null.
-			// But the constructor IS in LCOM4's node set (non-static) → lcom4 is an int.
+		void constructor_only_class_has_integer_wmc_and_lcom4() {
+			// A constructor-only class has a declared constructor → WMC = its CC (int),
+			// NOT null. Per ADR-004 §3.3: WMC includes constructors.
 			JSONObject env = parse("""
 					package com.example;
 					public class Token {
@@ -360,7 +360,8 @@ class ParsedFileAssemblerTest {
 					    public Token(String value) { this.value = value; }
 					}
 					""");
-			assertTrue(env.isNull("wmc"), "constructor-only class must have null wmc (no methods)");
+			assertFalse(env.isNull("wmc"), "constructor-only class must have integer wmc (constructor is a method per ADR-004 §3.3)");
+			assertTrue(env.get("wmc") instanceof Integer, "wmc must be an integer (the constructor's cyclomatic complexity)");
 			assertFalse(env.isNull("lcom4"), "constructor-only class must have integer lcom4 (constructor is a node)");
 		}
 	}

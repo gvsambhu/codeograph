@@ -156,7 +156,7 @@ class ClassNode(BaseModel):
     wmc: Annotated[
         int | None,
         Field(
-            description="Weighted Method Count — sum of cyclomatic complexities of all methods (ADR-004, Chidamber & Kemerer 1994). Null when extraction_mode is 'signatures_only' or 'regex_fallback', or when the class has no methods (D-004-1 method-less-class clause)."
+description="Weighted Method Count — sum of cyclomatic complexities of all methods including constructors (ADR-004 §3.3, Chidamber & Kemerer 1994). Null when extraction_mode is 'signatures_only' or 'regex_fallback', or when the class declares no methods or constructors (D-004-1 method-less-class clause)."
         ),
     ] = None
     cbo: Annotated[

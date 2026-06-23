@@ -174,25 +174,17 @@ final class ParsedFileAssembler {
 		JSONArray methodsArr = buildMethods(decl, fqcn);
 		obj.put("methods", methodsArr);
 
-		// 15. Class-level complexity metrics
-		// WMC = sum of method cyclomatic complexities. C&K (1994) IEEE TSE 20(6).
-		// Input set = regular methods only (not constructors — D-004-1).
-		// D-004-1: a method-less class emits null, not 0, to avoid eval skew.
-		long methodCount = 0;
-		for (int i = 0; i < methodsArr.length(); i++) {
-			if (!methodsArr.getJSONObject(i).optBoolean("is_constructor", false))
-				methodCount++;
-		}
+// 15. Class-level complexity metrics
+		// WMC = sum of cyclomatic complexities of ALL methods INCLUDING constructors
+		// (ADR-004 §3.3). Null only when neither methods nor constructors are
+		// declared (a marker/constants-holder). C&K (1994) IEEE TSE 20(6).
 		Object wmcValue;
-		if (methodCount == 0) {
+		if (methodsArr.isEmpty()) {
 			wmcValue = JSONObject.NULL;
 		} else {
 			int wmc = 0;
 			for (int i = 0; i < methodsArr.length(); i++) {
-				JSONObject m = methodsArr.getJSONObject(i);
-				if (m.optBoolean("is_constructor", false))
-					continue;
-				Object cc = m.get("cyclomatic_complexity");
+				Object cc = methodsArr.getJSONObject(i).get("cyclomatic_complexity");
 				if (cc instanceof Integer ccInt)
 					wmc += ccInt;
 			}
