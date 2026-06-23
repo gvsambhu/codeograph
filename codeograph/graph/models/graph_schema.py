@@ -156,7 +156,7 @@ class ClassNode(BaseModel):
     wmc: Annotated[
         int | None,
         Field(
-            description="Weighted Method Count — sum of cyclomatic complexities of all methods (ADR-004, Chidamber & Kemerer 1994). Null when extraction_mode is 'signatures_only' or 'regex_fallback'."
+description="Weighted Method Count — sum of cyclomatic complexities of all methods including constructors (ADR-004 §3.3, Chidamber & Kemerer 1994). Null when extraction_mode is 'signatures_only' or 'regex_fallback', or when the class declares no methods or constructors (D-004-1 method-less-class clause)."
         ),
     ] = None
     cbo: Annotated[
@@ -168,7 +168,7 @@ class ClassNode(BaseModel):
     lcom4: Annotated[
         int | None,
         Field(
-            description="Lack of Cohesion of Methods 4 — number of connected components in the method-field usage graph (ADR-004, Hitz & Montazeri 1995). Null when extraction_mode is 'signatures_only' or 'regex_fallback'."
+            description="Lack of Cohesion of Methods 4 — number of connected components in the method-field usage graph (ADR-004, Hitz & Montazeri 1995). Null when extraction_mode is 'signatures_only' or 'regex_fallback', or when the class has no non-static methods or constructors (D-004-1 method-less-class clause; a constructor-only class still yields a non-null value)."
         ),
     ] = None
 
