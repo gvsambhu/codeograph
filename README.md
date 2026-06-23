@@ -54,13 +54,16 @@ codeograph/                    Python package
   parser/                      FileParserDispatcher, RegexFallback
     java/                      Maven module — builds parser.jar (JavaParser AST)
   passes/                      Pass 1 (annotator), Pass 2 (synthesizer)
+  prompts/                     versioned prompt files (annotate_node, synthesize_corpus)
   renderers/                   pluggable renderer registry; typescript_nestjs/
+  rendering/                   class selection + domain grouping (ADR-009)
   scripts/                     verify_gitleaks_pin + operational scripts
+  telemetry/                   JSONL LLM telemetry emitter + aggregation
 _generated/
   manifest.schema.json         committed JSON Schema (regenerated from Pydantic)
 docs/
   architecture.md              current architecture snapshot
-  adr/                         architecture decision records (ADR-001..025)
+  adr/                         architecture decision records (ADR-001..026)
 tests/
   fixtures/codeograph-corpus/  Tier 1 surgical fixture
   goldens/tier1/               stored golden graphs (byte-equal regression)
