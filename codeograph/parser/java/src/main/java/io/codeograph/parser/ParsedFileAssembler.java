@@ -174,7 +174,7 @@ final class ParsedFileAssembler {
 		JSONArray methodsArr = buildMethods(decl, fqcn);
 		obj.put("methods", methodsArr);
 
-// 15. Class-level complexity metrics
+		// 15. Class-level complexity metrics
 		// WMC = sum of cyclomatic complexities of ALL methods INCLUDING constructors
 		// (ADR-004 §3.3). Null only when neither methods nor constructors are
 		// declared (a marker/constants-holder). C&K (1994) IEEE TSE 20(6).
