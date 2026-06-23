@@ -17,7 +17,6 @@ This class only reads the filesystem; it does not parse Java source files.
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 from typing import Any
 
@@ -285,23 +284,8 @@ class SourceDiscoverer:
         """
         Return a stable module name.
 
-        For Maven modules: parse the artifactId from pom.xml.
-        Fallback (Gradle or unreadable pom.xml): use the directory name.
-
-        Parsing is intentionally minimal — a single regex on the raw text
-        rather than a full XML parse. pom.xml is only read for the name;
-        we never need the full POM model in v1 (ADR-002: build system =
-        detect + declare, no POM parsing).
+        Per ADR-002 D-002-1: module name = directory name of nearest ancestor
+        build file. No POM parsing — this is purely filesystem-derived.
+        Uniform across Maven and Gradle.
         """
-        if pom_path is not None and pom_path.exists():
-            text = pom_path.read_text(encoding="utf-8", errors="replace")
-            # Match the first <artifactId> that is a direct child of <project>
-            # (not inside <dependency> or <parent>).
-            match = re.search(
-                r"<project[^>]*>.*?<artifactId>\s*([^<\s]+)\s*</artifactId>",
-                text,
-                re.DOTALL,
-            )
-            if match:
-                return match.group(1).strip()
         return module_root.name
