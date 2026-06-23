@@ -54,13 +54,16 @@ codeograph/                    Python package
   parser/                      FileParserDispatcher, RegexFallback
     java/                      Maven module — builds parser.jar (JavaParser AST)
   passes/                      Pass 1 (annotator), Pass 2 (synthesizer)
+  prompts/                     versioned prompt files (annotate_node, synthesize_corpus)
   renderers/                   pluggable renderer registry; typescript_nestjs/
+  rendering/                   class selection + domain grouping (ADR-009)
   scripts/                     verify_gitleaks_pin + operational scripts
+  telemetry/                   JSONL LLM telemetry emitter + aggregation
 _generated/
   manifest.schema.json         committed JSON Schema (regenerated from Pydantic)
 docs/
   architecture.md              current architecture snapshot
-  adr/                         architecture decision records (ADR-001..025)
+  adr/                         architecture decision records (ADR-001..026)
 tests/
   fixtures/codeograph-corpus/  Tier 1 surgical fixture
   goldens/tier1/               stored golden graphs (byte-equal regression)
@@ -149,7 +152,7 @@ The run manifest (`manifest.json`) is written once at the terminal checkpoint, a
 
 - **Maven-only classpath resolution.** Gradle projects are detected and source files are parsed, but classpath resolution falls back to source-only mode. Method-call resolution is lower fidelity for Gradle inputs until v1.1.
 - **TypeScript/NestJS renderer only.** The Go renderer (ADR-011) is planned for v1.1.
-- **Anthropic (Claude) only.** Ollama and Bedrock providers are wired but raise `NotImplementedError` in v1; per-stage model selection is v1.1.
+- **Anthropic (Claude) only — single model.** All v1 LLM calls use one Sonnet model. Ollama and Bedrock providers are wired but raise `NotImplementedError`; per-stage model selection (separate models for Pass 1 / Pass 2 / hazards) is v1.1.
 - **Sync LLM calls; no Batch API.** All LLM calls are synchronous with prompt caching. The Anthropic Batch API (50% discount) is v1.1.
 - **CI runs on Linux only.** Local tests pass on Windows/macOS; the automated CI infrastructure runs on `ubuntu-latest`. Multi-OS CI is a v1.1 extension wired by contributor demand.
 - **No live-LLM tests.** The test suite uses a deterministic `MockLlmProvider`. No tests make live API calls in v1; the 80% line coverage gate applies to `codeograph/`.
@@ -159,7 +162,8 @@ The run manifest (`manifest.json`) is written once at the terminal checkpoint, a
 - **Per-run output is `<out>` itself.** There is no `--runs-dir` flag. Each `codeograph run` invocation owns its `--out` directory. To keep multiple run histories, use distinct `--out` paths (e.g. `--out ./runs/$(date -u +%Y-%m-%dT%H-%M-%SZ)/`).
 - **Manifest schema is strict-additive within `2.x`.** Field removal, rename, type-change, or required/optional flips require a `3.0.0` major bump and a superseding ADR. New fields land as minor bumps. External consumers can pin a `2.x` validator and rely on forward compatibility.
 - **No log rotation or color output in v1.** `logs.jsonl` grows unboundedly per run; no log-level env-var override. These are v1.1 items.
-- **Gitleaks secret scanning is enforced in CI; merges are blocked on detection; no admin bypass.** The `pre-commit` hook is opt-in (`pre-commit install` after setup); CI is the mandatory gate. See `CONTRIBUTING.md` for the finding-response runbook.
+- **Gitleaks secret scanning is enforced in CI; merges are blocked on detection; no admin bypass.** The `pre-commit` hook is opt-in (`pre-commit install` after setup); CI is the mandatory gate. The gitleaks version is exact-pinned in both `secrets-scan.yml` and `.pre-commit-config.yaml` with a CI parity check, and a scheduled full-history scan runs nightly (non-blocking). See `CONTRIBUTING.md` for the finding-response runbook.
+- **Output stability tracks `schema_version`, not the application version.** The app version (`codeograph --version`, currently `0.5.0`) and the artefact `schema_version` are independent version lines. Consumers scripting against `graph.json` / `manifest.json` should pin or check `schema_version`; the app version is not a format-stability guarantee. v1 ships in `0.x` — `1.0.0` is published only at the stability gate (ADR-026).
 
 ## Documentation
 
