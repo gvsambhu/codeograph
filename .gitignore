@@ -48,7 +48,8 @@ coverage.xml
 *.iws
 .DS_Store
 
-# Codeograph runtime output — committed only for examples/ and tests/
+# Codeograph runtime output — always ephemeral, never committed.
+# Committed reference scorecards live at examples/<corpus>/graph-scorecard.json (not under out/).
 out/
 runs/
 

@@ -1,0 +1,156 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "graph",
+  "corpus_id": "spring-boot-starter-parent",
+  "run_timestamp": "2026-06-23T20:51:04.525623Z",
+  "run_id": "2026-06-23T20-51-02Z-5d6dda",
+  "reproducibility": {
+    "codeograph_version": "0.5.0",
+    "seed": 0
+  },
+  "checks": [
+    {
+      "id": "golden_graph_agreement",
+      "category": "graph",
+      "result": "skip",
+      "value": null,
+      "threshold": {
+        "kind": "boolean",
+        "expected": true
+      },
+      "rationale": "ADR-007 golden-graph pattern — current graph.json must byte-match the committed golden. A mismatch signals either an intentional schema change (requires --update-goldens) or an unintended regression.",
+      "model_version": null,
+      "prompt_id": null,
+      "prompt_content_hash": null,
+      "duration_ms": 0,
+      "details": {
+        "skip_reason": "no_golden_committed",
+        "corpus_id": "spring-boot-starter-parent",
+        "expected_golden_path": "tests/golden/spring-boot-starter-parent/graph.json"
+      }
+    },
+    {
+      "id": "internal_consistency",
+      "category": "graph",
+      "result": "pass",
+      "value": 0,
+      "threshold": {
+        "kind": "max_count",
+        "pass_at_or_below": 0,
+        "fail_above": null
+      },
+      "rationale": "FR-7a / ADR-017 — internal_consistency enforces five structural invariants across nodes and edges (ADR-017 Fork 3).",
+      "model_version": null,
+      "prompt_id": null,
+      "prompt_content_hash": null,
+      "duration_ms": 0,
+      "details": {
+        "violations": []
+      }
+    },
+    {
+      "id": "relationship_correctness",
+      "category": "graph",
+      "result": "pass",
+      "value": 1.0,
+      "threshold": {
+        "kind": "min_ratio",
+        "pass_at_or_above": 1.0,
+        "fail_below": null
+      },
+      "rationale": "FR-7a — relationship_correctness ensures all resolvable calls are correctly mapped to valid edges (ADR-017 Fork 3).",
+      "model_version": null,
+      "prompt_id": null,
+      "prompt_content_hash": null,
+      "duration_ms": 0,
+      "details": {
+        "total_edges": 52,
+        "unresolved_call_edges": 24,
+        "resolved_call_edges": 1,
+        "broken_resolved_call_edges": 0
+      }
+    },
+    {
+      "id": "reproducibility",
+      "category": "graph",
+      "result": "pass",
+      "value": true,
+      "threshold": {
+        "kind": "boolean",
+        "expected": true
+      },
+      "rationale": "ADR-007 §8 reproducibility envelope — three consecutive --ast-only runs on the same source must produce byte-identical graph.json (canonical-form sha256 comparison). Non-determinism breaks golden-graph regression tests.",
+      "model_version": null,
+      "prompt_id": null,
+      "prompt_content_hash": null,
+      "duration_ms": 6366,
+      "details": {
+        "hashes": [
+          "37c386dfdb7583dfb51126423c33873778a3ab7f4cb470d51b9280ac670dc4f8",
+          "37c386dfdb7583dfb51126423c33873778a3ab7f4cb470d51b9280ac670dc4f8",
+          "37c386dfdb7583dfb51126423c33873778a3ab7f4cb470d51b9280ac670dc4f8"
+        ],
+        "all_identical": true,
+        "source_path": "examples/spring-rest-sample"
+      }
+    },
+    {
+      "id": "schema_validity",
+      "category": "graph",
+      "result": "pass",
+      "value": true,
+      "threshold": {
+        "kind": "boolean",
+        "expected": true
+      },
+      "rationale": "FR-7a — schema_validity ensures the emitted graph.json strictly matches the Pydantic schema (ADR-017 Fork 3).",
+      "model_version": null,
+      "prompt_id": null,
+      "prompt_content_hash": null,
+      "duration_ms": 122,
+      "details": {
+        "validation_errors": []
+      }
+    },
+    {
+      "id": "semantic_accuracy",
+      "category": "graph",
+      "result": "skip",
+      "value": null,
+      "threshold": {
+        "kind": "score_band",
+        "pass_at_or_above": null,
+        "fail_below": null
+      },
+      "rationale": "Deferred to ADR-020 (LLM-judge calibration, v1.1).",
+      "model_version": null,
+      "prompt_id": null,
+      "prompt_content_hash": null,
+      "duration_ms": 0,
+      "details": {
+        "skip_reason": "deferred_v1.1",
+        "owner_adr": "ADR-020"
+      }
+    },
+    {
+      "id": "structural_completeness",
+      "category": "graph",
+      "result": "pass",
+      "value": 1.0,
+      "threshold": {
+        "kind": "min_ratio",
+        "pass_at_or_above": 1.0,
+        "fail_below": null
+      },
+      "rationale": "FR-7a — structural_completeness ensures all parsed source declarations are emitted as nodes in the graph (ADR-017 Fork 3).",
+      "model_version": null,
+      "prompt_id": null,
+      "prompt_content_hash": null,
+      "duration_ms": 0,
+      "details": {
+        "total_nodes": 27,
+        "ast_nodes": 27
+      }
+    }
+  ]
+}
