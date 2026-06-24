@@ -82,6 +82,5 @@ class TestUniqueness:
         with patch("codeograph.manifest.run_id.datetime") as mock_datetime:
             mock_datetime.now.side_effect = times
 
-            # TODO(learner): Call generate_run_id() 1000 times, collect results,
-            # and write assertions to prove they are all unique.
-            pass
+            run_ids = [generate_run_id() for _ in range(1000)]
+            assert len(set(run_ids)) == 1000
