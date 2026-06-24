@@ -1,9 +1,9 @@
 {
   "schema_version": "1.0.0",
   "kind": "graph",
-  "corpus_id": "spring-boot-starter-parent",
-  "run_timestamp": "2026-06-23T20:51:04.456352Z",
-  "run_id": "2026-06-23T20-51-01Z-e372e5",
+  "corpus_id": "spring-blog-api",
+  "run_timestamp": "2026-06-24T19:13:48.915243Z",
+  "run_id": "2026-06-24T19-13-46Z-44186c",
   "reproducibility": {
     "codeograph_version": "0.5.0",
     "seed": 0
@@ -25,8 +25,8 @@
       "duration_ms": 0,
       "details": {
         "skip_reason": "no_golden_committed",
-        "corpus_id": "spring-boot-starter-parent",
-        "expected_golden_path": "tests/golden/spring-boot-starter-parent/graph.json"
+        "corpus_id": "spring-blog-api",
+        "expected_golden_path": "tests/golden/spring-blog-api/graph.json"
       }
     },
     {
@@ -83,12 +83,12 @@
       "model_version": null,
       "prompt_id": null,
       "prompt_content_hash": null,
-      "duration_ms": 7324,
+      "duration_ms": 7079,
       "details": {
         "hashes": [
-          "9cc163c6b5b10110769c8eb8d8171dfaa462b7c08a60fbcbbf9023b599cd7791",
-          "9cc163c6b5b10110769c8eb8d8171dfaa462b7c08a60fbcbbf9023b599cd7791",
-          "9cc163c6b5b10110769c8eb8d8171dfaa462b7c08a60fbcbbf9023b599cd7791"
+          "7727f256f76f5d9a77b4ce0b6074b623560dc267b4559e11b88cfa33487efe46",
+          "7727f256f76f5d9a77b4ce0b6074b623560dc267b4559e11b88cfa33487efe46",
+          "7727f256f76f5d9a77b4ce0b6074b623560dc267b4559e11b88cfa33487efe46"
         ],
         "all_identical": true,
         "source_path": "examples/spring-blog-api"
@@ -107,7 +107,7 @@
       "model_version": null,
       "prompt_id": null,
       "prompt_content_hash": null,
-      "duration_ms": 117,
+      "duration_ms": 156,
       "details": {
         "validation_errors": []
       }

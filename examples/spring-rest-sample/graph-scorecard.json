@@ -1,9 +1,9 @@
 {
   "schema_version": "1.0.0",
   "kind": "graph",
-  "corpus_id": "spring-boot-starter-parent",
-  "run_timestamp": "2026-06-23T20:51:04.525623Z",
-  "run_id": "2026-06-23T20-51-02Z-5d6dda",
+  "corpus_id": "spring-rest-sample",
+  "run_timestamp": "2026-06-24T19:13:41.825668Z",
+  "run_id": "2026-06-24T19-13-39Z-70731f",
   "reproducibility": {
     "codeograph_version": "0.5.0",
     "seed": 0
@@ -25,8 +25,8 @@
       "duration_ms": 0,
       "details": {
         "skip_reason": "no_golden_committed",
-        "corpus_id": "spring-boot-starter-parent",
-        "expected_golden_path": "tests/golden/spring-boot-starter-parent/graph.json"
+        "corpus_id": "spring-rest-sample",
+        "expected_golden_path": "tests/golden/spring-rest-sample/graph.json"
       }
     },
     {
@@ -83,12 +83,12 @@
       "model_version": null,
       "prompt_id": null,
       "prompt_content_hash": null,
-      "duration_ms": 6366,
+      "duration_ms": 6013,
       "details": {
         "hashes": [
-          "37c386dfdb7583dfb51126423c33873778a3ab7f4cb470d51b9280ac670dc4f8",
-          "37c386dfdb7583dfb51126423c33873778a3ab7f4cb470d51b9280ac670dc4f8",
-          "37c386dfdb7583dfb51126423c33873778a3ab7f4cb470d51b9280ac670dc4f8"
+          "58eed62bcd155514ce613287cdfd4fbbeeb7e6709a3392124e48d972e433d623",
+          "58eed62bcd155514ce613287cdfd4fbbeeb7e6709a3392124e48d972e433d623",
+          "58eed62bcd155514ce613287cdfd4fbbeeb7e6709a3392124e48d972e433d623"
         ],
         "all_identical": true,
         "source_path": "examples/spring-rest-sample"
@@ -107,7 +107,7 @@
       "model_version": null,
       "prompt_id": null,
       "prompt_content_hash": null,
-      "duration_ms": 122,
+      "duration_ms": 90,
       "details": {
         "validation_errors": []
       }
