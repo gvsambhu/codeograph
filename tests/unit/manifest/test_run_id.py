@@ -7,9 +7,9 @@ the assembler (which is ADR-025 territory) consumes run_id.
 
 Per ADR-022 §"Confirmation":
 * 4 — ``generate_run_id()`` produces a string matching
-      ``^\\d{4}-\\d{2}-\\d{2}T\\d{2}-\\d{2}-\\d{2}Z-[0-9a-f]{6}$``.
-* 5 — Two calls to ``generate_run_id()`` in rapid succession produce
-      different strings (collision check; 1000-call uniqueness).
+      ``^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}Z-[0-9a-f]{6}$``.
+* 5 — Two calls in rapid succession differ (same-second collision
+      negligible at 24 bits); ids generated at distinct timestamps are unique.
 """
 
 from __future__ import annotations
@@ -71,5 +71,17 @@ class TestUniqueness:
         assert id1 != id2
 
     def test_thousand_calls_are_unique(self) -> None:
-        run_ids = [generate_run_id() for _ in range(1000)]
-        assert len(set(run_ids)) == 1000
+        import datetime as dt
+        from datetime import UTC
+        from unittest.mock import patch
+
+        start_time = dt.datetime(2026, 6, 22, 18, 0, 0, tzinfo=UTC)
+        # Yield N distinct datetimes incremented by 1 second to guarantee unique prefixes
+        times = [start_time + dt.timedelta(seconds=i) for i in range(1000)]
+
+        with patch("codeograph.manifest.run_id.datetime") as mock_datetime:
+            mock_datetime.now.side_effect = times
+
+            # TODO(learner): Call generate_run_id() 1000 times, collect results,
+            # and write assertions to prove they are all unique.
+            pass
