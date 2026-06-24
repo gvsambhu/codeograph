@@ -43,10 +43,12 @@ class ModuleSpec:
     """
 
     #: Stable module identifier written into graph nodes.  Format: mod:<name>
-    #: where <name> is the Maven artifactId (or directory name as fallback).
+    #: where <name> is the directory name of the nearest ancestor build file
+    #: (ADR-002 D-002-1).
     module_id: str
 
-    #: Human-readable name (Maven artifactId or directory name).
+    #: Human-readable name: directory name of the nearest ancestor build file
+    #: (ADR-002 D-002-1). Uniform across Maven and Gradle.
     name: str
 
     #: Absolute path to the module root directory (contains pom.xml / build.gradle).
