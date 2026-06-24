@@ -782,5 +782,7 @@ asymmetry is **intentional** — a future reader should not "reconcile" it by re
 
 A correction to Confirmation #5 to prevent test instability (birthday paradox flake in 1000 fast calls).
 
-# TODO(learner): Describe how Confirmation #5 is relaxed to allow same-second collision checks via distinct timestamps while keeping rapid successions.
+Confirmation #5 is amended to drop the requirement that 1000 calls to `generate_run_id()` in rapid succession (same-second window) produce different strings. In a 24-bit suffix space, 1000 calls have a ~2.9% collision chance, causing test instability. The updated guarantee asserts that:
+- Two calls in rapid succession differ (same-second collision is negligible at 24 bits).
+- Calls generated at distinct timestamps are unique.
 
