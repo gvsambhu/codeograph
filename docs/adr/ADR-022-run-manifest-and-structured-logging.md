@@ -777,3 +777,10 @@ asymmetry is **intentional** — a future reader should not "reconcile" it by re
 `saved_usd_est`/`incurred_usd_est` are **superseded by ADR-025 Fork 5**, under which the v1 block is
 `{calls, hits, hit_rate}` only. The `misses` field never shipped. Consult ADR-025 for the canonical
 `CacheStats` shape (per the 2026-06-07 supersession entry above).
+
+### 2026-06-25 — run_id uniqueness confirmation relaxation
+
+A correction to Confirmation #5 to prevent test instability (birthday paradox flake in 1000 fast calls).
+
+# TODO(learner): Describe how Confirmation #5 is relaxed to allow same-second collision checks via distinct timestamps while keeping rapid successions.
+
