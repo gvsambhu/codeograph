@@ -78,7 +78,7 @@ Codeograph includes an LLM enrichment pipeline (Passes 1 and 2) that adds semant
 - **Response Cache:** A local SQLite cache (`cache.db`) stores responses. You can manage the cache using the `codeograph cache` CLI (e.g., `codeograph cache stats` or `codeograph cache purge`).
 - **Telemetry:** Every LLM call is recorded as a structured JSONL row in the `telemetry/` output folder, carrying token usage, latency, and cache-hit details.
 
-> **TODO(learner):** Add a paragraph here framing "Why LLM passes matter" using the project voice.
+The graph tells Codeograph what is there — nodes, edges, framework semantics, and metrics from precise, reproducible deterministic analysis; LLM Pass 1 explains what it means at the per-node level. The LLM passes matter because they add the layer deterministic analysis cannot supply — per-node explanation, onboarding summaries, and role inference grounded in that verified structure, making the graph easier to read and more useful without changing what the system treats as truth. LLM Pass 2 reaches into riskier corpus-level synthesis, but all LLM output stays advisory in separate artefacts and is contained so the deterministic graph stays authoritative.
 
 ## Rendering (DC3)
 
