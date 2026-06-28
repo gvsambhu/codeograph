@@ -13,7 +13,7 @@ This document is a survey of the tools Codeograph lives next to, not a compariso
 
 ## 1. Summary — the landscape at a glance
 
-Codeograph sits at the intersection between static graph-analysis tools and cross-language code generation. It fills a specific gap in that landscape by pairing a deterministic, metrics-carrying property graph with a pluggable cross-language scaffold renderer — a combination no tool in the survey currently provides.
+Codeograph sits at the intersection between static graph-analysis tools and cross-language code generation. It fills a specific gap in that landscape by pairing a deterministic, metrics-carrying property graph with a pluggable cross-language renderer that translates it into idiomatic target-language source — a combination no tool in the survey currently provides.
 
 ---
 
@@ -48,7 +48,7 @@ This is the established space of "understand and govern an existing codebase." *
 
 ### 4.2 Source-to-source transpilers & AI code converters
 
-These border codeograph's **rendering** layer, but do a different job: **faithful** behaviour-preserving translation, with **no** graph or complexity emission. **JSweet** transpiles Java→TypeScript→JavaScript on top of `javac` + the TS compiler (GPL-3; semi-dormant, seeking a maintainer); **J2CL** (Google, Apache-2.0) and **GWT** (Apache-2.0) compile Java→JavaScript for web apps. Smaller/experimental converters exist (`mike-lischke/java2typescript` for Java→TS; `NickyBoy89/java2go` for experimental Java→Go), as do LLM converters (**CodeConvert AI**, a commercial SaaS) and the research model **Meta TransCoder** (Java↔Python↔C++, not an installable tool). The distinction that matters: a transpiler emits *line-for-line equivalent code*; it does not build a deterministic graph, compute metrics, or scaffold an idiomatic target-framework project.
+These border codeograph's **rendering** layer, but do a different job: **faithful** behaviour-preserving translation, with **no** graph or complexity emission. **JSweet** transpiles Java→TypeScript→JavaScript on top of `javac` + the TS compiler (GPL-3; semi-dormant, seeking a maintainer); **J2CL** (Google, Apache-2.0) and **GWT** (Apache-2.0) compile Java→JavaScript for web apps. Smaller/experimental converters exist (`mike-lischke/java2typescript` for Java→TS; `NickyBoy89/java2go` for experimental Java→Go), as do LLM converters (**CodeConvert AI**, a commercial SaaS) and the research model **Meta TransCoder** (Java↔Python↔C++, not an installable tool). The distinction that matters: a transpiler emits *line-for-line equivalent code*; it does not build a deterministic graph, compute metrics, or render an idiomatic target-framework project from one.
 
 ### 4.3 Code-as-data platforms & graph-driven modernization engines — the closest family
 
@@ -67,7 +67,7 @@ These are the nearest neighbours — tools that build a queryable model of a cod
 
 ## 5. Comparison matrix (facts only)
 
-*Stable attributes only. **Cross-lang render** = does it generate a different target language from its model? "Partial" = same-language transform (e.g., Java→Java), not a cross-language scaffold.*
+*Stable attributes only. **Cross-lang render** = does it generate a different target language from its model? "Partial" = same-language transform (e.g., Java→Java), not cross-language rendering.*
 
 | Tool | Family | Languages | Internal model | Primary use case | Cross-lang render? | License (family) | Maintenance |
 |---|---|---|---|---|---|---|---|
@@ -92,18 +92,18 @@ These are the nearest neighbours — tools that build a queryable model of a cod
 
 Codeograph sits at a seam the survey leaves open: one family builds deterministic, metrics-carrying property graphs and stops at analysis, while another renders code into a new stack without ever building or trusting a graph. Joern-style graph tools and OpenRewrite-class transformers each cover one half; transpilers and LLM converters cover the other, but without graph grounding. That is a coverage claim, not a novelty claim: the graph and its metrics are established prior art, and the pairing is what Codeograph adds.
 
-In v1, that pairing produces TypeScript/NestJS scaffolds, with Go planned for v1.1. Where idioms or security features cannot be rendered deterministically, the output leaves TODO markers instead of silent drops, and compile/eval gates backstop what is emitted. The graph remains authoritative; the rendering layer is a helper, not a decision-maker.
+In v1, that pairing produces full idiomatic TypeScript/NestJS source — method bodies included — alongside a deterministic project scaffold, with Go planned for v1.1. Where a feature cannot be translated faithfully, the renderer stubs it with a reviewable TODO or refuses to render it — never a silent drop — and compile/eval gates backstop what is emitted. The graph remains authoritative; the rendering layer is a helper, not a decision-maker.
 
 ---
 
 ## 7. What Codeograph deliberately does NOT do (non-goals)
 
-- **Not a faithful, behaviour-preserving transpiler.** Codeograph emits a deterministic graph and structural scaffolds; it does not perform 1:1 line-by-line translation of business logic. For faithful transpilation, use JSweet, J2CL, or a dedicated transpiler.
+- **Not a faithful, behaviour-preserving transpiler.** Codeograph produces idiomatic target-language source — translated to read as native NestJS, not transliterated line-by-line — so it does not guarantee behaviour-identical output. For faithful, behaviour-preserving transpilation, use JSweet, J2CL, or a dedicated transpiler.
 - **Not architecture governance or rule enforcement.** It maps the structure that exists, but does not validate layering, enforce dependency rules, or apply architecture constraints. For governance, use jQAssistant, Structure101, or Lattix.
 - **Not a security SAST engine.** It does not track taint flows, detect CVEs, or model attack surfaces. For vulnerability analysis, use Joern or GitHub CodeQL.
 - **Not same-language modernization or automated refactoring.** It does not upgrade framework versions, migrate deprecated APIs, or apply refactoring recipes within Java. For automated Java refactoring, use OpenRewrite/Moderne.
-- **Not a multi-language renderer in v1.** The first release renders TypeScript/NestJS scaffolds exclusively; Java→Go rendering is a planned v1.1 extension, and renderers are pluggable per target stack.
-- **Not an autonomous agent that "understands" the codebase.** LLM summaries and scaffold output are advisory; the deterministic graph is authoritative, and core logic in rendered scaffolds carries TODO markers for humans to finish.
+- **Not a multi-language renderer in v1.** The first release renders to TypeScript/NestJS exclusively; Java→Go rendering is a planned v1.1 extension, and renderers are pluggable per target stack.
+- **Not an autonomous agent that "understands" the codebase.** LLM summaries and translated output are advisory; the deterministic graph is authoritative, and any feature that cannot be translated faithfully surfaces as a reviewable TODO or refusal, never a silent drop.
 
 ---
 
