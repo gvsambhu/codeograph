@@ -82,7 +82,7 @@ The graph tells Codeograph what is there — nodes, edges, framework semantics, 
 
 ## Rendering (DC3)
 
-`codeograph render` converts an existing run output into a TypeScript/NestJS project. Rendering is decoupled from LLM execution so you can tune rendering parameters (ORM mode, class budget, domain grouping) without re-running the expensive annotation passes.
+`codeograph render` converts an existing run output into a TypeScript/NestJS project: each selected class is translated into **full idiomatic NestJS source — method bodies included, not skeletons** — via one LLM call, emitted alongside a deterministic Jinja2 project scaffold (`package.json`, `tsconfig.json`, bootstrap `main.ts`). Features v1 cannot translate faithfully surface as reviewable **TODO/stub** placeholders or explicit **refuse-to-render** entries — never silent drops — under a configurable per-feature policy. Rendering is decoupled from LLM execution so you can tune rendering parameters (ORM mode, class budget, domain grouping) without re-running the expensive annotation passes.
 
 ```bash
 codeograph render --from ./out --out ./ts-out --target typescript

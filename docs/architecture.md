@@ -91,7 +91,7 @@ v1 uses a single Sonnet model via `ProviderType.ANTHROPIC`; `OLLAMA` and `BEDROC
 
 ## DC3 — TypeScript/NestJS renderer
 
-`codeograph render` is decoupled from `run`: it reads a prior run output, selects a representative subset of classes within a budget, groups them into domains, renders each via one LLM call, and emits a NestJS scaffold. Targets are pluggable through a registry.
+`codeograph render` is decoupled from `run`: it reads a prior run output, selects a representative subset of classes within a budget, groups them into domains, and translates each class into idiomatic TypeScript/NestJS source — full method bodies, not skeletons — via one LLM call. The translated files are emitted together with a deterministic Jinja2 project scaffold (`package.json`, `tsconfig.json`, bootstrap `main.ts`); features that cannot be translated faithfully become reviewable TODO/stub or refuse-to-render entries (never silent drops), configurable per feature. Targets are pluggable through a registry.
 
 ```
 run output  →  ClassSelector  →  DomainGrouping  →  per-class render prompt (LLM)  →  ScaffoldEmitter  →  TS/NestJS project
@@ -105,7 +105,7 @@ run output  →  ClassSelector  →  DomainGrouping  →  per-class render promp
 | Target registry | `renderers/renderer_registry.py` (`RendererRegistry`, decorator-based registration) | [ADR-008](adr/ADR-008-pluggable-renderer-interface.md) |
 | TypeScript/NestJS renderer | `renderers/typescript_nestjs/typescript_renderer.py` (`TypeScriptRenderer`) | [ADR-010](adr/ADR-010-spring-to-typescript-nestjs-mapping.md) |
 | Scaffold + per-file prompt | `typescript_nestjs/scaffold_emitter.py` + `templates/scaffold/` (Jinja2), `prompts/render_file/` | [ADR-010](adr/ADR-010-spring-to-typescript-nestjs-mapping.md) |
-| Unsupported-feature policy | `typescript_nestjs/feature_policies.py` (translate / scaffold / refuse per Spring feature) | [ADR-010](adr/ADR-010-spring-to-typescript-nestjs-mapping.md) |
+| Unsupported-feature policy | `typescript_nestjs/feature_policies.py` (translate / stub+TODO / refuse per Spring feature) | [ADR-010](adr/ADR-010-spring-to-typescript-nestjs-mapping.md) |
 | Class selection (budget cap) | `rendering/class_selector.py` (`ClassSelector`, stratified High/Medium/Low sampling) | [ADR-009](adr/ADR-009-rendering-budget-cap.md) |
 | Domain grouping | `rendering/base.py` (`DomainGrouping` ABC) + `package_prefix_grouping.py` / `manual_mapping_grouping.py` | [ADR-009](adr/ADR-009-rendering-budget-cap.md) |
 
