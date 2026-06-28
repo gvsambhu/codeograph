@@ -102,12 +102,11 @@ Per ADR-003, the per-class LLM call sends class facts + the class source. The na
 
 **v1:** A single model (default `claude-sonnet-4-6`, configurable via `Settings.llm_model`) handles all LLM calls. Both Pass 1 and Pass 2 use the same model. Migration-hazard prompts (ADR-008+) inherit the same default.
 
-**v1.1 evolution (M3):** `Settings` will gain per-stage model overrides:
-* `llm_model_pass1`, `llm_model_pass2`, `llm_model_hazards`
-* Default mapping documented at the time: experimentation phase = Haiku for Pass 1 + Sonnet for Pass 2; production = Sonnet for Pass 1 + Sonnet/Opus for hazards.
+**Per-stage override fields — present in v1 (capability); differential mapping deferred to v1.1 (behavior):** `Settings` exposes per-tier model overrides named for ADR-013's `Tier` enum — `llm_model_fast`, `llm_model_deep`, `llm_model_render` — each falling back to `llm_model` when unset. `LlmProviderResolver` builds the tier map from these fields, so the per-tier override path is **live in v1** (shipped in DC2). What v1 does *not* do is ship a curated *differential* mapping: absent an explicit override, all three tiers resolve to the single default model, so no per-stage differentiation occurs by default. Shipping a curated mapping across tiers is the v1.1 M3 path.
+* Default mapping (v1.1 intent): e.g. a cheaper model on `fast` (Pass 1) and a stronger model on `deep` (Pass 2) / `render`.
 * Cache invalidation rule: any model switch within a run resets the cache for that model (each model has its own cache pool). Eval (ADR-017) will need to flag quality drift across model splits.
 
-ADR-005 reserves the `llm_model_*` field names; ADR-014 / ADR-016 fill in the v1.1 detail.
+ADR-005 reserves the `llm_model_*` field names; ADR-013 (the `Tier` enum) owns the tier names; ADR-014 / ADR-016 fill in the v1.1 detail.
 
 ### 5. Concurrency, retries, rate limits
 
@@ -282,3 +281,10 @@ References:
 * A single failure in an N<10 run does not abort the run via the failure ratio (D-005-6).
 
 No prior locked decision is reversed; the oversized-input amendment realigns the shipped code with the already-locked O3. Clarification and implementation-alignment only.
+
+**2026-06-29 — Doc-sync: §4 tier-field reconciliation (no decision).** Completes and corrects the F-005-7 doc-sync (2026-06-20). Two parts, no design change:
+
+1. **Names carried into the §4 body.** F-005-7 logged the rename `llm_model_pass1`/`llm_model_pass2`/`llm_model_hazards` → `llm_model_fast`/`llm_model_deep`/`llm_model_render` but the §4 body was never edited; it is now. The names follow ADR-013's `Tier` enum (FAST/DEEP/RENDER). For the record: the old names **never existed in code** — DC2 shipped the tier-named fields directly (the commit that added `llm_model_fast`/`deep`/`render` to `Settings`), so this is the doc catching up to code, not a code change.
+2. **"present-but-inert" corrected to "present-and-live (capability) / single-model-by-default (behavior)."** F-005-7's parenthetical called the fields *inert*; that is inaccurate. `LlmProviderResolver` builds the tier map from these fields (each falling back to `llm_model`), so the per-tier override path is **live in v1** (shipped DC2). What v1 omits is a curated *differential* mapping — absent an explicit override every tier resolves to the single default, so no per-stage differentiation occurs by default. The override **capability** ships in v1; differential per-stage **behavior** is the v1.1 M3 / ADR-016 path.
+
+No decision changed; documentation realigned to the shipped code (capability-vs-behavior split made explicit). Pure doc-sync.
