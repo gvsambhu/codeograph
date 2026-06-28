@@ -4,6 +4,16 @@ Reads a Java/Spring Boot codebase and emits a deterministic knowledge graph — 
 
 **Status:** v1 complete (DC1–DC5) — deterministic graph, LLM enrichment, eval framework, TypeScript/NestJS renderer, run manifest + structured logging. See [`docs/architecture.md`](docs/architecture.md) for the full pipeline.
 
+## Point of view
+
+A generation of tools already covers individual pieces of this space: deterministic graph analysis, architecture governance, security scanning, and same-language modernization. Codeograph builds on established patterns and positions itself honestly against [that prior art](docs/prior-art.md) as a narrow extension, not a reinvention or replacement.
+
+Existing property-graph and analysis tools stop at understanding, and transpilers or modernization engines don't build on a shared architectural graph. Codeograph targets the seam between those families: it emits a deterministic, metrics-carrying knowledge graph for a Java/Spring codebase and then uses it to drive a pluggable cross-language renderer that generates NestJS source around a deterministic project scaffold.
+
+Codeograph is built on the belief that codebases should be understood and structured deterministically, and that AI should sit on top of that as an augmentor — explaining, suggesting, and translating, but never quietly becoming the driver. Its stance is to see how far a deterministic knowledge graph can carry cross-stack work — understanding and rendering into new stacks — without handing control to AI.
+
+In v1, Codeograph ships TypeScript/NestJS rendering only and adds Go in v1.1; it does not replace tools that already do governance, SAST, same-language refactoring, or transpilation well.
+
 ## Requirements
 
 - Python ≥ 3.12
@@ -82,7 +92,7 @@ The graph tells Codeograph what is there — nodes, edges, framework semantics, 
 
 ## Rendering (DC3)
 
-`codeograph render` converts an existing run output into a TypeScript/NestJS project. Rendering is decoupled from LLM execution so you can tune rendering parameters (ORM mode, class budget, domain grouping) without re-running the expensive annotation passes.
+`codeograph render` converts an existing run output into a TypeScript/NestJS project: each selected class is translated into **full idiomatic NestJS source — method bodies included, not skeletons** — via one LLM call, emitted alongside a deterministic Jinja2 project scaffold (`package.json`, `tsconfig.json`, bootstrap `main.ts`). Features v1 cannot translate faithfully surface as reviewable **TODO/stub** placeholders or explicit **refuse-to-render** entries — never silent drops — under a configurable per-feature policy. Rendering is decoupled from LLM execution so you can tune rendering parameters (ORM mode, class budget, domain grouping) without re-running the expensive annotation passes.
 
 ```bash
 codeograph render --from ./out --out ./ts-out --target typescript
