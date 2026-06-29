@@ -53,6 +53,7 @@ For someone new to the project who wants to understand the design end-to-end, re
 - [`ADR-025 — Manifest schema 2.0.0 (flat layout)`](ADR-025-manifest-schema-flat-layout.md) — supersedes ADR-022's manifest forks + ADR-015's `cache_stats` shape
 - [`ADR-023 — Secret scanning with gitleaks`](ADR-023-secret-scanning-with-gitleaks.md)
 - [`ADR-026 — Release & version management`](ADR-026-release-version-management.md) — SemVer scheme, `0.x`→`1.0.0` at the stability gate, version sourced from package metadata
+- [`ADR-027 — Temporary v1 cost-safety floor`](ADR-027-temporary-cost-safety-floor.md) — pre-flight estimate + confirmation gate + optional hard call/token ceiling; *temporary, superseded by ADR-016 at `1.1.0`*
 
 ### 8. Deferred to v1.1 / post-v1 ⏸️
 - `ADR-011 — Spring → Go mapping`
@@ -95,6 +96,7 @@ For someone new to the project who wants to understand the design end-to-end, re
 | 024 | Prompt-injection / output-path safety | ⏸️ | Deferred (v1.1) |
 | 025 | Manifest schema 2.0.0 (flat layout) | ✅ | Cross-cutting |
 | 026 | Release & version management | ✅ | Cross-cutting |
+| 027 | Temporary v1 cost-safety floor | ✅ | Cross-cutting |
 
 ---
 
