@@ -73,7 +73,7 @@ _generated/
   manifest.schema.json         committed JSON Schema (regenerated from Pydantic)
 docs/
   architecture.md              current architecture snapshot
-  adr/                         architecture decision records (ADR-001..026)
+  adr/                         architecture decision records (ADR-001..027)
 tests/
   fixtures/codeograph-corpus/  Tier 1 surgical fixture
   goldens/tier1/               stored golden graphs (byte-equal regression)
