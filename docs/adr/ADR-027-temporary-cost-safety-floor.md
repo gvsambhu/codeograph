@@ -311,3 +311,34 @@ discipline.
 * ADR-005 §3 / D-005-3 — the "no cost cap in v1" line this ADR narrows
 * ADR-013 Forks 3 & 5 — middleware composition seam + `TokenUsage` tally
 * ADR-026 — SemVer / `1.0.0`→`1.1.0` lines
+
+## Amendments
+
+**2026-06-29 — endpoint-aware price keying (1 decision).** Surfaced by the design review of the
+ADR-013 D-013-7 / ADR-001 D-001-5 provider expansion (reviewed jointly per guideline 06 §0.1). Fork 4
+assumed model id alone identifies a price — true when the v1 provider set was Anthropic + OpenRouter,
+but the generic OpenAI-compatible provider (D-013-7) makes the **same model id reachable on different
+hosts at different prices, or free**. Fork 4's pricing is amended to match; the locked decision
+(temporary, labelled, dated estimate; call-count floor is price-independent) is unchanged.
+
+1. **Price source keyed by `(provider label, model)`, not model id alone.** The price lookup uses the
+   endpoint **provider label** that ADR-013 D-013-7 / ADR-001 D-001-5 record (explicit
+   `CODEOGRAPH_OPENAI_COMPAT_PROVIDER_LABEL`, else the normalized base-URL host) — the same label used
+   in the cache key and telemetry. The cost doc's price table (`docs/model-selection-and-cost.md` §6)
+   carries a provider/endpoint column so one model id can hold different prices per host.
+2. **Unknown-model degradation re-stated per pair.** Fork 4's rule "if the selected *model* has no row
+   → count-only estimate, *no price data for `<model>`*" now reads "if the selected **`(label, model)`
+   pair** has no row → count-only estimate, *no price data for `<model>` on `<label>`*."
+3. **Free/local routes resolve to `$0`.** A `(label, model)` the price source marks free or local
+   estimates `$0`, not "unknown" and not a stale paid figure.
+
+**New Confirmation items (from this amendment):**
+* The pre-flight estimate looks up price by `(provider label, model)`; the same model id on two hosts
+  can yield two different estimates.
+* A `(label, model)` pair absent from the price source yields a count-only estimate
+  ("no price data for `<model>` on `<label>`"), not `$0` and not a failure.
+* A route the price source marks free/local estimates `$0`.
+
+No locked decision reversed; Fork 4's pricing is aligned to the provider expansion (the protection
+remains price-independent — only the advisory figure gains endpoint awareness). Clarification +
+additive only.

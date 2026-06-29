@@ -92,8 +92,14 @@ the entries below.
 
 > **Captured 2026-06-26. Prices move monthly — verify before relying. This is the table the ADR-027
 > pre-flight estimator reads; the figure it shows is an estimate, not a quote.**
+>
+> **Keyed by `(provider label, model)`.** Because the generic OpenAI-compatible provider (ADR-013
+> D-013-7) can serve the same model id on different hosts at different prices, each row is identified
+> by the **provider label** (explicit `CODEOGRAPH_OPENAI_COMPAT_PROVIDER_LABEL`, else the base-URL
+> host) *plus* the model — not the model alone. A `(label, model)` pair absent here ⇒ count-only
+> estimate; a free/local route ⇒ `$0` (per the ADR-027 2026-06-29 amendment).
 
-| Model | Provider note | Input $/M tok | Output $/M tok | Cache-hit input $/M | Notes |
+| Model | Provider label | Input $/M tok | Output $/M tok | Cache-hit input $/M | Notes |
 |---|---|---|---|---|---|
 | Claude Sonnet 4.6 | Anthropic (v1 default) | 3.00 | 15.00 | ~0.30 (cached read) | structured-output reliable |
 | Claude Haiku 4.5 | Anthropic | 1.00 | 5.00 | ~0.10 | cheaper Claude |
