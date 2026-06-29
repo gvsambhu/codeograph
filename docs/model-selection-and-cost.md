@@ -1,11 +1,9 @@
 # Model Selection & Cost
 
-> **Scaffold — work in progress.** Factual tables below were captured **2026-06-26** (see the date
-> stamp on the price table). The **recommendation / POV prose** (how *you* should choose, the
-> opinionated "start here" framing) is **`TODO(learner)`** — left for the learner per the project
-> guardrails. This file is also the **data source for the ADR-027 pre-flight cost estimate**: the
-> price table here is what the cost-safety floor reads. Keep the table dated; treat every figure as
-> an **estimate, not a quote — verify before relying.**
+> Prices were captured **2026-06-26** (see the dated price table in §6) and move frequently — treat
+> every figure as an **estimate, not a quote; verify before relying.** This file is also the **data
+> source for the ADR-027 pre-flight cost estimate**: the price table here is what the cost-safety
+> floor reads, so keep it dated and in sync with the machine-readable price source.
 
 ---
 
