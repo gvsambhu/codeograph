@@ -631,11 +631,15 @@ No locked design decision is reversed; the v1 provider roster is re-scoped (Open
 * **No allowlist — examples are documentation only.** Gemini, Groq, and DeepSeek are the verified starter examples in `docs/model-selection-and-cost.md`; MiniMax, Moonshot, Z.ai, Qwen, Mistral, Together, Fireworks — and OpenAI/GPT itself — also work by construction. Nothing in code enumerates them.
 * **OpenRouter retained as a preset.** `OpenRouterProvider` becomes a thin subclass of `OpenAICompatibleProvider` presetting the OpenRouter base URL — OpenRouter stays a mandatory, named v1 provider (D-013-1) and existing config/tests are unaffected. (Exact class naming is an implementation detail; `OpenAICompatibleProvider` recommended.)
 * **Scope guard.** This covers only the **API-key, OpenAI-compatible** family. **Ollama and Bedrock stay v1.1** — their `NotImplementedError` stubs in `resolver.py` are unchanged; they need non-OpenAI-compat clients (`ChatBedrockConverse`, Ollama) and are out of scope here.
-* **Caching preserved.** `cache_control` pass-through lives in the shared base (`langchain_base.py`), so every OpenAI-compatible endpoint inherits it; ADR-005 §6's "`cache_control` must stay reachable" remains satisfied.
-* **Credential/base-URL config is owned in ADR-001** (D-001-5). This ADR's "adding a provider is one config block" claim depends on that resolution.
+* **Endpoint identity (provider label).** The generic provider derives a **provider label** — an explicit `CODEOGRAPH_OPENAI_COMPAT_PROVIDER_LABEL` if the user sets one, else the normalized base-URL host — and threads it through the `provider` token in the cache key (FR-17 / ADR-015) and telemetry (FR-16). This keeps the *same model id served by different endpoints* distinct: no cross-host cache collision, no lost audit. ADR-027's price lookup reuses the same label (its 2026-06-29 amendment).
+* **Structured-output compatibility is assumed, not guaranteed.** The generic provider relies on the `with_structured_output` / tool-use mechanism (Fork 5); OpenAI-*compatibility* is partial across hosts, so an endpoint that does not honour it surfaces the existing `LlmSchemaValidationError` (Fork 6) with a hint that the endpoint may not support structured output. Verify a new endpoint on a few classes before a full run (cost doc §8).
+* **Caching where supported.** `cache_control` pass-through lives in the shared base (`langchain_base.py`); endpoints that support prompt caching inherit it. Support varies across hosts — its absence degrades **cost only, never capability** — so ADR-005 §6's "`cache_control` must stay reachable" remains satisfied wherever the endpoint offers caching.
+* **Credential / base-URL / label config is owned in ADR-001** (D-001-5). This ADR's "adding a provider is one config block" claim depends on that resolution.
 
 **New Confirmation items (from this amendment):**
 * The OpenAI-compatible provider accepts a **configurable base URL**; pointing it at a new OpenAI-compatible endpoint needs **no new provider class and no code change** (D-013-7).
+* The `provider` token = explicit label else base-URL host; it appears in the cache key and telemetry, so two hosts serving the same model id do not collide.
+* An endpoint that rejects structured output surfaces `LlmSchemaValidationError` with an endpoint-compatibility hint — not a silent failure.
 * `OpenRouterProvider` resolves as a preset of the generic provider; `ProviderType.OPENROUTER` behaviour is unchanged.
 * Ollama/Bedrock still raise `NotImplementedError` in v1 (scope guard unchanged).
 

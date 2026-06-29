@@ -223,18 +223,25 @@ No reversal of any prior decision; extends the D-001-1 env-var rule (clarificati
 
 **2026-06-29 — generic OpenAI-compatible credential + base-URL config (1 decision).** Companion to ADR-013 D-013-7 (provider expansion into v1). Extends the D-001-1 env-var split rule and the 2026-06-20 D-013-2 dynamic-alias decision to the generic OpenAI-compatible provider. No prior decision reversed.
 
-**D-001-5 — generic OpenAI-compatible credential + base-URL settings.** The generic provider (D-013-7) is configured by **two new `Settings` fields**, deliberately *generic* (not named per-vendor), preserving maximum flexibility — one slot points at any OpenAI-compatible endpoint:
+**D-001-5 — generic OpenAI-compatible credential, base-URL, and label settings.** The generic provider (D-013-7) is configured by **three new `Settings` fields**, deliberately *generic* (not named per-vendor), preserving maximum flexibility — one slot points at any OpenAI-compatible endpoint:
 
 1. **`openai_compat_api_key`** — env var **`CODEOGRAPH_OPENAI_COMPAT_API_KEY`**.
 2. **`openai_compat_base_url`** — env var **`CODEOGRAPH_OPENAI_COMPAT_BASE_URL`**.
-3. **model id** stays a free-form `str` (no `Literal` allowlist), per D-013-1 pass-through.
+3. **`openai_compat_provider_label`** (optional) — env var **`CODEOGRAPH_OPENAI_COMPAT_PROVIDER_LABEL`**. The endpoint identity that becomes the `provider` token in the cache key (FR-17), telemetry (FR-16), and the ADR-027 price lookup. **Hybrid resolution:** if unset it falls back to the normalized base-URL host, so two hosts serving the same model id stay distinct without the user having to set anything (ADR-013 D-013-7 / design-review Finding 1).
+4. **model id** stays a free-form `str` (no `Literal` allowlist), per D-013-1 pass-through.
 
 **Why the `CODEOGRAPH_` prefix here, not a bare name (D-001-1 consistency).** D-001-1's bare-name rule applies to a *named provider with its own ecosystem env var* (`ANTHROPIC_API_KEY`, `OPENROUTER_API_KEY`). The generic OpenAI-compatible slot has **no ecosystem var of its own** — `OPENAI_API_KEY` is OpenAI's credential for *its* GPT models, and reusing it for a Groq/DeepSeek key would be a silent wrong-key footgun. The generic slot is therefore *codeograph tool config*, which D-001-1 already assigns the `CODEOGRAPH_` prefix. Naming it `..._OPENAI_COMPAT_...` states exactly what it is — a credential for an OpenAI-*compatible* endpoint, not an OpenAI key. Named providers keep their bare ecosystem keys; only this point-anywhere slot is prefixed, so D-001-1 holds across the whole roster.
 
 **No allowlist.** A single generic credential + base URL reaches any OpenAI-compatible endpoint; no per-vendor fields, no enumerated key→env map. Using a new endpoint needs **no edit to the CLI validation-error surface** — the alias resolves from the field's own definition (the D-013-2 / D-001-1 mechanism). (OpenAI/GPT itself is reachable by pointing the base URL at OpenAI and supplying a real OpenAI key in this field.)
 
+**Base URL is required for the generic provider; fail loud.** When `llm_provider` selects the generic OpenAI-compatible provider and `openai_compat_base_url` is unset or malformed, startup raises the user-readable `click` error of D-001-2 (naming the field and the remedy) — never a traceback, never a silent default. (The named providers' base URLs are presets, so this applies only to the generic slot.)
+
+**Rejected alternative — named per-vendor fields.** A field set per vendor (`groq_api_key`, `deepseek_api_key`, …) was considered and rejected: more discoverable, but it **restricts v1 to a coded vendor list** and reintroduces the per-provider key→env map that D-013-2 removed. The generic slot trades discoverability for open-endedness, consistent with D-013-1's free-form pass-through.
+
 **New Confirmation items (from this amendment):**
 * `CODEOGRAPH_OPENAI_COMPAT_API_KEY` and `CODEOGRAPH_OPENAI_COMPAT_BASE_URL` configure the generic provider; no bare `OPENAI_API_KEY` is auto-read (no wrong-key footgun).
+* `CODEOGRAPH_OPENAI_COMPAT_PROVIDER_LABEL`, when set, is the `provider` token in cache key + telemetry; when unset, the base-URL host is used — so the same model id on two hosts does not collide.
+* Selecting the generic provider with no/invalid base URL raises a user-readable `click` error (D-001-2), not a traceback.
 * Pointing the generic provider at a new endpoint requires no edit to the validation-error mapping.
 * The generic provider's model setting accepts an arbitrary model-id string (no allowlist).
 
