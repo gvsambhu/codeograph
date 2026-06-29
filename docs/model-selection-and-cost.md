@@ -64,7 +64,7 @@ the entries below.
 | Kimi K2.7-Code (Moonshot) | ~1T / 32B-act MoE | 256K | $0.95 / $4.00 (**$0.19 cache-hit**) | yes | Mod. MIT | leads open weights ~54 AA-index |
 | GLM-5.2 (Zhipu / Z.ai) | 744B / 40B-act MoE | 1M | $1.40 / $4.40 (**$0.26 cached-in**) | yes | MIT | beats GPT-5.5 long-horizon @ ~1/6 cost |
 | Qwen3.6 Plus / Qwen3-Coder | dense + MoE | long | $0.01–$1.25 in | varies | Apache | small variants run local |
-| Mistral Large / open models | dense | long | varies | varies | Apache 2.0 (open models) | `TODO(learner)` — fill current pricing |
+| Mistral Large 3 (open-weight) | multimodal flagship | 262K | **$0.50 / $1.50** | — | Apache 2.0 | open-weight flagship; current Mistral Large line |
 
 > **Two caveats this section must carry.**
 > 1. **Open weights ≠ runs locally.** At 744B–1T params these are a **cloud-API** tier, not a local
@@ -105,6 +105,7 @@ the entries below.
 | Kimi K2.7-Code | Moonshot | 0.95 | 4.00 | 0.19 | |
 | GLM-5.2 | Zhipu / Z.ai | 1.40 | 4.40 | 0.26 cached-in | |
 | Qwen3.6 Plus / Qwen3-Coder | varies | 0.01–1.25 | varies | varies | small variants local |
+| Mistral Large 3 | Mistral (open-weight) | 0.50 | 1.50 | — | Apache 2.0; 262K ctx |
 | Local (Phi-3.5 / Qwen2.5-Coder 7B / Llama 3.3 8B) | self-host | 0.00 | 0.00 | n/a | hardware cost only |
 
 > **Refresh & source-of-truth.** Prices drift — typically downward, roughly monthly. The single
