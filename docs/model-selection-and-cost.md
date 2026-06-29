@@ -112,10 +112,10 @@ the entries below.
 > source of truth for prices is a **machine-readable file** (format = learner's choice, e.g.
 > `prices.toml`); this human table is kept in sync with it, and the ADR-027 pre-flight estimator
 > reads the structured file — **never this prose table**. Re-verify on a **quarterly cadence** (and
-> on any provider price-change announcement) and bump the capture date above when you do. External
-> price *accuracy* cannot be CI-gated (it is inherently manual), but doc-vs-source *parity* can be
-> (the ADR-014 prompt-freshness / ADR-023 pin-parity gate pattern). `TODO(learner)` — confirm the
-> cadence and name the owner.
+> on any provider price-change announcement) and bump the capture date above when you do. The
+> **project maintainer** owns this refresh. External price *accuracy* cannot be CI-gated (it is
+> inherently manual), but doc-vs-source *parity* can be (the ADR-014 prompt-freshness / ADR-023
+> pin-parity gate pattern).
 
 ---
 
