@@ -623,3 +623,20 @@ The following questions should be revisited once concrete LLM-pass implementatio
 * OpenRouter accepts an arbitrary model-id string with no allowlist rejection (D-013-1 pass-through).
 
 No locked design decision is reversed; the v1 provider roster is re-scoped (OpenRouter added; Ollama/Bedrock deferred to v1.1). Clarification and additive evolution only.
+
+**2026-06-29 — v1 provider expansion (1 decision).** The v1 provider roster is widened from {Anthropic, OpenRouter} to additionally cover **API-key, OpenAI-compatible endpoints** reachable by base-URL configuration. Surfaced while scoping ADR-027 (proper cost validation in v1 needs the cheap/free tiers in `docs/model-selection-and-cost.md` reachable). No locked fork is reversed; Fork 9 (keep LangChain) and D-013-1 (roster growth = amendment) stand.
+
+**D-013-7 — generalize the OpenAI-compatible provider (no allowlist).** Fork 9's concrete provider set is amended: the OpenRouter-specific `OpenRouterProvider` is generalized into a **configurable OpenAI-compatible provider** (`OpenAICompatibleProvider`) whose **base URL is a constructor parameter**, not a hardcoded constant. The one OpenRouter-specific line (`_OPENROUTER_BASE_URL`) becomes configuration, so **any** OpenAI-compatible API-key endpoint is reachable in v1 by setting a base URL, **without a new provider class per vendor and without a coded vendor list.** `ChatOpenAI` over LangChain is retained (Fork 9), and free-form model pass-through (any model id, no `Literal` allowlist) extends from D-013-1.
+
+* **No allowlist — examples are documentation only.** Gemini, Groq, and DeepSeek are the verified starter examples in `docs/model-selection-and-cost.md`; MiniMax, Moonshot, Z.ai, Qwen, Mistral, Together, Fireworks — and OpenAI/GPT itself — also work by construction. Nothing in code enumerates them.
+* **OpenRouter retained as a preset.** `OpenRouterProvider` becomes a thin subclass of `OpenAICompatibleProvider` presetting the OpenRouter base URL — OpenRouter stays a mandatory, named v1 provider (D-013-1) and existing config/tests are unaffected. (Exact class naming is an implementation detail; `OpenAICompatibleProvider` recommended.)
+* **Scope guard.** This covers only the **API-key, OpenAI-compatible** family. **Ollama and Bedrock stay v1.1** — their `NotImplementedError` stubs in `resolver.py` are unchanged; they need non-OpenAI-compat clients (`ChatBedrockConverse`, Ollama) and are out of scope here.
+* **Caching preserved.** `cache_control` pass-through lives in the shared base (`langchain_base.py`), so every OpenAI-compatible endpoint inherits it; ADR-005 §6's "`cache_control` must stay reachable" remains satisfied.
+* **Credential/base-URL config is owned in ADR-001** (D-001-5). This ADR's "adding a provider is one config block" claim depends on that resolution.
+
+**New Confirmation items (from this amendment):**
+* The OpenAI-compatible provider accepts a **configurable base URL**; pointing it at a new OpenAI-compatible endpoint needs **no new provider class and no code change** (D-013-7).
+* `OpenRouterProvider` resolves as a preset of the generic provider; `ProviderType.OPENROUTER` behaviour is unchanged.
+* Ollama/Bedrock still raise `NotImplementedError` in v1 (scope guard unchanged).
+
+No locked decision reversed; the v1 provider family is widened to base-URL-configurable OpenAI-compatible endpoints. Additive re-scope only.

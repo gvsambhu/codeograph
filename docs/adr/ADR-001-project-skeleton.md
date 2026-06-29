@@ -220,3 +220,22 @@ Concretely, extending the D-001-1 env-var rule: `Settings` resolves each provide
 * The OpenRouter model setting accepts an arbitrary model-id string with no allowlist rejection (D-013-1 pass-through).
 
 No reversal of any prior decision; extends the D-001-1 env-var rule (clarification + additive).
+
+**2026-06-29 — generic OpenAI-compatible credential + base-URL config (1 decision).** Companion to ADR-013 D-013-7 (provider expansion into v1). Extends the D-001-1 env-var split rule and the 2026-06-20 D-013-2 dynamic-alias decision to the generic OpenAI-compatible provider. No prior decision reversed.
+
+**D-001-5 — generic OpenAI-compatible credential + base-URL settings.** The generic provider (D-013-7) is configured by **two new `Settings` fields**, deliberately *generic* (not named per-vendor), preserving maximum flexibility — one slot points at any OpenAI-compatible endpoint:
+
+1. **`openai_compat_api_key`** — env var **`CODEOGRAPH_OPENAI_COMPAT_API_KEY`**.
+2. **`openai_compat_base_url`** — env var **`CODEOGRAPH_OPENAI_COMPAT_BASE_URL`**.
+3. **model id** stays a free-form `str` (no `Literal` allowlist), per D-013-1 pass-through.
+
+**Why the `CODEOGRAPH_` prefix here, not a bare name (D-001-1 consistency).** D-001-1's bare-name rule applies to a *named provider with its own ecosystem env var* (`ANTHROPIC_API_KEY`, `OPENROUTER_API_KEY`). The generic OpenAI-compatible slot has **no ecosystem var of its own** — `OPENAI_API_KEY` is OpenAI's credential for *its* GPT models, and reusing it for a Groq/DeepSeek key would be a silent wrong-key footgun. The generic slot is therefore *codeograph tool config*, which D-001-1 already assigns the `CODEOGRAPH_` prefix. Naming it `..._OPENAI_COMPAT_...` states exactly what it is — a credential for an OpenAI-*compatible* endpoint, not an OpenAI key. Named providers keep their bare ecosystem keys; only this point-anywhere slot is prefixed, so D-001-1 holds across the whole roster.
+
+**No allowlist.** A single generic credential + base URL reaches any OpenAI-compatible endpoint; no per-vendor fields, no enumerated key→env map. Using a new endpoint needs **no edit to the CLI validation-error surface** — the alias resolves from the field's own definition (the D-013-2 / D-001-1 mechanism). (OpenAI/GPT itself is reachable by pointing the base URL at OpenAI and supplying a real OpenAI key in this field.)
+
+**New Confirmation items (from this amendment):**
+* `CODEOGRAPH_OPENAI_COMPAT_API_KEY` and `CODEOGRAPH_OPENAI_COMPAT_BASE_URL` configure the generic provider; no bare `OPENAI_API_KEY` is auto-read (no wrong-key footgun).
+* Pointing the generic provider at a new endpoint requires no edit to the validation-error mapping.
+* The generic provider's model setting accepts an arbitrary model-id string (no allowlist).
+
+Extends the D-001-1 env-var rule and D-013-2 alias resolution to the generic OpenAI-compatible provider; clarification + additive only.
