@@ -40,7 +40,7 @@ Codeograph sits at the intersection between static graph-analysis tools and cros
 
 ## 4. The tool landscape
 
-A uniform "No" in the cross-language-render column across the analysis and modernization tools is itself the key finding: none of them render a target language from their model.*
+A uniform "No" in the cross-language-render column across the analysis and modernization tools is itself the key finding: none of them render a target language from their model.
 
 ### 4.1 Code-graph / architecture-analysis / quality tools
 
