@@ -139,15 +139,78 @@ Scales **linearly** with class count. A 25-class sample service is **cents** eve
 
 ---
 
-## 8. Recommendation ladder (by user intent)
+## 8. Recommendation ladder (how to choose a model)
 
-> `TODO(learner)` — this section is the **opinionated POV**; write it in your own voice. The skeleton
-> below is the factual scaffold; the "why I'd pick this" framing is yours.
+Codeograph's LLM task is comprehension plus structured JSON, not agentic coding, so the capability
+bar is lower than most benchmark numbers suggest — many modest models comfortably clear it. Cost is
+rarely the true constraint: a 300-class service typically costs cents to a few dollars, even at the
+serious tier, so perception is the barrier more than the bill. Treat these four rungs as a
+progression rather than separate islands — start free, step up only as your trust, privacy needs,
+and scale grow — and remember that caching is a cost lever only; it never turns a cheaper model into
+a substitute for a better one.
 
-1. **Free first-run** → Gemini Flash free tier.
-2. **No-cloud / privacy** → small dense local (Qwen2.5-Coder 7B / Phi-3.5).
-3. **Cheap-serious** → MiniMax M3 / DeepSeek V4-Pro (re-hosted in your preferred jurisdiction for sensitive source, §4).
-4. **Production default** → Sonnet 4.6 / Gemini 3.1 Pro.
+#### 1. Free first-run → Gemini 2.5/3 Flash (free tier)
+
+**Trigger:** You are running Codeograph for the first time, exploring a small or medium corpus, or
+simply do not want to provide a credit card yet.
+
+**Why this model:** Gemini Flash is the best current free API for this task: native structured
+output, its own caching, and generous limits (~1,500 requests/day, 1M tokens per minute) without
+signup friction. For a first full run on a typical service it comfortably clears the comprehension +
+JSON bar.
+
+**Tradeoff:** You are on a shared cloud tier with Google's rate limits and without an SLA; repeated
+full-corpus runs or very large portfolios can hit the ceilings.
+
+**Cost anchor:** $0 per 300-class service.
+
+#### 2. No-cloud / privacy → small dense local (Phi-3.5 3.8B / Qwen2.5-Coder 7B / Llama 3.3 8B)
+
+**Trigger:** You are working with proprietary or regulated source code that cannot leave your machine
+or corporate network.
+
+**Why this model:** These dense 3–8B models fit in 16 GB RAM/CPU and run without any external key,
+giving coherent, mostly-right annotations and parseable JSON for structural exploration. The sizing
+table calls out the MoE-for-local trap explicitly: a Qwen3-30B-A3B "3B-active" model still holds
+~18–24 GB of weights in memory, so for local runs a small dense model is the honest choice.
+
+**Tradeoff:** You give up quality relative to serious cloud tiers — edge cases and complex Spring
+patterns will be rougher, and more manual review is needed if annotations drive rendering.
+
+**Cost anchor:** $0 per 300-class service (hardware and electricity only).
+
+#### 3. Cheap-serious → DeepSeek V4-Pro / MiniMax M3 (open-weight, re-hostable)
+
+**Trigger:** You have validated the pipeline, want trustworthy output at scale, and care about
+keeping cost low, or you need to run against sensitive code in a specific jurisdiction using an
+open-weight model.
+
+**Why this model:** DeepSeek V4-Pro and MiniMax M3 sit in the "cheap-serious" tier: both report
+Opus-class or leading SWE-Bench scores for comprehension tasks while charging far less per output
+token than Sonnet, and both are open-weight, so they can be re-hosted via providers like Together,
+Fireworks, OpenRouter, or Bedrock to decouple capability from first-party API jurisdiction.
+
+**Tradeoff:** You manage API keys and provider choices, and structured-output behaviour can vary by
+host — it is important to test on a handful of classes before running a full corpus. If you use
+first-party endpoints, you must pay attention to the data-jurisdiction and opt-in training caveats
+called out in §4.
+
+**Cost anchor:** ≈$0.50–$0.55 per 300-class service at current prices.
+
+#### 4. Production default → Claude Sonnet 4.6 / Gemini 3.1 Pro
+
+**Trigger:** You are running large or complex services whose output you will share with a team or
+client, or use to drive scaffolds you will build on, and you want the lowest practical error rate.
+
+**Why this model:** Claude Sonnet 4.6 is the v1 default pin and the model v1 is designed around; its
+structured-output reliability is the best available for this style of task. Gemini 3.1 Pro is the
+price-comparable alternative with native caching if you are already in Google's ecosystem. Both sit
+in the "serious" tier described in §5.
+
+**Tradeoff:** They are the most expensive options on the ladder, but in absolute terms the cost is
+still small: processing a typical 300-class service is on the order of $3–$5, not hundreds.
+
+**Cost anchor:** ≈$3–$5 per 300-class service at current prices.
 
 ---
 
