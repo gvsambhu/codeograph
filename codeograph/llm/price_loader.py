@@ -1,3 +1,4 @@
+import tomllib
 from pathlib import Path
 from typing import Any, NamedTuple
 
@@ -16,6 +17,7 @@ class PriceLoader:
             self._toml_path = Path(__file__).parent / "prices.toml"
         else:
             self._toml_path = toml_path
+        self._prices = self.load_prices()
 
     def load_prices(self) -> dict[str, PriceRecord]:
         """Load and parse the prices table from the TOML file.
@@ -23,9 +25,33 @@ class PriceLoader:
         Returns:
             dict[str, PriceRecord]: Map of "{provider_label}.{model}" -> PriceRecord
         """
-        # TODO(learner): Load TOML from self._toml_path using tomllib,
-        # parse the "prices" section, and map each key to a PriceRecord.
-        raise NotImplementedError("To be implemented by the learner.")
+        with self._toml_path.open("rb") as f:
+            data = tomllib.load(f)
+
+        raw_prices = data.get("prices")
+        if raw_prices is None:
+            raise ValueError("Missing required [prices] section in prices TOML.")
+        if not isinstance(raw_prices, dict):
+            raise ValueError("The [prices] section must be a TOML table.")
+
+        prices: dict[str, PriceRecord] = {}
+
+        for key, raw_record in raw_prices.items():
+            if not isinstance(key, str):
+                raise ValueError(f"Invalid price key {key!r}; expected string.")
+            if not isinstance(raw_record, dict):
+                raise ValueError(f"Price entry {key!r} must be an inline table.")
+
+            try:
+                prices[key] = PriceRecord(**raw_record)
+            except TypeError as e:
+                raise ValueError(
+                    f"Invalid price record for {key!r}: expected fields "
+                    "input_usd_per_million, output_usd_per_million, "
+                    "cache_read_usd_per_million."
+                ) from e
+
+        return prices
 
     def get_price(self, provider_label: str, model: str) -> PriceRecord | None:
         """Retrieve price record for a given provider label and model name.
@@ -35,9 +61,8 @@ class PriceLoader:
         Returns:
             PriceRecord | None: The price record if found, else None.
         """
-        # TODO(learner): Resolve f"{provider_label.lower()}.{model.lower()}"
-        # against the loaded prices dict. Return the PriceRecord or None.
-        raise NotImplementedError("To be implemented by the learner.")
+        key = f"{provider_label.strip().lower()}.{model.strip().lower()}"
+        return self._prices.get(key)
 
     def get_metadata(self) -> dict[str, Any]:
         """Retrieve metadata block (capture_date, staleness_window_days).
@@ -45,5 +70,13 @@ class PriceLoader:
         Returns:
             dict[str, Any]: Dict containing metadata properties.
         """
-        # TODO(learner): Load the "metadata" section from the TOML file.
-        raise NotImplementedError("To be implemented by the learner.")
+        with self._toml_path.open("rb") as f:
+            data = tomllib.load(f)
+
+        metadata = data.get("metadata")
+        if metadata is None:
+            raise ValueError("Missing required [metadata] section in prices TOML.")
+        if not isinstance(metadata, dict):
+            raise ValueError("The [metadata] section must be a TOML table.")
+
+        return metadata
