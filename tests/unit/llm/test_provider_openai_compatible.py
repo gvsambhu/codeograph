@@ -20,11 +20,19 @@ def test_settings_openai_compat_validation_success():
         openai_compat_api_key=SecretStr("mock-key"),
     )
     # TODO(learner): Assert that setting values are correctly assigned and no validation error is raised
-
+    assert settings.openai_compat_base_url == "https://api.example.com/v1"
+    assert settings.openai_compat_api_key.get_secret_value() == "mock-key"
 
 def test_settings_openai_compat_validation_fails_when_missing_url():
     """Verify Settings raises ValidationError if base URL is missing when provider is openai_compatible (D-001-5)."""
     # TODO(learner): Assert that ValidationError is raised when constructing Settings with llm_provider=ProviderType.OPENAI_COMPATIBLE and openai_compat_base_url=None
+    with pytest.raises(ValidationError) as exc_info:
+        Settings(
+            llm_provider=ProviderType.OPENAI_COMPATIBLE,
+            openai_compat_base_url=None,
+            openai_compat_api_key=SecretStr("mock-key"),
+        )
+    assert "openai_compat_base_url" in str(exc_info.value)
 
 
 def test_settings_openai_compat_validation_fails_on_invalid_url():
