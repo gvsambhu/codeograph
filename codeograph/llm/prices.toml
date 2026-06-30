@@ -1,0 +1,62 @@
+# prices.toml
+# Pricing source of truth for Codeograph pre-flight cost estimation (ADR-027).
+# Captures prices as of 2026-06-26.
+# Input, output, and cache cost rates are specified in USD per million tokens ($/M).
+
+[metadata]
+capture_date = "2026-06-26"
+staleness_window_days = 90
+
+[prices]
+# "provider_label.model_id" = { input_usd_per_million = X, output_usd_per_million = Y, cache_read_usd_per_million = Z }
+
+# Anthropic
+"anthropic.claude-sonnet-4-6" = { input_usd_per_million = 3.00, output_usd_per_million = 15.00, cache_read_usd_per_million = 0.30 }
+"anthropic.claude-3-5-sonnet" = { input_usd_per_million = 3.00, output_usd_per_million = 15.00, cache_read_usd_per_million = 0.30 }
+"anthropic.claude-3-5-sonnet-20241022" = { input_usd_per_million = 3.00, output_usd_per_million = 15.00, cache_read_usd_per_million = 0.30 }
+"anthropic.claude-3-5-sonnet-latest" = { input_usd_per_million = 3.00, output_usd_per_million = 15.00, cache_read_usd_per_million = 0.30 }
+"anthropic.claude-3-5-haiku-20241022" = { input_usd_per_million = 1.00, output_usd_per_million = 5.00, cache_read_usd_per_million = 0.10 }
+"anthropic.claude-3-5-haiku-latest" = { input_usd_per_million = 1.00, output_usd_per_million = 5.00, cache_read_usd_per_million = 0.10 }
+
+# OpenRouter
+"openrouter.claude-sonnet-4-6" = { input_usd_per_million = 3.00, output_usd_per_million = 15.00, cache_read_usd_per_million = 0.30 }
+"openrouter.claude-3-5-sonnet" = { input_usd_per_million = 3.00, output_usd_per_million = 15.00, cache_read_usd_per_million = 0.30 }
+"openrouter.claude-3-5-sonnet-20241022" = { input_usd_per_million = 3.00, output_usd_per_million = 15.00, cache_read_usd_per_million = 0.30 }
+"openrouter.claude-3-5-sonnet-latest" = { input_usd_per_million = 3.00, output_usd_per_million = 15.00, cache_read_usd_per_million = 0.30 }
+"openrouter.claude-3-5-haiku-20241022" = { input_usd_per_million = 1.00, output_usd_per_million = 5.00, cache_read_usd_per_million = 0.10 }
+"openrouter.claude-3-5-haiku-latest" = { input_usd_per_million = 1.00, output_usd_per_million = 5.00, cache_read_usd_per_million = 0.10 }
+
+# Google / generic provider labels
+"google.gemini-3.1-pro" = { input_usd_per_million = 2.00, output_usd_per_million = 12.00, cache_read_usd_per_million = 0.00 }
+"google.gemini-3-flash" = { input_usd_per_million = 0.50, output_usd_per_million = 3.00, cache_read_usd_per_million = 0.00 }
+"google-free.gemini-2.5-flash-free" = { input_usd_per_million = 0.00, output_usd_per_million = 0.00, cache_read_usd_per_million = 0.00 }
+"google-free.gemini-3-flash-free" = { input_usd_per_million = 0.00, output_usd_per_million = 0.00, cache_read_usd_per_million = 0.00 }
+
+# DeepSeek
+"deepseek.deepseek-v4-pro" = { input_usd_per_million = 0.28, output_usd_per_million = 2.48, cache_read_usd_per_million = 0.07 }
+"deepseek.deepseek-chat" = { input_usd_per_million = 0.28, output_usd_per_million = 2.48, cache_read_usd_per_million = 0.07 }
+"deepseek.deepseek-reasoner" = { input_usd_per_million = 0.55, output_usd_per_million = 2.19, cache_read_usd_per_million = 0.14 }
+
+# MiniMax
+"minimax.minimax-m3" = { input_usd_per_million = 0.60, output_usd_per_million = 0.60, cache_read_usd_per_million = 0.00 }
+
+# Moonshot
+"moonshot.kimi-k2.7-code" = { input_usd_per_million = 0.95, output_usd_per_million = 4.00, cache_read_usd_per_million = 0.19 }
+
+# Zhipu / Z.ai
+"z.ai.glm-5.2" = { input_usd_per_million = 1.40, output_usd_per_million = 4.40, cache_read_usd_per_million = 0.26 }
+
+# Qwen / local / self-host
+"varies.qwen-3.6-plus" = { input_usd_per_million = 1.25, output_usd_per_million = 1.25, cache_read_usd_per_million = 0.00 }
+"varies.qwen-3-coder" = { input_usd_per_million = 1.25, output_usd_per_million = 1.25, cache_read_usd_per_million = 0.00 }
+
+# Mistral Large 3
+"mistral.mistral-large-3" = { input_usd_per_million = 0.50, output_usd_per_million = 1.50, cache_read_usd_per_million = 0.00 }
+
+# Self-host (free / local)
+"self-host.phi-3.5" = { input_usd_per_million = 0.00, output_usd_per_million = 0.00, cache_read_usd_per_million = 0.00 }
+"self-host.qwen2.5-coder-7b" = { input_usd_per_million = 0.00, output_usd_per_million = 0.00, cache_read_usd_per_million = 0.00 }
+"self-host.llama-3.3-8b" = { input_usd_per_million = 0.00, output_usd_per_million = 0.00, cache_read_usd_per_million = 0.00 }
+"localhost.phi-3.5" = { input_usd_per_million = 0.00, output_usd_per_million = 0.00, cache_read_usd_per_million = 0.00 }
+"localhost.qwen2.5-coder-7b" = { input_usd_per_million = 0.00, output_usd_per_million = 0.00, cache_read_usd_per_million = 0.00 }
+"localhost.llama-3.3-8b" = { input_usd_per_million = 0.00, output_usd_per_million = 0.00, cache_read_usd_per_million = 0.00 }
