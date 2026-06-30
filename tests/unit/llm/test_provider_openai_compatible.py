@@ -51,7 +51,7 @@ def test_settings_no_bare_openai_api_key_read(monkeypatch):
         openai_compat_base_url="https://api.example.com/v1",
     )
     assert settings.openai_compat_api_key is None
-    
+
 def test_settings_openai_compat_accepts_arbitrary_model():
     """Verify model setting accepts arbitrary strings (no allowlist restrictions) (D-001-5)."""
     settings = Settings(
@@ -59,7 +59,7 @@ def test_settings_openai_compat_accepts_arbitrary_model():
         openai_compat_base_url="https://api.example.com/v1",
         llm_model="custom/some-model-v2",
     )
-    # TODO(learner): Assert that settings.llm_model == "custom/some-model-v2"
+    assert settings.llm_model == "custom/some-model-v2"
 
 
 def test_resolver_resolves_openai_compatible():
