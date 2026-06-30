@@ -1,11 +1,9 @@
-# ruff: noqa: F401, F841, E501
-from unittest.mock import patch
-
 import pytest
+from langchain_openai import ChatOpenAI
 from pydantic import SecretStr, ValidationError
 
 from codeograph.config.settings import Settings
-from codeograph.llm.models import ProviderType, Tier
+from codeograph.llm.models import ProviderType
 from codeograph.llm.providers.openai_compatible_provider import OpenAICompatibleProvider
 from codeograph.llm.providers.openrouter_provider import OpenRouterProvider
 from codeograph.llm.resolver import LlmProviderResolver
@@ -20,6 +18,7 @@ def test_settings_openai_compat_validation_success():
         openai_compat_api_key=SecretStr("mock-key"),
     )
     assert settings.openai_compat_base_url == "https://api.example.com/v1"
+    assert settings.openai_compat_api_key is not None
     assert settings.openai_compat_api_key.get_secret_value() == "mock-key"
 
 def test_settings_openai_compat_validation_fails_when_missing_url():
@@ -61,7 +60,6 @@ def test_settings_openai_compat_accepts_arbitrary_model():
     )
     assert settings.llm_model == "custom/some-model-v2"
 
-
 def test_resolver_resolves_openai_compatible():
     """Verify LlmProviderResolver correctly instantiates OpenAICompatibleProvider (D-013-7)."""
     settings = Settings(
@@ -72,11 +70,26 @@ def test_resolver_resolves_openai_compatible():
     )
     resolver = LlmProviderResolver(settings)
     provider = resolver.resolve()
-    # TODO(learner): Assert that the returned provider is an instance of OpenAICompatibleProvider
-    # and wraps a ChatOpenAI model with the correct base_url and settings.
+    assert isinstance(provider, OpenAICompatibleProvider)
+    chat = provider._chat
 
+    assert isinstance(chat, ChatOpenAI)
+    assert chat.openai_api_base == settings.openai_compat_base_url
+    assert chat.model_name == settings.llm_model
+    assert isinstance(chat.openai_api_key, SecretStr)
+    assert settings.openai_compat_api_key is not None
+    assert chat.openai_api_key.get_secret_value() == settings.openai_compat_api_key.get_secret_value()
 
 def test_openrouter_provider_preset():
     """Verify OpenRouterProvider resolves as a preset subclass with correct base URL (D-013-7)."""
-    # TODO(learner): Assert that OpenRouterProvider can be instantiated with an api_key and tier_map,
-    # and has the hardcoded OpenRouter base URL.
+    settings = Settings(
+        llm_provider=ProviderType.OPENROUTER,
+        openrouter_api_key=SecretStr("mock-key"),
+        llm_model="some-model",
+    )
+    resolver = LlmProviderResolver(settings)
+    provider = resolver.resolve()
+    assert isinstance(provider, OpenRouterProvider)
+    chat = provider._chat
+    assert isinstance(chat, ChatOpenAI)
+    assert chat.openai_api_base == "https://openrouter.ai/api/v1"

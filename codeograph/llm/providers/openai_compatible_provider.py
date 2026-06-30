@@ -34,5 +34,8 @@ class OpenAICompatibleProvider(LangChainLlmProvider):
         else:
             chat_kwargs["api_key"] = SecretStr("no-key-required")
 
+        if "model" not in chat_kwargs and "model_name" not in chat_kwargs:
+            chat_kwargs["model"] = tier_map[Tier.DEEP]
+
         chat = ChatOpenAI(base_url=base_url, **chat_kwargs)
         super().__init__(chat, tier_map)
