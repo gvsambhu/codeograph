@@ -35,7 +35,6 @@ def test_settings_openai_compat_validation_fails_when_missing_url():
 
 def test_settings_openai_compat_validation_fails_on_invalid_url():
     """Verify Settings raises ValidationError if base URL doesn't start with http:// or https:// (D-001-5)."""
-    # TODO(learner): Assert that ValidationError is raised when openai_compat_base_url is not a valid URL starting with http:// or https://
     with pytest.raises(ValidationError) as exc_info:
         Settings(
             llm_provider=ProviderType.OPENAI_COMPATIBLE,
@@ -44,14 +43,15 @@ def test_settings_openai_compat_validation_fails_on_invalid_url():
         )
     assert "openai_compat_base_url" in str(exc_info.value)
 
-
-
 def test_settings_no_bare_openai_api_key_read(monkeypatch):
     """Verify that bare OPENAI_API_KEY is not read automatically by Settings (D-001-5)."""
     monkeypatch.setenv("OPENAI_API_KEY", "bare-key")
-    # TODO(learner): Assert that Settings().openai_compat_api_key is None unless explicitly set via CODEOGRAPH_OPENAI_COMPAT_API_KEY
-
-
+    settings = Settings(
+        llm_provider=ProviderType.OPENAI_COMPATIBLE,
+        openai_compat_base_url="https://api.example.com/v1",
+    )
+    assert settings.openai_compat_api_key is None
+    
 def test_settings_openai_compat_accepts_arbitrary_model():
     """Verify model setting accepts arbitrary strings (no allowlist restrictions) (D-001-5)."""
     settings = Settings(
