@@ -102,7 +102,7 @@ class LlmCorpusEnricher:
                 prompt_version=prompt_p1.metadata.version,
                 prompt_content_hash=prompt_p1.metadata.content_hash_pin,
                 corpus_id=corpus_id,
-                provider_name=self._settings.llm_provider,
+                provider_name=self._settings.resolved_provider_label,
             )
             provider_p1 = build_default_stack(
                 base_provider, retry_policy, session.cache_backend, session.emitter, ctx_p1
@@ -132,7 +132,7 @@ class LlmCorpusEnricher:
                 prompt_version=prompt_p2.metadata.version,
                 prompt_content_hash=prompt_p2.metadata.content_hash_pin,
                 corpus_id=corpus_id,
-                provider_name=self._settings.llm_provider,
+                provider_name=self._settings.resolved_provider_label,
             )
             provider_p2 = build_default_stack(
                 base_provider, retry_policy, session.cache_backend, session.emitter, ctx_p2

@@ -248,7 +248,7 @@ def render_cli(
         prompt_version="v1",
         prompt_content_hash=_render_prompt_hash,
         corpus_id=from_path.name,
-        provider_name=settings.llm_provider,
+        provider_name=settings.resolved_provider_label,
     )
     provider = build_default_stack(base_provider, retry_policy, cache_backend, emitter, render_ctx)
 

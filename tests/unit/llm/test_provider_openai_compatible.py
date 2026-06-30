@@ -93,3 +93,35 @@ def test_openrouter_provider_preset():
     chat = provider._chat
     assert isinstance(chat, ChatOpenAI)
     assert chat.openai_api_base == "https://openrouter.ai/api/v1"
+
+
+def test_settings_resolved_provider_label():
+    """Verify that settings.resolved_provider_label implements hybrid resolution (D-001-5 / D-013-7)."""
+    # Case 1: Explicit label is set for OpenAI compatible provider
+    settings_explicit = Settings(
+        llm_provider=ProviderType.OPENAI_COMPATIBLE,
+        openai_compat_base_url="https://api.example.com/v1",
+        openai_compat_provider_label="my-custom-provider",
+    )
+    assert settings_explicit.resolved_provider_label == "my-custom-provider"
+
+    # Case 2: Unset label falls back to normalized host (with port, path, subdomains)
+    settings_fallback = Settings(
+        llm_provider=ProviderType.OPENAI_COMPATIBLE,
+        openai_compat_base_url="http://Sub.HostName.Com:8080/v1/endpoints/",
+    )
+    assert settings_fallback.resolved_provider_label == "sub.hostname.com"
+
+    # Case 3: Falls back to "openai_compatible" if base URL is somehow not validated/configured
+    settings_anthropic = Settings(
+        llm_provider=ProviderType.ANTHROPIC,
+        anthropic_api_key=SecretStr("mock-key"),
+    )
+    assert settings_anthropic.resolved_provider_label == "anthropic"
+
+    settings_openrouter = Settings(
+        llm_provider=ProviderType.OPENROUTER,
+        openrouter_api_key=SecretStr("mock-key"),
+    )
+    assert settings_openrouter.resolved_provider_label == "openrouter"
+

@@ -187,6 +187,20 @@ class Settings(BaseSettings):
             warnings.warn(f"javaparser_jar not found at {self.javaparser_jar}. Parsing may fail.")
         return self
 
+    @property
+    def resolved_provider_label(self) -> str:
+        """Derive endpoint identity / provider label per D-013-7 / D-001-5."""
+        if self.llm_provider == ProviderType.OPENAI_COMPATIBLE:
+            if self.openai_compat_provider_label:
+                return self.openai_compat_provider_label
+            if self.openai_compat_base_url:
+                from urllib.parse import urlparse
+                parsed = urlparse(self.openai_compat_base_url)
+                host = parsed.hostname or parsed.netloc or ""
+                return host.split(":")[0].lower()
+            return "openai_compatible"
+        return self.llm_provider.value
+
     @classmethod
     def settings_customise_sources(
         cls,
