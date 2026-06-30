@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pydantic import AliasChoices, Field, SecretStr, field_validator, model_validator
+from pydantic import AliasChoices, Field, SecretStr, ValidationError, field_validator, model_validator
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
 
 from codeograph.config.yaml_source import YamlConfigSource
@@ -24,6 +24,7 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         env_prefix="CODEOGRAPH_",
         env_nested_delimiter="__",
+        populate_by_name=True,
         extra="ignore",
     )
 
@@ -41,9 +42,24 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("OPENROUTER_API_KEY", "CODEOGRAPH_OPENROUTER_API_KEY"),
         description="OpenRouter API key. Set via OPENROUTER_API_KEY or CODEOGRAPH_OPENROUTER_API_KEY.",
     )
+    openai_compat_api_key: SecretStr | None = Field(
+        default=None,
+        validation_alias=AliasChoices("CODEOGRAPH_OPENAI_COMPAT_API_KEY"),
+        description="OpenAI-compatible API key. Set via CODEOGRAPH_OPENAI_COMPAT_API_KEY.",
+    )
+    openai_compat_base_url: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("CODEOGRAPH_OPENAI_COMPAT_BASE_URL"),
+        description="OpenAI-compatible base URL. Set via CODEOGRAPH_OPENAI_COMPAT_BASE_URL.",
+    )
+    openai_compat_provider_label: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("CODEOGRAPH_OPENAI_COMPAT_PROVIDER_LABEL"),
+        description="Optional provider label (e.g. 'groq'). Set via CODEOGRAPH_OPENAI_COMPAT_PROVIDER_LABEL.",
+    )
     llm_provider: ProviderType = Field(
         default=ProviderType.ANTHROPIC,
-        description="LLM provider: anthropic | ollama | bedrock.",
+        description="LLM provider: anthropic | openrouter | openai_compatible | ollama | bedrock.",
     )
     llm_model: str = Field(
         default="claude-sonnet-4-6",
@@ -117,6 +133,48 @@ class Settings(BaseSettings):
         if not (0.0 <= v <= 1.0):
             raise ValueError(f"max_pass1_failure_ratio must be between 0.0 and 1.0, got {v}.")
         return v
+
+    @model_validator(mode="after")
+    def validate_openai_compat_settings(self) -> Settings:
+        if self.llm_provider == ProviderType.OPENAI_COMPATIBLE:
+            if not self.openai_compat_base_url:
+                raise ValidationError.from_exception_data(
+                    self.__class__.__name__,
+                    [
+                        {
+                            "type": "value_error",
+                            "loc": ("openai_compat_base_url",),
+                            "input": self.openai_compat_base_url,
+                            "ctx": {
+                                "error": ValueError(
+                                    "openai_compat_base_url is required when "
+                                    "llm_provider is 'openai_compatible'."
+                                )
+                            },
+                        }
+                    ]
+                )
+            if not (
+                self.openai_compat_base_url.startswith("http://")
+                or self.openai_compat_base_url.startswith("https://")
+            ):
+                raise ValidationError.from_exception_data(
+                    self.__class__.__name__,
+                    [
+                        {
+                            "type": "value_error",
+                            "loc": ("openai_compat_base_url",),
+                            "input": self.openai_compat_base_url,
+                            "ctx": {
+                                "error": ValueError(
+                                    "openai_compat_base_url must start with "
+                                    f"'http://' or 'https://', got {self.openai_compat_base_url!r}."
+                                )
+                            },
+                        }
+                    ]
+                )
+        return self
 
     @model_validator(mode="after")
     def validate_javaparser_jar_exists(self) -> Settings:

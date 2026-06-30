@@ -12,6 +12,7 @@ class ProviderType(StrEnum):
     OLLAMA = "ollama"
     BEDROCK = "bedrock"
     OPENROUTER = "openrouter"
+    OPENAI_COMPATIBLE = "openai_compatible"
 
 
 class Tier(StrEnum):

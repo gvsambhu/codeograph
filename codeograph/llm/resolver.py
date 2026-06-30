@@ -8,6 +8,7 @@ from codeograph.config.settings import Settings
 from codeograph.llm.models import ProviderType, Tier
 from codeograph.llm.provider import LlmProvider
 from codeograph.llm.providers.anthropic_provider import AnthropicProvider
+from codeograph.llm.providers.openai_compatible_provider import OpenAICompatibleProvider
 from codeograph.llm.providers.openrouter_provider import OpenRouterProvider
 
 
@@ -38,6 +39,14 @@ class LlmProviderResolver:
                     api_key=self._settings.openrouter_api_key.get_secret_value()
                     if self._settings.openrouter_api_key
                     else "",
+                    tier_map=tier_map,
+                )
+            case ProviderType.OPENAI_COMPATIBLE:
+                return OpenAICompatibleProvider(
+                    api_key=self._settings.openai_compat_api_key.get_secret_value()
+                    if self._settings.openai_compat_api_key
+                    else "",
+                    base_url=self._settings.openai_compat_base_url or "",
                     tier_map=tier_map,
                 )
             case ProviderType.OLLAMA:
