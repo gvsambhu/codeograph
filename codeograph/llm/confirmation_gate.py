@@ -1,5 +1,5 @@
 import sys
-
+import click
 
 class ConfirmationGate:
     """Orchestrates TTY-aware confirmation prompts when estimated calls exceed a threshold."""
@@ -18,14 +18,21 @@ class ConfirmationGate:
             click.Abort: If user rejects the prompt on a TTY.
             click.ClickException: If threshold is exceeded in a non-TTY run without waiver.
         """
-        # TODO(learner): Implement confirmation logic:
-        # 1. If total_calls <= self._threshold, return immediately.
-        # 2. If yes or non_interactive is True, proceed without check/prompt.
-        # 3. Otherwise:
-        #    - If self.is_tty() is True (interactive TTY session):
-        #      Use click.confirm("Estimated calls ({total_calls}) exceed threshold ({self._threshold}). Proceed?")
-        #      If not confirmed, raise click.Abort().
-        #    - If self.is_tty() is False (non-interactive CI/pipeline):
-        #      Raise click.ClickException indicating estimated calls exceed threshold and
-        #      requesting --yes or --non-interactive override.
-        raise NotImplementedError("To be implemented by the learner.")
+        if total_calls <= self._threshold:
+            return
+
+        if yes or non_interactive:
+            return
+
+        if self.is_tty():
+            confirmed = click.confirm(
+                f"Estimated calls ({total_calls}) exceed threshold ({self._threshold}). Proceed?"
+            )
+            if not confirmed:
+                raise click.Abort()
+            return
+
+        raise click.ClickException(
+            f"Estimated calls ({total_calls}) exceed threshold ({self._threshold}) in a "
+            "non-interactive run. Re-run with --yes or --non-interactive to proceed."
+        )
