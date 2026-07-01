@@ -48,19 +48,59 @@ class PreFlightEstimator:
         Returns:
             CostEstimate: Derived estimate data.
         """
-        # TODO(learner): Implement cost estimation logic:
-        # 1. Derive estimated call count: Pass 1 node annotations (node_count) + 1 Pass 2 synthesis call.
-        # 2. Query price record from price_loader by (provider_label, model_name).
-        # 3. If price record is missing:
-        #    - Set estimated_cost_usd = None, is_unknown_model = True.
-        # 4. Otherwise:
-        #    - Compute Pass 1 input/output token cost.
-        #    - Compute Pass 2 input/output token cost.
-        #    - Sum costs to obtain estimated_cost_usd.
-        #    - Check if is_free ($0.0 total cost).
-        # 5. Evaluate price table metadata and current_date to check if capture date is older
-        #    than the staleness_window_days (defaults to 90). If so, set is_staleness_warning = True.
-        raise NotImplementedError("To be implemented by the learner.")
+        if current_date is None:
+            current_date = date.today()
+
+        total_calls = node_count + 1
+
+        metadata = self._price_loader.get_metadata()
+        price_date = metadata.get("capture_date")
+        if price_date is not None and not isinstance(price_date, str):
+            price_date = str(price_date)
+        staleness_window_days = int(metadata.get("staleness_window_days", 90))
+
+        is_staleness_warning = False
+        if price_date:
+            capture_date = date.fromisoformat(price_date)
+            age_days = (current_date - capture_date).days
+            is_staleness_warning = age_days > staleness_window_days
+
+        price = self._price_loader.get_price(provider_label, model_name)
+        if price is None:
+            return CostEstimate(
+                total_calls=total_calls,
+                estimated_cost_usd=None,
+                price_date=price_date,
+                is_free=False,
+                is_staleness_warning=is_staleness_warning,
+                is_unknown_model=True,
+            )
+
+        pass1_input_tokens = node_count * self.PASS1_EST_INPUT_TOKENS_PER_CLASS
+        pass1_output_tokens = node_count * self.PASS1_EST_OUTPUT_TOKENS_PER_CLASS
+        pass2_input_tokens = self.PASS2_EST_INPUT_TOKENS
+        pass2_output_tokens = self.PASS2_EST_OUTPUT_TOKENS
+
+        pass1_cost = (
+            (pass1_input_tokens / 1_000_000) * price.input_usd_per_million
+            + (pass1_output_tokens / 1_000_000) * price.output_usd_per_million
+        )
+        pass2_cost = (
+            (pass2_input_tokens / 1_000_000) * price.input_usd_per_million
+            + (pass2_output_tokens / 1_000_000) * price.output_usd_per_million
+        )
+
+        estimated_cost_usd = pass1_cost + pass2_cost
+        is_free = estimated_cost_usd == 0.0
+
+        return CostEstimate(
+            total_calls=total_calls,
+            estimated_cost_usd=estimated_cost_usd,
+            price_date=price_date,
+            is_free=is_free,
+            is_staleness_warning=is_staleness_warning,
+            is_unknown_model=False,
+        )
 
     def format_estimate(self, estimate: CostEstimate) -> str:
         """Format CostEstimate into a user-facing CLI status message.
@@ -72,11 +112,28 @@ class PreFlightEstimator:
         Returns:
             str: The user-friendly formatted warning or estimate.
         """
-        # TODO(learner): Implement formatting logic:
-        # - If is_unknown_model:
-        #   "Pre-flight Cost Estimate: {total_calls} calls (cost estimate unavailable: "
-        #   "no price data for model '{model_name}' on provider '{provider_label}')"
-        # - Else:
-        #   "Pre-flight Cost Estimate: ${cost_usd:.2f} USD ({total_calls} calls, price data from {price_date})"
-        #   (Append the mandatory disclaimer and any staleness warning if applicable).
-        raise NotImplementedError("To be implemented by the learner.")
+        disclaimer = (
+            "estimate from a dated price table, not a quote — actual cost depends on model, "
+            "caching, and provider pricing; verify before relying."
+        )
+
+        if estimate.is_unknown_model:
+            message = (
+                f"Pre-flight Cost Estimate: {estimate.total_calls} calls "
+                f"(cost estimate unavailable: no price data found)"
+            )
+        else:
+            cost_str = (
+                f"${estimate.estimated_cost_usd:.2f} USD"
+                if estimate.estimated_cost_usd is not None
+                else "unavailable"
+            )
+            message = (
+                f"Pre-flight Cost Estimate: {cost_str} "
+                f"({estimate.total_calls} calls, price data from {estimate.price_date})"
+            )
+
+        if estimate.is_staleness_warning:
+            message += " WARNING: price table may be stale."
+
+        return f"{message} — {disclaimer}"
