@@ -61,8 +61,7 @@ staleness_window_days = 90
         assert "price data from 2026-06-26" in formatted
         assert (
             "estimate from a dated price table, not a quote — actual cost depends on model, "
-            "caching, and provider pricing; verify before relying."
-            in formatted
+            "caching, and provider pricing; verify before relying." in formatted
         )
 
         formatted_stale = estimator.format_estimate(stale_est)

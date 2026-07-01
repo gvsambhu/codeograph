@@ -65,10 +65,7 @@ class LlmProviderResolver:
                     f"Must be one of: {[p.value for p in ProviderType]}."
                 )
 
-        if (
-            self._settings.max_llm_calls is not None
-            or self._settings.max_tokens_total is not None
-        ):
+        if self._settings.max_llm_calls is not None or self._settings.max_tokens_total is not None:
             from codeograph.llm.middleware.ceiling_llm_provider import CeilingLlmProvider
 
             return CeilingLlmProvider(
@@ -78,4 +75,3 @@ class LlmProviderResolver:
             )
 
         return provider
-

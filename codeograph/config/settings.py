@@ -150,13 +150,9 @@ class Settings(BaseSettings):
     def validate_openai_compat_settings(self) -> Settings:
         if self.llm_provider == ProviderType.OPENAI_COMPATIBLE:
             if not self.openai_compat_base_url:
-                raise ValueError(
-                    "openai_compat_base_url is required when "
-                    "llm_provider is 'openai_compatible'."
-                )
+                raise ValueError("openai_compat_base_url is required when llm_provider is 'openai_compatible'.")
             if not (
-                self.openai_compat_base_url.startswith("http://")
-                or self.openai_compat_base_url.startswith("https://")
+                self.openai_compat_base_url.startswith("http://") or self.openai_compat_base_url.startswith("https://")
             ):
                 raise ValueError(
                     "openai_compat_base_url must start with "
@@ -188,6 +184,7 @@ class Settings(BaseSettings):
                 return self.openai_compat_provider_label
             if self.openai_compat_base_url:
                 from urllib.parse import urlparse
+
                 parsed = urlparse(self.openai_compat_base_url)
                 host = (parsed.hostname or parsed.netloc or "").lower()
                 hostname = host.split(":")[0]

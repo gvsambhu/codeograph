@@ -21,6 +21,7 @@ def test_settings_openai_compat_validation_success():
     assert settings.openai_compat_api_key is not None
     assert settings.openai_compat_api_key.get_secret_value() == "mock-key"
 
+
 def test_settings_openai_compat_validation_fails_when_missing_url():
     """Verify Settings raises ValidationError if base URL is missing when provider is openai_compatible (D-001-5)."""
     with pytest.raises(ValidationError) as exc_info:
@@ -42,6 +43,7 @@ def test_settings_openai_compat_validation_fails_on_invalid_url():
         )
     assert "openai_compat_base_url" in str(exc_info.value)
 
+
 def test_settings_no_bare_openai_api_key_read(monkeypatch):
     """Verify that bare OPENAI_API_KEY is not read automatically by Settings (D-001-5)."""
     monkeypatch.setenv("OPENAI_API_KEY", "bare-key")
@@ -51,6 +53,7 @@ def test_settings_no_bare_openai_api_key_read(monkeypatch):
     )
     assert settings.openai_compat_api_key is None
 
+
 def test_settings_openai_compat_accepts_arbitrary_model():
     """Verify model setting accepts arbitrary strings (no allowlist restrictions) (D-001-5)."""
     settings = Settings(
@@ -59,6 +62,7 @@ def test_settings_openai_compat_accepts_arbitrary_model():
         llm_model="custom/some-model-v2",
     )
     assert settings.llm_model == "custom/some-model-v2"
+
 
 def test_resolver_resolves_openai_compatible():
     """Verify LlmProviderResolver correctly instantiates OpenAICompatibleProvider (D-013-7)."""
@@ -79,6 +83,7 @@ def test_resolver_resolves_openai_compatible():
     assert isinstance(chat.openai_api_key, SecretStr)
     assert settings.openai_compat_api_key is not None
     assert chat.openai_api_key.get_secret_value() == settings.openai_compat_api_key.get_secret_value()
+
 
 def test_openrouter_provider_preset():
     """Verify OpenRouterProvider resolves as a preset subclass with correct base URL (D-013-7)."""
@@ -124,4 +129,3 @@ def test_settings_resolved_provider_label():
         openrouter_api_key=SecretStr("mock-key"),
     )
     assert settings_openrouter.resolved_provider_label == "openrouter"
-

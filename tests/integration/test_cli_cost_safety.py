@@ -85,15 +85,17 @@ def test_cli_gate_interactive_accept(tmp_path):
     runner = CliRunner()
     mock_provider = _build_mock_provider()
 
-    with patch(
-        "codeograph.llm.resolver.LlmProviderResolver.resolve",
-        return_value=mock_provider,
-    ), patch(
-        "codeograph.llm.confirmation_gate.ConfirmationGate.is_tty",
-        return_value=True,
-    ), patch(
-        "click.confirm", return_value=True
-    ) as mock_confirm:
+    with (
+        patch(
+            "codeograph.llm.resolver.LlmProviderResolver.resolve",
+            return_value=mock_provider,
+        ),
+        patch(
+            "codeograph.llm.confirmation_gate.ConfirmationGate.is_tty",
+            return_value=True,
+        ),
+        patch("click.confirm", return_value=True) as mock_confirm,
+    ):
         result = runner.invoke(
             cli,
             [
@@ -116,12 +118,15 @@ def test_cli_gate_non_interactive_abort(tmp_path):
     runner = CliRunner()
     mock_provider = MockLlmProviderBuilder().build()
 
-    with patch(
-        "codeograph.llm.resolver.LlmProviderResolver.resolve",
-        return_value=mock_provider,
-    ), patch(
-        "codeograph.llm.confirmation_gate.ConfirmationGate.is_tty",
-        return_value=False,
+    with (
+        patch(
+            "codeograph.llm.resolver.LlmProviderResolver.resolve",
+            return_value=mock_provider,
+        ),
+        patch(
+            "codeograph.llm.confirmation_gate.ConfirmationGate.is_tty",
+            return_value=False,
+        ),
     ):
         result = runner.invoke(
             cli,

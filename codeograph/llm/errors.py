@@ -44,4 +44,3 @@ class LlmCeilingExceededError(LlmError):
     """Ceiling limit (calls or tokens) exceeded during run."""
 
     pass
-

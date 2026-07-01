@@ -12,6 +12,7 @@ def test_confirmation_gate_under_threshold():
     # Under threshold should proceed without checking TTY or prompting
     gate.check(total_calls=50)
 
+
 def test_confirmation_gate_over_threshold_waived():
     """Verify that gate proceeds if waived by yes or non_interactive."""
     gate = ConfirmationGate(threshold=100)
@@ -24,7 +25,8 @@ def test_confirmation_gate_over_threshold_waived():
     with patch.object(gate, "is_tty") as mock_is_tty, patch("click.confirm") as mock_confirm:
         gate.check(total_calls=150, non_interactive=True)
         mock_is_tty.assert_not_called()
-        mock_confirm.assert_not_called()    
+        mock_confirm.assert_not_called()
+
 
 def test_confirmation_gate_non_tty_abort():
     """Verify that gate auto-aborts in a non-TTY environment if over threshold."""

@@ -27,9 +27,7 @@ class ConfirmationGate:
             return
 
         if self.is_tty():
-            confirmed = click.confirm(
-                f"Estimated calls ({total_calls}) exceed threshold ({self._threshold}). Proceed?"
-            )
+            confirmed = click.confirm(f"Estimated calls ({total_calls}) exceed threshold ({self._threshold}). Proceed?")
             if not confirmed:
                 raise click.Abort()
             return

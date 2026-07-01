@@ -87,14 +87,12 @@ class PreFlightEstimator:
         pass2_input_tokens = self.PASS2_EST_INPUT_TOKENS
         pass2_output_tokens = self.PASS2_EST_OUTPUT_TOKENS
 
-        pass1_cost = (
-            (pass1_input_tokens / 1_000_000) * price.input_usd_per_million
-            + (pass1_output_tokens / 1_000_000) * price.output_usd_per_million
-        )
-        pass2_cost = (
-            (pass2_input_tokens / 1_000_000) * price.input_usd_per_million
-            + (pass2_output_tokens / 1_000_000) * price.output_usd_per_million
-        )
+        pass1_cost = (pass1_input_tokens / 1_000_000) * price.input_usd_per_million + (
+            pass1_output_tokens / 1_000_000
+        ) * price.output_usd_per_million
+        pass2_cost = (pass2_input_tokens / 1_000_000) * price.input_usd_per_million + (
+            pass2_output_tokens / 1_000_000
+        ) * price.output_usd_per_million
 
         estimated_cost_usd = pass1_cost + pass2_cost
         is_free = estimated_cost_usd == 0.0
@@ -133,9 +131,7 @@ class PreFlightEstimator:
             )
         else:
             cost_str = (
-                f"${estimate.estimated_cost_usd:.2f} USD"
-                if estimate.estimated_cost_usd is not None
-                else "unavailable"
+                f"${estimate.estimated_cost_usd:.2f} USD" if estimate.estimated_cost_usd is not None else "unavailable"
             )
             message = (
                 f"Pre-flight Cost Estimate: {cost_str} "
