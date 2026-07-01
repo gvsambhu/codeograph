@@ -2,6 +2,7 @@ import re
 from typing import Any
 from unittest.mock import patch
 
+import pytest
 from click.testing import CliRunner
 from pydantic import BaseModel
 
@@ -9,6 +10,10 @@ from codeograph.cli.main import cli
 from codeograph.llm.models import LlmResult, Message, Tier, TokenUsage
 from codeograph.llm.provider import LlmProvider
 from tests.fixtures.llm.mock_provider import MockLlmProviderBuilder
+
+# These tests invoke the real CLI pipeline (Pass 0 parses Java via the JVM sidecar),
+# so they belong in the Java-enabled Integration job — not the no-Java Unit job.
+pytestmark = pytest.mark.slow
 
 
 class DynamicMockLlmProvider(LlmProvider):
