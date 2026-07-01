@@ -3,6 +3,7 @@ from typing import TypeVar
 
 from pydantic import BaseModel
 
+from codeograph.llm.errors import LlmCeilingExceededError
 from codeograph.llm.models import LlmResult, Message, Tier
 from codeograph.llm.provider import LlmProvider
 
@@ -51,4 +52,39 @@ class CeilingLlmProvider(LlmProvider):
         #    self._tokens_count > self._max_tokens, raise LlmCeilingExceededError.
         # 6. Ensure all increments, reads, and checks are thread-safe by using self._lock.
         #    Tip: Raise the exception outside the lock block if possible, but compute inside.
-        raise NotImplementedError("To be implemented by the learner.")
+
+        with self._lock:
+            if self._max_calls is not None and self._calls_count >= self._max_calls:
+                err = LlmCeilingExceededError(
+                    f"LLM call ceiling of {self._max_calls} calls exceeded (current calls: {self._calls_count})"
+                )
+            else:
+                self._calls_count += 1
+                err = None
+
+        if err is not None:
+            raise err
+
+        result = self._inner.complete_structured(
+            tier,
+            messages,
+            schema,
+            override_model=override_model,
+            max_tokens=max_tokens,
+        )
+
+        total_tokens = result.usage.input_tokens + result.usage.output_tokens
+
+        with self._lock:
+            self._tokens_count += total_tokens
+            if self._max_tokens is not None and self._tokens_count > self._max_tokens:
+                err = LlmCeilingExceededError(
+                    f"LLM token ceiling of {self._max_tokens} tokens exceeded (current tokens: {self._tokens_count})"
+                )
+            else:
+                err = None
+
+        if err is not None:
+            raise err
+
+        return result

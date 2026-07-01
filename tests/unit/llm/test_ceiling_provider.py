@@ -19,12 +19,11 @@ def test_ceiling_provider_under_threshold():
     res = provider.complete_structured(
         Tier.FAST, [Message(role="user", content="hello")], MockSchema
     )
-    # TODO(learner): Add assertions to verify:
-    # 1. res.value.name is "test"
-    # 2. provider._calls_count is incremented to 1.
-    # 3. provider._tokens_count is incremented by input + output tokens.
-    _ = res
 
+    assert res.value.name == "test"
+    assert provider._calls_count == 1
+    expected_tokens = res.usage.input_tokens + res.usage.output_tokens
+    assert provider._tokens_count == expected_tokens
 
 def test_ceiling_provider_exceeds_calls():
     """Verify that CeilingLlmProvider aborts when max calls are exceeded."""
@@ -46,9 +45,7 @@ def test_ceiling_provider_exceeds_calls():
         provider.complete_structured(
             Tier.FAST, [Message(role="user", content="hello")], MockSchema
         )
-    # TODO(learner): Assert that the exception message indicates call limit exceeded.
-    _ = exc_info
-
+    assert "call" in str(exc_info.value).lower()
 
 def test_ceiling_provider_exceeds_tokens():
     """Verify that CeilingLlmProvider aborts when max tokens are exceeded."""
@@ -71,8 +68,6 @@ def test_ceiling_provider_exceeds_tokens():
             provider.complete_structured(
                 Tier.FAST, [Message(role="user", content="hello")], MockSchema
             )
-        _ = exc_info
+        assert "token" in str(exc_info.value).lower()
     except LlmCeilingExceededError as e:
-        # If first call raised it immediately
-        # TODO(learner): Assert that the exception message indicates token limit exceeded.
-        _ = e
+        assert "token" in str(e).lower()
