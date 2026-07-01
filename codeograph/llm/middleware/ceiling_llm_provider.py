@@ -42,16 +42,6 @@ class CeilingLlmProvider(LlmProvider):
         max_tokens: int = 4096,
     ) -> LlmResult[T]:
         """Perform request while checking limits and accumulating counts."""
-        # TODO(learner): Implement the mid-run ceiling check and call/token tracking logic:
-        # 1. Before making the call, check self._calls_count. If self._max_calls is set
-        #    and self._calls_count >= self._max_calls, raise LlmCeilingExceededError.
-        # 2. Increment call count.
-        # 3. Call inner provider's complete_structured.
-        # 4. Extract total tokens (usage.input_tokens + usage.output_tokens) from result.usage.
-        # 5. Accumulate into self._tokens_count. If self._max_tokens is set and
-        #    self._tokens_count > self._max_tokens, raise LlmCeilingExceededError.
-        # 6. Ensure all increments, reads, and checks are thread-safe by using self._lock.
-        #    Tip: Raise the exception outside the lock block if possible, but compute inside.
 
         with self._lock:
             if self._max_calls is not None and self._calls_count >= self._max_calls:

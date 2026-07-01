@@ -1,5 +1,7 @@
 import sys
+
 import click
+
 
 class ConfirmationGate:
     """Orchestrates TTY-aware confirmation prompts when estimated calls exceed a threshold."""

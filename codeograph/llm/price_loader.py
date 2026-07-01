@@ -17,17 +17,14 @@ class PriceLoader:
             self._toml_path = Path(__file__).parent / "prices.toml"
         else:
             self._toml_path = toml_path
-        self._prices = self.load_prices()
+        self._data: dict[str, Any] = self._load_raw()
+        self._prices = self._parse_prices(self._data)
 
-    def load_prices(self) -> dict[str, PriceRecord]:
-        """Load and parse the prices table from the TOML file.
-
-        Returns:
-            dict[str, PriceRecord]: Map of "{provider_label}.{model}" -> PriceRecord
-        """
+    def _load_raw(self) -> dict[str, Any]:
         with self._toml_path.open("rb") as f:
-            data = tomllib.load(f)
+            return tomllib.load(f)
 
+    def _parse_prices(self, data: dict[str, Any]) -> dict[str, PriceRecord]:
         raw_prices = data.get("prices")
         if raw_prices is None:
             raise ValueError("Missing required [prices] section in prices TOML.")
@@ -53,6 +50,10 @@ class PriceLoader:
 
         return prices
 
+    def load_prices(self) -> dict[str, PriceRecord]:
+        """Return the cached price records parsed at construction."""
+        return self._prices
+
     def get_price(self, provider_label: str, model: str) -> PriceRecord | None:
         """Retrieve price record for a given provider label and model name.
 
@@ -65,18 +66,10 @@ class PriceLoader:
         return self._prices.get(key)
 
     def get_metadata(self) -> dict[str, Any]:
-        """Retrieve metadata block (capture_date, staleness_window_days).
-
-        Returns:
-            dict[str, Any]: Dict containing metadata properties.
-        """
-        with self._toml_path.open("rb") as f:
-            data = tomllib.load(f)
-
-        metadata = data.get("metadata")
+        """Retrieve metadata block (capture_date, staleness_window_days) from cached data."""
+        metadata = self._data.get("metadata")
         if metadata is None:
             raise ValueError("Missing required [metadata] section in prices TOML.")
         if not isinstance(metadata, dict):
             raise ValueError("The [metadata] section must be a TOML table.")
-
         return metadata

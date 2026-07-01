@@ -69,7 +69,7 @@ class LlmProviderResolver:
             self._settings.max_llm_calls is not None
             or self._settings.max_tokens_total is not None
         ):
-            from codeograph.llm.middleware.ceiling_provider import CeilingLlmProvider
+            from codeograph.llm.middleware.ceiling_llm_provider import CeilingLlmProvider
 
             return CeilingLlmProvider(
                 provider,

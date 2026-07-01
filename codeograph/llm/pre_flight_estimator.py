@@ -15,12 +15,16 @@ class CostEstimate:
     is_free: bool
     is_staleness_warning: bool
     is_unknown_model: bool
+    provider_label: str
+    model_name: str
 
 
 class PreFlightEstimator:
     """Estimates LLM calls and indicative USD costs prior to pipeline execution."""
 
-    # Heuristic average token counts per class/pass to estimate pre-flight volume
+    # Heuristic token estimates — deliberately rough operational numbers, not
+    # empirically calibrated. Grounded in ADR-005 D-005-4's ~4 chars/token
+    # estimate; actual token counts vary with prompt content and class size.
     PASS1_EST_INPUT_TOKENS_PER_CLASS: ClassVar[int] = 2000
     PASS1_EST_OUTPUT_TOKENS_PER_CLASS: ClassVar[int] = 400
 
@@ -74,6 +78,8 @@ class PreFlightEstimator:
                 is_free=False,
                 is_staleness_warning=is_staleness_warning,
                 is_unknown_model=True,
+                provider_label=provider_label,
+                model_name=model_name,
             )
 
         pass1_input_tokens = node_count * self.PASS1_EST_INPUT_TOKENS_PER_CLASS
@@ -100,6 +106,8 @@ class PreFlightEstimator:
             is_free=is_free,
             is_staleness_warning=is_staleness_warning,
             is_unknown_model=False,
+            provider_label=provider_label,
+            model_name=model_name,
         )
 
     def format_estimate(self, estimate: CostEstimate) -> str:
@@ -120,7 +128,8 @@ class PreFlightEstimator:
         if estimate.is_unknown_model:
             message = (
                 f"Pre-flight Cost Estimate: {estimate.total_calls} calls "
-                f"(cost estimate unavailable: no price data found)"
+                f"(cost estimate unavailable: no price data found "
+                f"for model '{estimate.model_name}' on provider '{estimate.provider_label}')"
             )
         else:
             cost_str = (

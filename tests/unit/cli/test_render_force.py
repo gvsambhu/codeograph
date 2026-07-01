@@ -72,10 +72,11 @@ def _render_patches(tmp_path: Path, file_map: dict[PurePosixPath, bytes]):
     mock_settings.llm_model_deep = None
     mock_settings.llm_model_render = None
     mock_settings.llm_concurrency = 1
+    mock_settings.resolved_provider_label = "anthropic"
 
     return [
         patch("codeograph.config.settings.Settings", return_value=mock_settings),
-        patch("codeograph.llm.providers.anthropic_provider.AnthropicProvider", return_value=MagicMock()),
+        patch("codeograph.llm.resolver.LlmProviderResolver.resolve", return_value=MagicMock()),
         patch("codeograph.llm.cache.sqlite_backend.SQLiteCacheBackend", return_value=MagicMock()),
         patch("codeograph.telemetry.jsonl_emitter.JsonlEmitter", return_value=MagicMock()),
         patch("codeograph.llm.middleware.retry_policy.RetryPolicy", return_value=MagicMock()),

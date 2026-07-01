@@ -312,7 +312,7 @@ def run(
             import json
 
             from codeograph.llm.confirmation_gate import ConfirmationGate
-            from codeograph.llm.cost_estimator import PreFlightEstimator
+            from codeograph.llm.pre_flight_estimator import PreFlightEstimator
             from codeograph.llm.price_loader import PriceLoader
 
             with graph_artefact.path.open("r", encoding="utf-8") as f:

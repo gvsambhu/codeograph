@@ -2,7 +2,7 @@ import pytest
 from pydantic import BaseModel
 
 from codeograph.llm.errors import LlmCeilingExceededError
-from codeograph.llm.middleware.ceiling_provider import CeilingLlmProvider
+from codeograph.llm.middleware.ceiling_llm_provider import CeilingLlmProvider
 from codeograph.llm.models import Message, Tier
 from tests.fixtures.llm.mock_provider import MockLlmProviderBuilder
 

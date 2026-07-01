@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pydantic import AliasChoices, Field, SecretStr, ValidationError, field_validator, model_validator
+from pydantic import AliasChoices, Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
 
 from codeograph.config.yaml_source import YamlConfigSource
-from codeograph.llm.models import ProviderType
+from codeograph.llm.models import ProviderType, Tier
 
 _DEFAULT_JAR = Path(__file__).parent.parent / "parser" / "lib" / "parser.jar"
 
@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     )
 
     # -------------------------------------------------------------------------
-    # LLM — unused until DC2; present so the full config surface is visible now
+    # LLM
     # -------------------------------------------------------------------------
 
     anthropic_api_key: SecretStr | None = Field(
@@ -150,41 +150,17 @@ class Settings(BaseSettings):
     def validate_openai_compat_settings(self) -> Settings:
         if self.llm_provider == ProviderType.OPENAI_COMPATIBLE:
             if not self.openai_compat_base_url:
-                raise ValidationError.from_exception_data(
-                    self.__class__.__name__,
-                    [
-                        {
-                            "type": "value_error",
-                            "loc": ("openai_compat_base_url",),
-                            "input": self.openai_compat_base_url,
-                            "ctx": {
-                                "error": ValueError(
-                                    "openai_compat_base_url is required when "
-                                    "llm_provider is 'openai_compatible'."
-                                )
-                            },
-                        }
-                    ]
+                raise ValueError(
+                    "openai_compat_base_url is required when "
+                    "llm_provider is 'openai_compatible'."
                 )
             if not (
                 self.openai_compat_base_url.startswith("http://")
                 or self.openai_compat_base_url.startswith("https://")
             ):
-                raise ValidationError.from_exception_data(
-                    self.__class__.__name__,
-                    [
-                        {
-                            "type": "value_error",
-                            "loc": ("openai_compat_base_url",),
-                            "input": self.openai_compat_base_url,
-                            "ctx": {
-                                "error": ValueError(
-                                    "openai_compat_base_url must start with "
-                                    f"'http://' or 'https://', got {self.openai_compat_base_url!r}."
-                                )
-                            },
-                        }
-                    ]
+                raise ValueError(
+                    "openai_compat_base_url must start with "
+                    f"'http://' or 'https://', got {self.openai_compat_base_url!r}."
                 )
         return self
 
@@ -201,17 +177,44 @@ class Settings(BaseSettings):
 
     @property
     def resolved_provider_label(self) -> str:
-        """Derive endpoint identity / provider label per D-013-7 / D-001-5."""
+        """Derive endpoint identity / provider label per D-013-7 / D-001-5.
+
+        Falls back to hostname-derived label when no explicit label is set.
+        Common host→label aliases map hostnames to the price-table keys in
+        ``prices.toml`` so the pre-flight estimator can find prices.
+        """
         if self.llm_provider == ProviderType.OPENAI_COMPATIBLE:
             if self.openai_compat_provider_label:
                 return self.openai_compat_provider_label
             if self.openai_compat_base_url:
                 from urllib.parse import urlparse
                 parsed = urlparse(self.openai_compat_base_url)
-                host = parsed.hostname or parsed.netloc or ""
-                return host.split(":")[0].lower()
+                host = (parsed.hostname or parsed.netloc or "").lower()
+                hostname = host.split(":")[0]
+                host_to_label: dict[str, str] = {
+                    "api.deepseek.com": "deepseek",
+                    "api.minimax.chat": "minimax",
+                    "api.minimaxi.com": "minimax",
+                    "api.moonshot.cn": "moonshot",
+                    "open.bigmodel.cn": "z.ai",
+                    "api.mistral.ai": "mistral",
+                    "api.openai.com": "openai",
+                    "api.anthropic.com": "anthropic",
+                    "generativelanguage.googleapis.com": "google",
+                    "openrouter.ai": "openrouter",
+                }
+                return host_to_label.get(hostname, hostname)
             return "openai_compatible"
         return self.llm_provider.value
+
+    @property
+    def tier_map(self) -> dict[Tier, str]:
+        """Return the resolved model→tier mapping used by provider dispatch."""
+        return {
+            Tier.FAST: self.llm_model_fast or self.llm_model,
+            Tier.DEEP: self.llm_model_deep or self.llm_model,
+            Tier.RENDER: self.llm_model_render or self.llm_model,
+        }
 
     @classmethod
     def settings_customise_sources(

@@ -4,7 +4,7 @@ from tempfile import NamedTemporaryFile
 
 import pytest
 
-from codeograph.llm.cost_estimator import PreFlightEstimator
+from codeograph.llm.pre_flight_estimator import PreFlightEstimator
 from codeograph.llm.price_loader import PriceLoader
 
 
@@ -35,6 +35,8 @@ staleness_window_days = 90
         assert est.is_unknown_model is False
         assert est.is_free is False
         assert est.price_date == "2026-06-26"
+        assert est.provider_label == "a"
+        assert est.model_name == "b"
 
         stale_est = estimator.estimate_cost(10, "a", "b", date(2026, 12, 1))
         assert stale_est.is_staleness_warning is True
@@ -44,6 +46,8 @@ staleness_window_days = 90
         assert unknown_est.is_unknown_model is True
         assert unknown_est.total_calls == 11
         assert unknown_est.is_free is False
+        assert unknown_est.provider_label == "a"
+        assert unknown_est.model_name == "unknown-model"
 
         free_est = estimator.estimate_cost(10, "g", "f", date(2026, 7, 1))
         assert free_est.estimated_cost_usd == pytest.approx(0.0, abs=1e-12)
@@ -66,5 +70,7 @@ staleness_window_days = 90
 
         formatted_unknown = estimator.format_estimate(unknown_est)
         assert "cost estimate unavailable" in formatted_unknown.lower()
+        assert "unknown-model" in formatted_unknown
+        assert "provider 'a'" in formatted_unknown
     finally:
         temp_path.unlink()

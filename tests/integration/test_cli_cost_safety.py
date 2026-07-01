@@ -142,7 +142,7 @@ def test_cli_gate_non_interactive_abort(tmp_path):
 def test_cli_max_calls_ceiling(tmp_path):
     """Verify that --max-llm-calls limits execution and aborts."""
     runner = CliRunner()
-    from codeograph.llm.middleware.ceiling_provider import CeilingLlmProvider
+    from codeograph.llm.middleware.ceiling_llm_provider import CeilingLlmProvider
 
     mock_provider = CeilingLlmProvider(_build_mock_provider(), max_calls=1)
 
