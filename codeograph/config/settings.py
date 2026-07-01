@@ -77,6 +77,18 @@ class Settings(BaseSettings):
         default=None,
         description="Optional RENDER-tier model override.",
     )
+    llm_call_confirm_threshold: int = Field(
+        default=100,
+        description="Threshold of estimated calls above which confirmation is required.",
+    )
+    max_llm_calls: int | None = Field(
+        default=None,
+        description="Maximum number of LLM calls permitted in a single run.",
+    )
+    max_tokens_total: int | None = Field(
+        default=None,
+        description="Maximum number of tokens permitted across a single run.",
+    )
     ollama_base_url: str = Field(
         default="http://localhost:11434",
         description="Base URL for Ollama API.",
