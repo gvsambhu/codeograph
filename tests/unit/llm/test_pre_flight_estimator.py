@@ -8,7 +8,7 @@ from codeograph.llm.pre_flight_estimator import PreFlightEstimator
 from codeograph.llm.price_loader import PriceLoader
 
 
-def test_cost_estimator():
+def test_pre_flight_estimator():
     """Verify that PreFlightEstimator performs correct calculations and warning triggers."""
     toml_content = """
 [metadata]
