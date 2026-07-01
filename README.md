@@ -90,6 +90,17 @@ Codeograph includes an LLM enrichment pipeline (Passes 1 and 2) that adds semant
 
 The graph tells Codeograph what is there — nodes, edges, framework semantics, and metrics from precise, reproducible deterministic analysis; LLM Pass 1 explains what it means at the per-node level. The LLM passes matter because they add the layer deterministic analysis cannot supply — per-node explanation, onboarding summaries, and role inference grounded in that verified structure, making the graph easier to read and more useful without changing what the system treats as truth. LLM Pass 2 reaches into riskier corpus-level synthesis, but all LLM output stays advisory in separate artefacts and is contained so the deterministic graph stays authoritative.
 
+### Cost-Safety Floor & Limits (DC6)
+
+To prevent accidental runaway API bills during large runs, Codeograph implements a pre-flight cost safety floor and middleware ceiling limits:
+
+- **Pre-flight Cost Estimate:** Before starting Pass 1, Codeograph parses the corpus (Pass 0), derives the expected call count (`class_count + 1`), queries a localized model pricing database (`prices.toml`), and prints an estimate of the total cost and calls.
+- **TTY Confirmation Gate:** If the estimated call count exceeds the default confirmation threshold (`100` calls, configurable via `--llm-call-confirm-threshold`), the pipeline prompts the user on an interactive terminal (TTY) or auto-aborts in non-TTY environments (CI/pipelines). You can override this using `--yes` / `-y` or `--non-interactive`.
+- **Hard Ceilings:** You can configure hard limits using `--max-llm-calls N` or `--max-tokens-total M`. A middleware wrapper checks these ceilings mid-run and aborts execution immediately if either threshold is reached, displaying the partial progress manifest.
+
+> [!NOTE]
+> **Removal Contract:** These temporary cost limits are built for v1.0.0 and will be replaced in **v1.1.0** by live billing-accurate budget tracking (`--max-cost-usd`).
+
 ## Rendering (DC3)
 
 `codeograph render` converts an existing run output into a TypeScript/NestJS project: each selected class is translated into **full idiomatic NestJS source — method bodies included, not skeletons** — via one LLM call, emitted alongside a deterministic Jinja2 project scaffold (`package.json`, `tsconfig.json`, bootstrap `main.ts`). Features v1 cannot translate faithfully surface as reviewable **TODO/stub** placeholders or explicit **refuse-to-render** entries — never silent drops — under a configurable per-feature policy. Rendering is decoupled from LLM execution so you can tune rendering parameters (ORM mode, class budget, domain grouping) without re-running the expensive annotation passes.
