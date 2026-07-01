@@ -26,16 +26,17 @@ def test_confirmation_gate_over_threshold_waived():
         mock_is_tty.assert_not_called()
         mock_confirm.assert_not_called()    
 
-
 def test_confirmation_gate_non_tty_abort():
     """Verify that gate auto-aborts in a non-TTY environment if over threshold."""
     gate = ConfirmationGate(threshold=100)
+
     with patch.object(gate, "is_tty", return_value=False):
         with pytest.raises(click.ClickException) as exc_info:
             gate.check(total_calls=150)
-        # TODO(learner): Assert that the exception message advises using
-        # --yes or --non-interactive flags.
-        _ = exc_info
+
+        message = str(exc_info.value)
+        assert "--yes" in message
+        assert "--non-interactive" in message
 
 
 def test_confirmation_gate_tty_prompt_accept():
@@ -44,16 +45,17 @@ def test_confirmation_gate_tty_prompt_accept():
     with patch.object(gate, "is_tty", return_value=True):
         with patch("click.confirm", return_value=True) as mock_confirm:
             gate.check(total_calls=150)
-            # TODO(learner): Assert that mock_confirm was called once.
-            _ = mock_confirm
+
+            mock_confirm.assert_called_once()
 
 
 def test_confirmation_gate_tty_prompt_reject():
     """Verify that gate aborts on a TTY if user rejects."""
     gate = ConfirmationGate(threshold=100)
+
     with patch.object(gate, "is_tty", return_value=True):
         with patch("click.confirm", return_value=False) as mock_confirm:
             with pytest.raises(click.Abort):
                 gate.check(total_calls=150)
-            # TODO(learner): Assert that mock_confirm was called once.
-            _ = mock_confirm
+
+            mock_confirm.assert_called_once()
