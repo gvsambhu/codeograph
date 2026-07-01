@@ -309,15 +309,34 @@ def run(
         cache_stats = None
 
         if not ast_only:
-            # TODO(learner): Invoke the PreFlightEstimator and ConfirmationGate:
-            # 1. Load the Pass 0 graph JSON from graph_artefact.path.
-            # 2. Extract node count (length of "nodes" array).
-            # 3. Instantiate PriceLoader and PreFlightEstimator.
-            #    Tip: Find prices.toml at Path(__file__).parent.parent / "llm" / "prices.toml".
-            # 4. Generate the cost estimate for settings.resolved_provider_label and settings.llm_model.
-            # 5. Echo the formatted estimate to click.
-            # 6. Instantiate ConfirmationGate and call gate.check() with estimate.total_calls,
-            #    passing yes and non_interactive CLI values.
+            import json
+
+            from codeograph.llm.confirmation_gate import ConfirmationGate
+            from codeograph.llm.cost_estimator import PreFlightEstimator
+            from codeograph.llm.price_loader import PriceLoader
+
+            with graph_artefact.path.open("r", encoding="utf-8") as f:
+                graph_data = json.load(f)
+
+            node_count = len(graph_data.get("nodes", []))
+
+            prices_toml_path = Path(__file__).parent.parent / "llm" / "prices.toml"
+            price_loader = PriceLoader(prices_toml_path)
+            estimator = PreFlightEstimator(price_loader)
+
+            estimate = estimator.estimate_cost(
+                node_count=node_count,
+                provider_label=settings.resolved_provider_label,
+                model_name=settings.llm_model,
+            )
+            click.echo(estimator.format_estimate(estimate))
+
+            gate = ConfirmationGate(settings.llm_call_confirm_threshold)
+            gate.check(
+                total_calls=estimate.total_calls,
+                yes=yes,
+                non_interactive=non_interactive,
+            )
 
             from codeograph.analyzer.llm_corpus_enricher import LlmCorpusEnricher
             from codeograph.llm.resolver import LlmProviderResolver
