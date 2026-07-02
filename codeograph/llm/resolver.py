@@ -8,6 +8,7 @@ from codeograph.config.settings import Settings
 from codeograph.llm.models import ProviderType, Tier
 from codeograph.llm.provider import LlmProvider
 from codeograph.llm.providers.anthropic_provider import AnthropicProvider
+from codeograph.llm.providers.openai_compatible_provider import OpenAICompatibleProvider
 from codeograph.llm.providers.openrouter_provider import OpenRouterProvider
 
 
@@ -27,17 +28,25 @@ class LlmProviderResolver:
 
         match self._settings.llm_provider:
             case ProviderType.ANTHROPIC:
-                return AnthropicProvider(
+                provider: LlmProvider = AnthropicProvider(
                     api_key=self._settings.anthropic_api_key.get_secret_value()
                     if self._settings.anthropic_api_key
                     else "",
                     tier_map=tier_map,
                 )
             case ProviderType.OPENROUTER:
-                return OpenRouterProvider(
+                provider = OpenRouterProvider(
                     api_key=self._settings.openrouter_api_key.get_secret_value()
                     if self._settings.openrouter_api_key
                     else "",
+                    tier_map=tier_map,
+                )
+            case ProviderType.OPENAI_COMPATIBLE:
+                provider = OpenAICompatibleProvider(
+                    api_key=self._settings.openai_compat_api_key.get_secret_value()
+                    if self._settings.openai_compat_api_key
+                    else "",
+                    base_url=self._settings.openai_compat_base_url or "",
                     tier_map=tier_map,
                 )
             case ProviderType.OLLAMA:
@@ -55,3 +64,14 @@ class LlmProviderResolver:
                     f"Unknown llm_provider: {self._settings.llm_provider!r}. "
                     f"Must be one of: {[p.value for p in ProviderType]}."
                 )
+
+        if self._settings.max_llm_calls is not None or self._settings.max_tokens_total is not None:
+            from codeograph.llm.middleware.ceiling_llm_provider import CeilingLlmProvider
+
+            return CeilingLlmProvider(
+                provider,
+                max_calls=self._settings.max_llm_calls,
+                max_tokens=self._settings.max_tokens_total,
+            )
+
+        return provider

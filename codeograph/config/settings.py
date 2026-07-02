@@ -6,7 +6,7 @@ from pydantic import AliasChoices, Field, SecretStr, field_validator, model_vali
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
 
 from codeograph.config.yaml_source import YamlConfigSource
-from codeograph.llm.models import ProviderType
+from codeograph.llm.models import ProviderType, Tier
 
 _DEFAULT_JAR = Path(__file__).parent.parent / "parser" / "lib" / "parser.jar"
 
@@ -24,11 +24,12 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         env_prefix="CODEOGRAPH_",
         env_nested_delimiter="__",
+        populate_by_name=True,
         extra="ignore",
     )
 
     # -------------------------------------------------------------------------
-    # LLM — unused until DC2; present so the full config surface is visible now
+    # LLM
     # -------------------------------------------------------------------------
 
     anthropic_api_key: SecretStr | None = Field(
@@ -41,9 +42,24 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("OPENROUTER_API_KEY", "CODEOGRAPH_OPENROUTER_API_KEY"),
         description="OpenRouter API key. Set via OPENROUTER_API_KEY or CODEOGRAPH_OPENROUTER_API_KEY.",
     )
+    openai_compat_api_key: SecretStr | None = Field(
+        default=None,
+        validation_alias=AliasChoices("CODEOGRAPH_OPENAI_COMPAT_API_KEY"),
+        description="OpenAI-compatible API key. Set via CODEOGRAPH_OPENAI_COMPAT_API_KEY.",
+    )
+    openai_compat_base_url: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("CODEOGRAPH_OPENAI_COMPAT_BASE_URL"),
+        description="OpenAI-compatible base URL. Set via CODEOGRAPH_OPENAI_COMPAT_BASE_URL.",
+    )
+    openai_compat_provider_label: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("CODEOGRAPH_OPENAI_COMPAT_PROVIDER_LABEL"),
+        description="Optional provider label (e.g. 'groq'). Set via CODEOGRAPH_OPENAI_COMPAT_PROVIDER_LABEL.",
+    )
     llm_provider: ProviderType = Field(
         default=ProviderType.ANTHROPIC,
-        description="LLM provider: anthropic | ollama | bedrock.",
+        description="LLM provider: anthropic | openrouter | openai_compatible | ollama | bedrock.",
     )
     llm_model: str = Field(
         default="claude-sonnet-4-6",
@@ -60,6 +76,18 @@ class Settings(BaseSettings):
     llm_model_render: str | None = Field(
         default=None,
         description="Optional RENDER-tier model override.",
+    )
+    llm_call_confirm_threshold: int = Field(
+        default=100,
+        description="Threshold of estimated calls above which confirmation is required.",
+    )
+    max_llm_calls: int | None = Field(
+        default=None,
+        description="Maximum number of LLM calls permitted in a single run.",
+    )
+    max_tokens_total: int | None = Field(
+        default=None,
+        description="Maximum number of tokens permitted across a single run.",
     )
     ollama_base_url: str = Field(
         default="http://localhost:11434",
@@ -119,6 +147,20 @@ class Settings(BaseSettings):
         return v
 
     @model_validator(mode="after")
+    def validate_openai_compat_settings(self) -> Settings:
+        if self.llm_provider == ProviderType.OPENAI_COMPATIBLE:
+            if not self.openai_compat_base_url:
+                raise ValueError("openai_compat_base_url is required when llm_provider is 'openai_compatible'.")
+            if not (
+                self.openai_compat_base_url.startswith("http://") or self.openai_compat_base_url.startswith("https://")
+            ):
+                raise ValueError(
+                    "openai_compat_base_url must start with "
+                    f"'http://' or 'https://', got {self.openai_compat_base_url!r}."
+                )
+        return self
+
+    @model_validator(mode="after")
     def validate_javaparser_jar_exists(self) -> Settings:
         import warnings
 
@@ -128,6 +170,48 @@ class Settings(BaseSettings):
         if not self.javaparser_jar.exists():
             warnings.warn(f"javaparser_jar not found at {self.javaparser_jar}. Parsing may fail.")
         return self
+
+    @property
+    def resolved_provider_label(self) -> str:
+        """Derive endpoint identity / provider label per D-013-7 / D-001-5.
+
+        Falls back to hostname-derived label when no explicit label is set.
+        Common host→label aliases map hostnames to the price-table keys in
+        ``prices.toml`` so the pre-flight estimator can find prices.
+        """
+        if self.llm_provider == ProviderType.OPENAI_COMPATIBLE:
+            if self.openai_compat_provider_label:
+                return self.openai_compat_provider_label
+            if self.openai_compat_base_url:
+                from urllib.parse import urlparse
+
+                parsed = urlparse(self.openai_compat_base_url)
+                host = (parsed.hostname or parsed.netloc or "").lower()
+                hostname = host.split(":")[0]
+                host_to_label: dict[str, str] = {
+                    "api.deepseek.com": "deepseek",
+                    "api.minimax.chat": "minimax",
+                    "api.minimaxi.com": "minimax",
+                    "api.moonshot.cn": "moonshot",
+                    "open.bigmodel.cn": "z.ai",
+                    "api.mistral.ai": "mistral",
+                    "api.openai.com": "openai",
+                    "api.anthropic.com": "anthropic",
+                    "generativelanguage.googleapis.com": "google",
+                    "openrouter.ai": "openrouter",
+                }
+                return host_to_label.get(hostname, hostname)
+            return "openai_compatible"
+        return self.llm_provider.value
+
+    @property
+    def tier_map(self) -> dict[Tier, str]:
+        """Return the resolved model→tier mapping used by provider dispatch."""
+        return {
+            Tier.FAST: self.llm_model_fast or self.llm_model,
+            Tier.DEEP: self.llm_model_deep or self.llm_model,
+            Tier.RENDER: self.llm_model_render or self.llm_model,
+        }
 
     @classmethod
     def settings_customise_sources(

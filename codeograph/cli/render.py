@@ -133,9 +133,8 @@ def render_cli(
     from codeograph.llm.cache.sqlite_backend import SQLiteCacheBackend
     from codeograph.llm.factory import build_default_stack
     from codeograph.llm.middleware.retry_policy import RetryPolicy
-    from codeograph.llm.models import CallContext, ProviderType, Purpose, Tier
+    from codeograph.llm.models import CallContext, Purpose
     from codeograph.llm.prompts.loader import PromptLoader
-    from codeograph.llm.providers.anthropic_provider import AnthropicProvider
     from codeograph.manifest.io import read as manifest_io_read
     from codeograph.manifest.io import write as manifest_io_write
     from codeograph.manifest.models import CompileChecksPointer
@@ -199,8 +198,6 @@ def render_cli(
 
     # --- build LLM stack --------------------------------------------------
     settings = Settings()
-    if not settings.anthropic_api_key:
-        click.echo("WARNING: CODEOGRAPH_ANTHROPIC_API_KEY is not set. LLM render calls will fail unless mocked.")
 
     settings.cache_dir.mkdir(parents=True, exist_ok=True)
     cache_backend = SQLiteCacheBackend(settings.cache_dir / "cache.db")
@@ -211,23 +208,9 @@ def render_cli(
     emitter_path = telemetry_dir / f"render-{target}-{run_id}.jsonl"
     emitter = JsonlEmitter(emitter_path)
 
-    tier_map = {
-        Tier.FAST: settings.llm_model_fast or settings.llm_model,
-        Tier.DEEP: settings.llm_model_deep or settings.llm_model,
-        Tier.RENDER: settings.llm_model_render or settings.llm_model,
-    }
+    from codeograph.llm.resolver import LlmProviderResolver
 
-    match settings.llm_provider:
-        case ProviderType.ANTHROPIC:
-            base_provider = AnthropicProvider(
-                api_key=(settings.anthropic_api_key.get_secret_value() if settings.anthropic_api_key else ""),
-                tier_map=tier_map,
-            )
-        case _:
-            raise click.ClickException(
-                f"Provider '{settings.llm_provider}' is not supported by the render "
-                f"subcommand in v1.  Use llm_provider=anthropic."
-            )
+    base_provider = LlmProviderResolver(settings).resolve()
 
     retry_policy = RetryPolicy()
     prompt_loader = PromptLoader(Path(__file__).parent.parent / "prompts")
@@ -248,7 +231,7 @@ def render_cli(
         prompt_version="v1",
         prompt_content_hash=_render_prompt_hash,
         corpus_id=from_path.name,
-        provider_name=settings.llm_provider,
+        provider_name=settings.resolved_provider_label,
     )
     provider = build_default_stack(base_provider, retry_policy, cache_backend, emitter, render_ctx)
 

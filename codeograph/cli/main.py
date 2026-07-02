@@ -188,6 +188,37 @@ def _load_settings() -> Settings:
     default=False,
     help="Run evaluation automatically after generation completes.",
 )
+@click.option(
+    "--max-llm-calls",
+    type=click.INT,
+    default=None,
+    help="Maximum number of LLM calls permitted in a single run.",
+)
+@click.option(
+    "--max-tokens-total",
+    type=click.INT,
+    default=None,
+    help="Maximum number of tokens permitted across a single run.",
+)
+@click.option(
+    "--yes",
+    "-y",
+    is_flag=True,
+    default=False,
+    help="Confirm/waive pre-flight LLM call confirmation threshold check.",
+)
+@click.option(
+    "--non-interactive",
+    is_flag=True,
+    default=False,
+    help="Run in non-interactive mode. Auto-aborts confirmation threshold unless overridden.",
+)
+@click.option(
+    "--llm-call-confirm-threshold",
+    type=click.INT,
+    default=None,
+    help="Threshold of estimated calls above which confirmation is required.",
+)
 @click.pass_context
 def run(
     ctx: click.Context,
@@ -196,6 +227,11 @@ def run(
     ast_only: bool,
     force: bool,
     run_eval: bool,
+    max_llm_calls: int | None,
+    max_tokens_total: int | None,
+    yes: bool,
+    non_interactive: bool,
+    llm_call_confirm_threshold: int | None,
 ) -> None:
     """Run the Codeograph pipeline on INPUT.
 
@@ -232,6 +268,12 @@ def run(
     # --- Per-run data (generated once, threaded into the assembler) ------
     run_id = generate_run_id()
     settings = _load_settings()
+    if max_llm_calls is not None:
+        settings.max_llm_calls = max_llm_calls
+    if max_tokens_total is not None:
+        settings.max_tokens_total = max_tokens_total
+    if llm_call_confirm_threshold is not None:
+        settings.llm_call_confirm_threshold = llm_call_confirm_threshold
 
     acquirer = InputAcquirer()
     corpus = None
@@ -267,6 +309,35 @@ def run(
         cache_stats = None
 
         if not ast_only:
+            import json
+
+            from codeograph.llm.confirmation_gate import ConfirmationGate
+            from codeograph.llm.pre_flight_estimator import PreFlightEstimator
+            from codeograph.llm.price_loader import PriceLoader
+
+            with graph_artefact.path.open("r", encoding="utf-8") as f:
+                graph_data = json.load(f)
+
+            node_count = len(graph_data.get("nodes", []))
+
+            prices_toml_path = Path(__file__).parent.parent / "llm" / "prices.toml"
+            price_loader = PriceLoader(prices_toml_path)
+            estimator = PreFlightEstimator(price_loader)
+
+            estimate = estimator.estimate_cost(
+                node_count=node_count,
+                provider_label=settings.resolved_provider_label,
+                model_name=settings.llm_model,
+            )
+            click.echo(estimator.format_estimate(estimate))
+
+            gate = ConfirmationGate(settings.llm_call_confirm_threshold)
+            gate.check(
+                total_calls=estimate.total_calls,
+                yes=yes,
+                non_interactive=non_interactive,
+            )
+
             from codeograph.analyzer.llm_corpus_enricher import LlmCorpusEnricher
             from codeograph.llm.resolver import LlmProviderResolver
             from codeograph.telemetry.session_manager import TelemetrySessionManager
