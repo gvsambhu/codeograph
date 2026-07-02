@@ -1,9 +1,5 @@
 """CLI commands for managing the LLM cache."""
 
-import json
-from collections import Counter, defaultdict
-from datetime import UTC, datetime, timedelta
-
 import click
 
 from codeograph.config.settings import Settings
@@ -73,104 +69,41 @@ def purge(purge_all: bool, older_than: int | None, prompt_version: str | None, m
 @click.option("--since", metavar="DAYS", type=int, default=30, help="Analyze runs from the last N days (default: 30).")
 def report(since: int) -> None:
     """Aggregate cross-run cache performance from telemetry JSONL files."""
+    from codeograph.telemetry.telemetry_report_aggregator import TelemetryReportAggregator
+
     settings = Settings()
     telemetry_dir = settings.cache_dir / "telemetry"
-    if not telemetry_dir.exists():
+    if not telemetry_dir.exists() or not any(telemetry_dir.glob("*.jsonl")):
         click.echo("No telemetry data found.")
         return
 
-    cutoff = datetime.now(UTC) - timedelta(days=since)
-
-    files = sorted(telemetry_dir.glob("*.jsonl"))
-    if not files:
-        click.echo("No telemetry data found.")
-        return
-
-    total_runs = len(files)
-    total_calls = 0
-    cache_hits = 0
-    cost_saved = 0.0
-    cost_incurred = 0.0
-
-    weekly: defaultdict[str, dict[str, int]] = defaultdict(lambda: {"calls": 0, "hits": 0})
-    hit_prompts: Counter[str] = Counter()
-    miss_prompts: Counter[str] = Counter()
-
-    def parse_ts(value: str) -> datetime:
-        if value.endswith("Z"):
-            value = value.replace("Z", "+00:00")
-        dt = datetime.fromisoformat(value)
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=UTC)
-        return dt
-
-    for path in files:
-        with open(path, encoding="utf-8") as fh:
-            for line in fh:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    rec = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-
-                ts_raw = rec.get("ts")
-                if not ts_raw:
-                    continue
-                try:
-                    ts = parse_ts(ts_raw)
-                except ValueError:
-                    continue
-
-                if ts < cutoff:
-                    continue
-
-                total_calls += 1
-
-                prompt_key = f"{rec.get('prompt_id', 'unknown')} {rec.get('prompt_version', 'unknown')}"
-                hit = bool(rec.get("cache_hit", False))
-                est_cost = float(rec.get("cost_usd_est", 0.0) or 0.0)
-
-                week_start = (ts - timedelta(days=ts.weekday())).date().isoformat()
-                weekly[week_start]["calls"] += 1
-
-                if hit:
-                    cache_hits += 1
-                    cost_saved += est_cost
-                    weekly[week_start]["hits"] += 1
-                    hit_prompts[prompt_key] += 1
-                else:
-                    cost_incurred += est_cost
-                    miss_prompts[prompt_key] += 1
-
-    hit_rate = (cache_hits / total_calls * 100.0) if total_calls else 0.0
+    rpt = TelemetryReportAggregator().aggregate(telemetry_dir, since_days=since)
 
     click.echo(f"Cache performance over last {since} days:")
-    click.echo(f"  Total runs: {total_runs}")
-    click.echo(f"  Total calls: {total_calls:,}")
-    click.echo(f"  Cache hits: {cache_hits:,} ({hit_rate:.1f}%)")
-    click.echo(f"  Cost saved: ~${cost_saved:.2f}")
-    click.echo(f"  Cost incurred: ~${cost_incurred:.2f}")
+    click.echo(f"  Total runs: {rpt.total_runs}")
+    click.echo(f"  Total calls: {rpt.total_calls:,}")
+    click.echo(f"  Cache hits: {rpt.cache_hits:,} ({rpt.hit_rate:.1f}%)")
+    click.echo(f"  Cost saved: ~${rpt.cost_saved:.2f}")
+    click.echo(f"  Cost incurred: ~${rpt.cost_incurred:.2f}")
     click.echo("")
 
     click.echo("Hit rate trend (weekly):")
-    for week_start in sorted(weekly.keys()):
-        calls = weekly[week_start]["calls"]
-        hits = weekly[week_start]["hits"]
+    for week_start in sorted(rpt.weekly.keys()):
+        calls = rpt.weekly[week_start]["calls"]
+        hits = rpt.weekly[week_start]["hits"]
         rate = (hits / calls * 100.0) if calls else 0.0
         click.echo(f"  Week of {week_start}: {rate:.0f}%")
     click.echo("")
 
     click.echo("Top 5 most-hit prompts:")
-    for prompt, count in hit_prompts.most_common(5):
+    for prompt, count in rpt.hit_prompts.most_common(5):
         click.echo(f"  {prompt} — {count:,} hits")
-    if not hit_prompts:
+    if not rpt.hit_prompts:
         click.echo("  (none)")
     click.echo("")
 
     click.echo("Top 5 most-missed prompts:")
-    for prompt, count in miss_prompts.most_common(5):
+    for prompt, count in rpt.miss_prompts.most_common(5):
         click.echo(f"  {prompt} — {count:,} misses")
-    if not miss_prompts:
+    if not rpt.miss_prompts:
         click.echo("  (none)")
