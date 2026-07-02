@@ -14,6 +14,7 @@ if TYPE_CHECKING:
 from codeograph import __version__
 from codeograph.cli.cache import cache_cli
 from codeograph.cli.eval import eval_cli
+from codeograph.cli.output_directory import prepare_output_directory
 from codeograph.cli.render import render_cli
 from codeograph.logging_config import configure_logging
 
@@ -109,17 +110,6 @@ def cli(
 cli.add_command(cache_cli)
 cli.add_command(eval_cli)
 cli.add_command(render_cli)
-
-
-def _prepare_output_directory(out: str, force: bool) -> Path:
-    """Handles output directory resolution and safety validation (FR-27)."""
-    out_dir = Path(out).resolve()
-    if out_dir.exists() and any(out_dir.iterdir()):
-        if not force:
-            raise click.UsageError(
-                f"Output directory '{out_dir}' already exists and is non-empty. Use --force to overwrite."
-            )
-    return out_dir
 
 
 def _load_settings() -> Settings:
@@ -244,8 +234,10 @@ def run(
     scorecards) and hands them to the assembler for a single build; strict-on-
     write Pydantic validation is the boundary check.
     """
-    # --- Output directory resolution + safety (FR-27) --------------------
-    out_dir = _prepare_output_directory(out, force)
+    # --- Output directory resolution, safety, and clearing (FR-27) ------
+    # clear=True: --force removes existing files so the dir contains exactly
+    # one run's artefacts (consistent with render's --force semantics).
+    out_dir = prepare_output_directory(out, force, clear=True)
 
     # --- Logging re-configuration with the resolved out_dir --------------
     log_level = ctx.obj.get("log_level", "INFO")
