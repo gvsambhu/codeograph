@@ -25,7 +25,11 @@ T = TypeVar("T", bound=BaseModel)
 def _classify_error(e: Exception) -> LlmError:
     """Classify raw LangChain/SDK exception into LlmError taxonomy."""
     if isinstance(e, (pydantic.ValidationError, OutputParserException)):
-        return LlmSchemaValidationError(f"Failed to parse LLM output: {str(e)}")
+        return LlmSchemaValidationError(
+            f"Failed to parse LLM output into the requested schema: {str(e)}. "
+            "If using a non-default OpenAI-compatible endpoint, verify it supports "
+            "structured output / tool-calling (ADR-013 D-013-7)."
+        )
 
     if isinstance(e, anthropic.APIError):
         if isinstance(e, anthropic.RateLimitError):

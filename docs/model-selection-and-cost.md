@@ -99,20 +99,25 @@ the entries below.
 > host) *plus* the model — not the model alone. A `(label, model)` pair absent here ⇒ count-only
 > estimate; a free/local route ⇒ `$0` (per the ADR-027 2026-06-29 amendment).
 
+The **Provider label** column is the exact machine label (the value to set as
+`CODEOGRAPH_OPENAI_COMPAT_PROVIDER_LABEL`, or the default host-derived label); it and the model id
+form the `(label, model)` key in `codeograph/llm/prices.toml` — the machine source of truth this
+table mirrors.
+
 | Model | Provider label | Input $/M tok | Output $/M tok | Cache-hit input $/M | Notes |
 |---|---|---|---|---|---|
-| Claude Sonnet 4.6 | Anthropic (v1 default) | 3.00 | 15.00 | ~0.30 (cached read) | structured-output reliable |
-| Claude Haiku 4.5 | Anthropic | 1.00 | 5.00 | ~0.10 | cheaper Claude |
-| Gemini 3.1 Pro | Google | 2.00 | 12.00 | native cache | |
-| Gemini 3 Flash | Google | 0.50 | 3.00 | native cache | |
-| Gemini 2.5/3 Flash (free) | Google free tier | 0.00 | 0.00 | native cache | ~1,500 req/day, 1M TPM |
-| DeepSeek V4-Pro | first-party / re-hosted | 0.28 | 2.48 | yes | jurisdiction caveat §4 |
-| MiniMax M3 | first-party / re-hosted | 0.60 | 0.60 | — | |
-| Kimi K2.7-Code | Moonshot | 0.95 | 4.00 | 0.19 | |
-| GLM-5.2 | Zhipu / Z.ai | 1.40 | 4.40 | 0.26 cached-in | |
-| Qwen3.6 Plus / Qwen3-Coder | varies | 0.01–1.25 | varies | varies | small variants local |
-| Mistral Large 3 | Mistral (open-weight) | 0.50 | 1.50 | — | Apache 2.0; 262K ctx |
-| Local (Phi-3.5 / Qwen2.5-Coder 7B / Llama 3.3 8B) | self-host | 0.00 | 0.00 | n/a | hardware cost only |
+| Claude Sonnet 4.6 | `anthropic` | 3.00 | 15.00 | ~0.30 (cached read) | structured-output reliable; v1 default |
+| Claude Haiku 4.5 | `anthropic` | 1.00 | 5.00 | ~0.10 | cheaper Claude |
+| Gemini 3.1 Pro | `google` | 2.00 | 12.00 | native cache | |
+| Gemini 3 Flash | `google` | 0.50 | 3.00 | native cache | |
+| Gemini 2.5/3 Flash (free) | `google-free` | 0.00 | 0.00 | native cache | ~1,500 req/day, 1M TPM |
+| DeepSeek V4-Pro | `deepseek` | 0.28 | 2.48 | yes | jurisdiction caveat §4 |
+| MiniMax M3 | `minimax` | 0.60 | 0.60 | — | |
+| Kimi K2.7-Code | `moonshot` | 0.95 | 4.00 | 0.19 | |
+| GLM-5.2 | `z.ai` | 1.40 | 4.40 | 0.26 cached-in | |
+| Qwen3.6 Plus / Qwen3-Coder | `varies` | 0.01–1.25 | varies | varies | small variants local |
+| Mistral Large 3 | `mistral` | 0.50 | 1.50 | — | Apache 2.0; 262K ctx |
+| Local (Phi-3.5 / Qwen2.5-Coder 7B / Llama 3.3 8B) | `self-host` / `localhost` | 0.00 | 0.00 | n/a | hardware cost only |
 
 > **Refresh & source-of-truth.** Prices drift — typically downward, roughly monthly. The single
 > source of truth for prices is a **machine-readable file** (format = learner's choice, e.g.
