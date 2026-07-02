@@ -22,9 +22,8 @@ class CostEstimate:
 class PreFlightEstimator:
     """Estimates LLM calls and indicative USD costs prior to pipeline execution."""
 
-    # Heuristic token estimates — deliberately rough operational numbers, not
-    # empirically calibrated. Grounded in ADR-005 D-005-4's ~4 chars/token
-    # estimate; actual token counts vary with prompt content and class size.
+    # Accepted operational heuristic (ADR-005 D-005-4, ~4 chars/token): these
+    # constants are rough calibration numbers, not empirically measured values.
     PASS1_EST_INPUT_TOKENS_PER_CLASS: ClassVar[int] = 2000
     PASS1_EST_OUTPUT_TOKENS_PER_CLASS: ClassVar[int] = 400
 

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import sys
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 import click
@@ -301,34 +300,9 @@ def run(
         cache_stats = None
 
         if not ast_only:
-            import json
+            from codeograph.llm.pre_flight_cost_gate import PreFlightCostGate
 
-            from codeograph.llm.confirmation_gate import ConfirmationGate
-            from codeograph.llm.pre_flight_estimator import PreFlightEstimator
-            from codeograph.llm.price_loader import PriceLoader
-
-            with graph_artefact.path.open("r", encoding="utf-8") as f:
-                graph_data = json.load(f)
-
-            node_count = len(graph_data.get("nodes", []))
-
-            prices_toml_path = Path(__file__).parent.parent / "llm" / "prices.toml"
-            price_loader = PriceLoader(prices_toml_path)
-            estimator = PreFlightEstimator(price_loader)
-
-            estimate = estimator.estimate_cost(
-                node_count=node_count,
-                provider_label=settings.resolved_provider_label,
-                model_name=settings.llm_model,
-            )
-            click.echo(estimator.format_estimate(estimate))
-
-            gate = ConfirmationGate(settings.llm_call_confirm_threshold)
-            gate.check(
-                total_calls=estimate.total_calls,
-                yes=yes,
-                non_interactive=non_interactive,
-            )
+            PreFlightCostGate(settings).check(graph_artefact, yes=yes, non_interactive=non_interactive)
 
             from codeograph.analyzer.llm_corpus_enricher import LlmCorpusEnricher
             from codeograph.llm.resolver import LlmProviderResolver
