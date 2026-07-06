@@ -61,3 +61,23 @@ def test_unrecognized_exception_is_unclassified_llm_error():
 
     assert type(classified) is LlmError
     assert not isinstance(classified, LlmTransientError)
+
+
+def test_rate_limit_carries_retry_after_hint_when_header_present():
+    resp = _response(429)
+    resp.headers["retry-after"] = "38"
+    err = openai.RateLimitError("boom", response=resp, body=None)
+
+    classified = _classify_error(err)
+
+    assert isinstance(classified, LlmTransientError)
+    assert classified.retry_after_s == 38.0
+
+
+def test_rate_limit_retry_after_is_none_without_header():
+    err = openai.RateLimitError("boom", response=_response(429), body=None)
+
+    classified = _classify_error(err)
+
+    assert isinstance(classified, LlmTransientError)
+    assert classified.retry_after_s is None

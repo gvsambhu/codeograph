@@ -7,7 +7,12 @@ class LlmError(Exception):
 class LlmTransientError(LlmError):
     """Network, 429, 5xx — retry candidate."""
 
-    pass
+    def __init__(self, message: str, retry_after_s: float | None = None) -> None:
+        super().__init__(message)
+        # Server-supplied Retry-After hint (seconds), if the classifier found one.
+        # RetryingLlmProvider prefers this over its own exponential backoff
+        # when RetryPolicy.respect_retry_after_header is set (ADR-013 Fork 6).
+        self.retry_after_s = retry_after_s
 
 
 class LlmBadInputError(LlmError):
