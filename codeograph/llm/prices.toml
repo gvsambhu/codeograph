@@ -29,8 +29,8 @@ staleness_window_days = 90
 # Google / generic provider labels
 "google.gemini-3.1-pro" = { input_usd_per_million = 2.00, output_usd_per_million = 12.00, cache_read_usd_per_million = 0.00 }
 "google.gemini-3-flash" = { input_usd_per_million = 0.50, output_usd_per_million = 3.00, cache_read_usd_per_million = 0.00 }
-"google-free.gemini-2.5-flash-free" = { input_usd_per_million = 0.00, output_usd_per_million = 0.00, cache_read_usd_per_million = 0.00 }
-"google-free.gemini-3-flash-free" = { input_usd_per_million = 0.00, output_usd_per_million = 0.00, cache_read_usd_per_million = 0.00 }
+"google-free.gemini-2.5-flash" = { input_usd_per_million = 0.00, output_usd_per_million = 0.00, cache_read_usd_per_million = 0.00 }
+"google-free.gemini-3-flash" = { input_usd_per_million = 0.00, output_usd_per_million = 0.00, cache_read_usd_per_million = 0.00 }
 
 # DeepSeek
 "deepseek.deepseek-v4-pro" = { input_usd_per_million = 0.28, output_usd_per_million = 2.48, cache_read_usd_per_million = 0.07 }
