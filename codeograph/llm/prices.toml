@@ -25,6 +25,11 @@ staleness_window_days = 90
 "openrouter.claude-3-5-sonnet-latest" = { input_usd_per_million = 3.00, output_usd_per_million = 15.00, cache_read_usd_per_million = 0.30 }
 "openrouter.claude-3-5-haiku-20241022" = { input_usd_per_million = 1.00, output_usd_per_million = 5.00, cache_read_usd_per_million = 0.10 }
 "openrouter.claude-3-5-haiku-latest" = { input_usd_per_million = 1.00, output_usd_per_million = 5.00, cache_read_usd_per_million = 0.10 }
+"openrouter.qwen/qwen3-coder-480b:free" = { input_usd_per_million = 0.00, output_usd_per_million = 0.00, cache_read_usd_per_million = 0.00 }
+# DeepSeek V4 Flash via OpenRouter, confirmed 2026-07-06 (https://openrouter.ai/deepseek/deepseek-v4-flash):
+# $0.09/M input, $0.18/M output. Cache-read rate not listed on OpenRouter's page; approximated at
+# the ~1/10 cache-hit discount consistently reported across the DeepSeek V4 family rather than guessed outright.
+"openrouter.deepseek/deepseek-v4-flash" = { input_usd_per_million = 0.09, output_usd_per_million = 0.18, cache_read_usd_per_million = 0.009 }
 
 # Google / generic provider labels
 "google.gemini-3.1-pro" = { input_usd_per_million = 2.00, output_usd_per_million = 12.00, cache_read_usd_per_million = 0.00 }
