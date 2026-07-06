@@ -3,10 +3,7 @@ from codeograph.passes.pass1.node_source_loader import NodeSourceLoader
 
 def test_load_slices_by_line_range(tmp_path):
     (tmp_path / "Foo.java").write_text(
-        "public class Foo {\n"
-        "    void bar() {}\n"
-        "    void baz() {}\n"
-        "}\n",
+        "public class Foo {\n    void bar() {}\n    void baz() {}\n}\n",
         encoding="utf-8",
     )
 
