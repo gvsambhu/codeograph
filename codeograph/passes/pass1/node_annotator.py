@@ -130,14 +130,13 @@ class NodeAnnotator:
         failures = sum(1 for r in normal_results if isinstance(r, LlmError))
         total = len(normal_requests)
 
-        if failures:
-            _log_failure_sample(normal, normal_results, LlmError)
-
         if total >= _N_FLOOR:
             ratio = failures / total
             if ratio > self._max_pass1_failure_ratio:
+                _log_failure_sample(normal, normal_results, LlmError)
                 raise LlmError(f"Pass 1 failure ratio {ratio:.2f} exceeds max {self._max_pass1_failure_ratio}")
         elif failures > _MIN_FAILURES_FOR_ABORT:
+            _log_failure_sample(normal, normal_results, LlmError)
             raise LlmError(
                 f"Pass 1 failures ({failures}) exceeds absolute minimum"
                 f" ({_MIN_FAILURES_FOR_ABORT}) for batch size {total}"

@@ -309,7 +309,7 @@ def test_annotator_failure_below_n_floor_abort(mock_llm_provider, mock_prompt_lo
         annotator.annotate(nodes)
 
 
-def test_annotator_failure_below_n_floor_ok(mock_llm_provider, mock_prompt_loader, tmp_path):
+def test_annotator_failure_below_n_floor_ok(mock_llm_provider, mock_prompt_loader, tmp_path, caplog):
     output_dir = tmp_path / "annotations"
     annotator = NodeAnnotator(
         provider=mock_llm_provider,
@@ -356,8 +356,30 @@ def test_annotator_failure_below_n_floor_ok(mock_llm_provider, mock_prompt_loade
 
     mock_llm_provider.complete_structured = _mock_complete
 
-    records = annotator.annotate(nodes)
+    import logging
+
+    # configure_logging() (invoked by other tests via the CLI) sets the top-level
+    # "codeograph" logger's propagate=False globally and doesn't restore it — caplog
+    # only listens at the root logger, so any ancestor with propagate=False (here,
+    # "codeograph" itself, not the node_annotator leaf) blocks records from ever
+    # reaching it. Without forcing this back to True, the test is order-dependent
+    # on which tests ran before it in the same session.
+    codeograph_logger = logging.getLogger("codeograph")
+    original_propagate = codeograph_logger.propagate
+    codeograph_logger.propagate = True
+    try:
+        with caplog.at_level(logging.WARNING, logger="codeograph.passes.pass1.node_annotator"):
+            records = annotator.annotate(nodes)
+    finally:
+        codeograph_logger.propagate = original_propagate
     assert len(records) == 9
 
     degraded_count = sum(1 for r in records if r["degraded"])
     assert degraded_count == 2
+
+    # Regression (2026-07-06 manual run): _log_failure_sample must only fire on the
+    # abort path. When failures stay under the floor and the run does NOT abort, each
+    # failing node should be logged exactly once by the per-node assembly loop below —
+    # not once there and once again by the sample logger.
+    failure_warnings = [r for r in caplog.records if "failed" in r.message]
+    assert len(failure_warnings) == 2
