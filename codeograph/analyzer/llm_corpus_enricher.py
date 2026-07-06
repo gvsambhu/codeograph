@@ -22,11 +22,18 @@ from codeograph.logging_config import RunIdLoggerAdapter
 from codeograph.manifest.artefact import GraphArtefact
 from codeograph.manifest.models import CacheStats
 from codeograph.passes.pass1.node_annotator import NodeAnnotator
+from codeograph.passes.pass1.node_source_loader import NodeSourceLoader
 from codeograph.passes.pass2.corpus_synthesizer import CorpusSynthesizer
 from codeograph.telemetry.session_manager import TelemetrySessionManager
 from codeograph.telemetry.stats_aggregator import TelemetryStatsAggregator
 
 logger = logging.getLogger(__name__)
+
+# ADR-005: Pass 1 makes one LLM call per class — the natural "oversized" unit
+# is the class, not any individual method. Method/field/module nodes carry no
+# source_file/line_range worth annotating on their own; their behavior is
+# folded into the class-level call's `methods[]` response.
+_SOURCE_BEARING_KINDS = frozenset({"class", "interface", "enum", "record", "annotation_type"})
 
 
 class LlmCorpusEnricher:
@@ -50,12 +57,16 @@ class LlmCorpusEnricher:
         run_id: str,
         graph_artefact: GraphArtefact,
         out_dir: Path,
+        corpus_root: Path,
     ) -> tuple[GraphArtefact, dict[str, CacheStats] | None]:
         """Run the LLM passes to enrich the deterministic graph with semantic metadata.
 
         :param corpus_id:      Name of the corpus being enriched.
         :param graph_artefact: GraphArtefact from Pass 0 containing graph.json path and hash.
         :param out_dir:        Output directory to write llm-annotations.json into.
+        :param corpus_root:    Root of the source corpus on disk — resolves each node's
+                                `source_file` so Pass 1 can read the real class source
+                                (ADR-005; NodeSourceLoader).
         :returns:              A tuple of:
                                  - :class:`GraphArtefact` representing llm-annotations.json.
                                  - Dict of pass names to :class:`CacheStats` aggregates.
@@ -88,7 +99,12 @@ class LlmCorpusEnricher:
         # Load graph from Pass 0
         with open(graph_artefact.path, encoding="utf-8") as f:
             graph_data = json.load(f)
-        nodes = graph_data.get("nodes", [])
+
+        # ADR-005: Pass 1 annotates classes, not methods/fields/modules — those never
+        # carry source_file/line_range worth a standalone LLM call. Load the real source
+        # body for the nodes that remain (NodeSourceLoader; 2026-07-06 manual-run finding).
+        nodes = [n for n in graph_data.get("nodes", []) if n.get("kind") in _SOURCE_BEARING_KINDS]
+        NodeSourceLoader(corpus_root).load(nodes)
 
         try:
             # --- Pass 1: Annotate Nodes ---

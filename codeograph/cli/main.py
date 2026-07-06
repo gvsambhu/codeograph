@@ -326,6 +326,7 @@ def run(
                     run_id=run_id,
                     graph_artefact=graph_artefact,
                     out_dir=out_dir,
+                    corpus_root=corpus.corpus_root,
                 )
             except LlmError as exc:
                 raise click.ClickException(str(exc)) from exc
