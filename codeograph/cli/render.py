@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 import click
 
@@ -151,7 +152,12 @@ def render_cli(
 
     click.echo(f"Loading annotations from {annotations_path} …")
     with open(annotations_path, encoding="utf-8") as fh:
-        annotations: dict[str, object] = json.load(fh)
+        annotation_records: list[dict[str, Any]] = json.load(fh)
+
+    # llm-annotations.json is a JSON array of AnnotationRecord dicts (node_annotator.py
+    # writes it ordered, not keyed) — the Renderer ABC contract (renderers/base.py)
+    # expects a dict keyed by node_id for O(1) per-class lookup during rendering.
+    annotations: dict[str, object] = {str(rec["node_id"]): rec for rec in annotation_records}
 
     # --- build renderer config from CLI overrides -------------------------
     raw_config: dict[str, object] = {}

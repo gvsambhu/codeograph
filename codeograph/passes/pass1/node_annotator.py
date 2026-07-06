@@ -161,7 +161,7 @@ class NodeAnnotator:
             annotation: NodeAnnotation = result.value
             records.append(
                 AnnotationRecord(
-                    node_id=annotation.node_id,
+                    node_id=str(node.get("id", "")),
                     degraded=False,
                     annotation=annotation,
                 ).model_dump()

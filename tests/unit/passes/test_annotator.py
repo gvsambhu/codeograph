@@ -64,6 +64,54 @@ def test_annotator_normal_nodes(mock_llm_provider, mock_prompt_loader, tmp_path)
     assert written == expected
 
 
+def test_annotator_uses_orchestrator_node_id_not_llm_echo(mock_llm_provider, mock_prompt_loader, tmp_path):
+    """MR-11 (2026-07-06 manual run): the successful-normal-node path used the LLM's
+    echoed NodeAnnotation.node_id instead of the orchestrator's own known node id — the
+    one path in this function that didn't follow the pattern the other three already did.
+    A weaker model (confirmed live against Gemini free tier) doesn't reliably echo the
+    exact fqcn back, so downstream consumers keyed by node_id (e.g. the renderer) silently
+    got an empty lookup for every real class. The record's node_id must always be the
+    orchestrator's own id, regardless of what the LLM echoes."""
+    output_dir = tmp_path / "annotations"
+
+    # The LLM hallucinates a different node_id than the one it was actually given.
+    mismatched_annotation = NodeAnnotation(
+        node_id="totally-different-hallucinated-id",
+        class_name="A",
+        stereotype="Entity",
+        domain_hint="test-domain",
+        description="Dummy annotation for class A.",
+        methods=[],
+    )
+    mock_llm_provider.mock_response = LlmResult(
+        value=mismatched_annotation,
+        usage=TokenUsage(10, 20, 0),
+        model="mock-model",
+        latency_ms=100,
+    )
+
+    annotator = NodeAnnotator(
+        provider=mock_llm_provider,
+        prompt_loader=mock_prompt_loader,
+        output_dir=output_dir,
+    )
+
+    nodes = [
+        {
+            "id": "com.example.orders.Order",
+            "name": "Order",
+            "category": "CLASS",
+            "source_code": "class Order {}",
+            "dependencies": {"injected": []},
+        }
+    ]
+
+    result = annotator.annotate(nodes)
+
+    assert len(result) == 1
+    assert result[0]["node_id"] == "com.example.orders.Order"
+
+
 def test_annotator_degraded_nodes(mock_llm_provider, mock_prompt_loader, tmp_path):
     """Oversized nodes must still get an LLM call (signatures-only), not silently annotation=None."""
     output_dir = tmp_path / "annotations"
@@ -358,20 +406,8 @@ def test_annotator_failure_below_n_floor_ok(mock_llm_provider, mock_prompt_loade
 
     import logging
 
-    # configure_logging() (invoked by other tests via the CLI) sets the top-level
-    # "codeograph" logger's propagate=False globally and doesn't restore it — caplog
-    # only listens at the root logger, so any ancestor with propagate=False (here,
-    # "codeograph" itself, not the node_annotator leaf) blocks records from ever
-    # reaching it. Without forcing this back to True, the test is order-dependent
-    # on which tests ran before it in the same session.
-    codeograph_logger = logging.getLogger("codeograph")
-    original_propagate = codeograph_logger.propagate
-    codeograph_logger.propagate = True
-    try:
-        with caplog.at_level(logging.WARNING, logger="codeograph.passes.pass1.node_annotator"):
-            records = annotator.annotate(nodes)
-    finally:
-        codeograph_logger.propagate = original_propagate
+    with caplog.at_level(logging.WARNING, logger="codeograph.passes.pass1.node_annotator"):
+        records = annotator.annotate(nodes)
     assert len(records) == 9
 
     degraded_count = sum(1 for r in records if r["degraded"])
