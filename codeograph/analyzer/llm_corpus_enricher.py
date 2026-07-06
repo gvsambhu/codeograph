@@ -103,7 +103,10 @@ class LlmCorpusEnricher:
         # ADR-005: Pass 1 annotates classes, not methods/fields/modules — those never
         # carry source_file/line_range worth a standalone LLM call. Load the real source
         # body for the nodes that remain (NodeSourceLoader; 2026-07-06 manual-run finding).
-        nodes = [n for n in graph_data.get("nodes", []) if n.get("kind") in _SOURCE_BEARING_KINDS]
+        # Shallow-copy each node: source_code is a Pass-1-only input, never part of the
+        # committed graph.schema.json — mutating the shared dicts would leak it into
+        # graph_data, which Pass 2 later re-serializes to disk (extra='forbid' violation).
+        nodes = [dict(n) for n in graph_data.get("nodes", []) if n.get("kind") in _SOURCE_BEARING_KINDS]
         NodeSourceLoader(corpus_root).load(nodes)
 
         try:
