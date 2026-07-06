@@ -249,6 +249,7 @@ def run(
     from codeograph.graph.graph_writer import GraphWriter
     from codeograph.input.acquirers.base_acquirer import AcquisitionError
     from codeograph.input.input_acquirer import InputAcquirer
+    from codeograph.llm.errors import LlmError
     from codeograph.manifest import ManifestAssembler
     from codeograph.manifest.artefact import GraphArtefact
     from codeograph.manifest.run_id import generate_run_id
@@ -319,12 +320,15 @@ def run(
                 telemetry_manager=telemetry_manager,
                 stats_aggregator=stats_aggregator,
             )
-            llm_annotations_artefact, cache_stats = enricher.enrich(
-                corpus_id=corpus_id,
-                run_id=run_id,
-                graph_artefact=graph_artefact,
-                out_dir=out_dir,
-            )
+            try:
+                llm_annotations_artefact, cache_stats = enricher.enrich(
+                    corpus_id=corpus_id,
+                    run_id=run_id,
+                    graph_artefact=graph_artefact,
+                    out_dir=out_dir,
+                )
+            except LlmError as exc:
+                raise click.ClickException(str(exc)) from exc
         else:
             click.echo("AST-only mode requested. Skipping LLM passes.")
 
