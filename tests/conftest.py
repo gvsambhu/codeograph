@@ -8,6 +8,7 @@ Registers:
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Any, TypeVar
 
@@ -19,6 +20,35 @@ from codeograph.llm.models import LlmResult, Message, Tier, TokenUsage
 from codeograph.llm.provider import LlmProvider
 
 T = TypeVar("T", bound=BaseModel)
+
+
+@pytest.fixture(autouse=True)
+def _restore_codeograph_logger_state():
+    """Undo configure_logging()'s global mutation of the "codeograph" logger.
+
+    ``codeograph.logging_config.configure_logging()`` calls
+    ``logging.config.dictConfig()``, which sets ``propagate=False`` on the
+    "codeograph" logger and attaches handlers to it. Any test that invokes
+    the CLI (directly or via ``click.testing.CliRunner``) triggers this and
+    leaves the mutation in place for the rest of the pytest session, since
+    dictConfig has no undo. That silently breaks later tests that rely on
+    ``caplog`` (which listens at the root logger) to observe records from a
+    ``codeograph.*`` logger, because ``propagate=False`` on the ancestor
+    blocks propagation to root regardless of the leaf logger's own settings.
+    Snapshot and restore level/handlers/propagate around every test so the
+    mutation never leaks across test boundaries.
+    """
+    logger = logging.getLogger("codeograph")
+    level = logger.level
+    handlers = list(logger.handlers)
+    propagate = logger.propagate
+    yield
+    for handler in logger.handlers:
+        if handler not in handlers:
+            handler.close()
+    logger.level = level
+    logger.handlers = handlers
+    logger.propagate = propagate
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
