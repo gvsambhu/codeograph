@@ -2,6 +2,7 @@ import time
 from typing import Any, TypeVar
 
 import anthropic
+import openai
 import pydantic
 from langchain_core.exceptions import OutputParserException
 from langchain_core.language_models.chat_models import BaseChatModel
@@ -31,16 +32,27 @@ def _classify_error(e: Exception) -> LlmError:
             "structured output / tool-calling (ADR-013 D-013-7)."
         )
 
-    if isinstance(e, anthropic.APIError):
-        if isinstance(e, anthropic.RateLimitError):
+    # Anthropic and the openai SDK (used by OpenAICompatibleProvider/ChatOpenAI for every
+    # non-Anthropic endpoint, ADR-013 D-013-7) mirror each other's exception hierarchy —
+    # classify both so rate limits on e.g. Gemini/DeepSeek/OpenRouter retry like Anthropic's do.
+    if isinstance(e, (anthropic.APIError, openai.APIError)):
+        if isinstance(e, (anthropic.RateLimitError, openai.RateLimitError)):
             return LlmTransientError("Rate limit exceeded")
-        if isinstance(e, (anthropic.InternalServerError, anthropic.APIConnectionError)):
+        if isinstance(
+            e,
+            (
+                anthropic.InternalServerError,
+                anthropic.APIConnectionError,
+                openai.InternalServerError,
+                openai.APIConnectionError,
+            ),
+        ):
             return LlmTransientError(f"Provider transient error: {str(e)}")
-        if isinstance(e, anthropic.BadRequestError):
+        if isinstance(e, (anthropic.BadRequestError, openai.BadRequestError)):
             return LlmBadInputError(f"Bad request sent to provider: {str(e)}")
-        if isinstance(e, anthropic.AuthenticationError):
+        if isinstance(e, (anthropic.AuthenticationError, openai.AuthenticationError)):
             return LlmAuthError("Invalid API key or authentication failure")
-        if isinstance(e, anthropic.PermissionDeniedError):
+        if isinstance(e, (anthropic.PermissionDeniedError, openai.PermissionDeniedError)):
             return LlmContentPolicyError("Content policy or permission denied")
 
         status = getattr(e, "status_code", 500)
