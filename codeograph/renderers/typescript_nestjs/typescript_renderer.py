@@ -59,8 +59,9 @@ from codeograph.rendering.models import SelectionResult
 from codeograph.rendering.package_prefix_grouping import PackagePrefixGrouping
 
 if TYPE_CHECKING:
-    from codeograph.graph.models.graph_schema import ClassNode, CodeographKnowledgeGraph
+    from codeograph.graph.models.graph_schema import CodeographKnowledgeGraph
     from codeograph.llm.provider import LlmProvider
+    from codeograph.rendering.class_selector import RenderableNode
 
 __all__ = ["TypeScriptRenderer"]
 
@@ -148,7 +149,7 @@ class TypeScriptRenderer(Renderer[TypeScriptConfig]):  # noqa: UP046
         """Orchestrate selection → policy dispatch → LLM calls → scaffold."""
         file_map: dict[PurePosixPath, bytes] = {}
 
-        # Build fqcn → ClassNode lookup for fast per-class access.
+        # Build fqcn → node lookup (class/interface/record/enum, ADR-010) for fast access.
         node_map = self._build_node_map(graph)
 
         # Step 1 — class selection (ADR-009 three-tier ladder)
@@ -204,7 +205,7 @@ class TypeScriptRenderer(Renderer[TypeScriptConfig]):  # noqa: UP046
         self,
         result: SelectionResult,
         annotations: dict[str, object],
-        node_map: dict[str, ClassNode],
+        node_map: dict[str, RenderableNode],
         semaphore: asyncio.Semaphore,
     ) -> dict[PurePosixPath, bytes]:
         """Render all selected classes for one domain group."""
@@ -253,7 +254,7 @@ class TypeScriptRenderer(Renderer[TypeScriptConfig]):  # noqa: UP046
 
     async def _render_class(
         self,
-        class_node: ClassNode,
+        class_node: RenderableNode,
         group_name: str,
         annotations: dict[str, object],
     ) -> tuple[PurePosixPath, bytes] | None:
@@ -281,7 +282,8 @@ class TypeScriptRenderer(Renderer[TypeScriptConfig]):  # noqa: UP046
         # endswith() checks.  ADR-010 Fork 8 / Issue #1.
         simple_name = class_node.id.rsplit(".", 1)[-1]
         file_stem = to_kebab_case(simple_name)
-        role_suffix = stereotype_to_role_suffix(class_node.stereotype)
+        # stereotype is a ClassNode-only field (ADR-010); interfaces/records/enums have none.
+        role_suffix = stereotype_to_role_suffix(getattr(class_node, "stereotype", None))
         path = PurePosixPath(f"src/{group_name}/{file_stem}{role_suffix}")
 
         # --- LLM call ---
@@ -290,7 +292,7 @@ class TypeScriptRenderer(Renderer[TypeScriptConfig]):  # noqa: UP046
 
     async def _call_llm(
         self,
-        class_node: ClassNode,
+        class_node: RenderableNode,
         annotations: dict[str, object],
         hints: dict[str, str],
     ) -> str:
@@ -307,7 +309,7 @@ class TypeScriptRenderer(Renderer[TypeScriptConfig]):  # noqa: UP046
         raises ``PromptLoadError``.
 
         Args:
-            class_node:   The ClassNode to render.
+            class_node:   The renderable node (class/interface/record/enum) to render.
             annotations:  Full annotations dict (fqcn → AnnotationRecord dict).
             hints:        Optional-var overrides injected by policy dispatch
                           (e.g. ``security_hint``, ``webflux_hint``).
@@ -330,13 +332,17 @@ class TypeScriptRenderer(Renderer[TypeScriptConfig]):  # noqa: UP046
                 _methods_raw = _inner.get("methods")
                 if isinstance(_methods_raw, list):
                     _methods = _methods_raw
+        # stereotype/superclass are ClassNode-only fields (ADR-010); interfaces/
+        # records/enums have neither — getattr keeps this safe across all four
+        # renderable kinds instead of raising AttributeError.
+        implemented = getattr(class_node, "implements", None) or getattr(class_node, "extends_interfaces", None)
         class_summary = "\n".join(
             [
-                f"Resolved role: {class_node.stereotype or 'unknown'}",
+                f"Resolved role: {getattr(class_node, 'stereotype', None) or 'unknown'}",
                 f"Class name: {class_node.name}",
                 f"Top-level annotations: {', '.join(class_node.annotations or []) or 'none'}",
-                f"Superclass: {class_node.superclass or 'null'}",
-                f"Interfaces: {', '.join(class_node.implements or []) or 'null'}",
+                f"Superclass: {getattr(class_node, 'superclass', None) or 'null'}",
+                f"Interfaces: {', '.join(implemented or []) or 'null'}",
                 f"Method count: {len(_methods)}",
             ]
         )
@@ -380,13 +386,17 @@ class TypeScriptRenderer(Renderer[TypeScriptConfig]):  # noqa: UP046
         selector = ClassSelector(cap=self._config.render_budget, grouping=grouping)
         return selector.select(graph)
 
-    def _build_node_map(self, graph: CodeographKnowledgeGraph) -> dict[str, ClassNode]:
-        """Return a ``{fqcn: ClassNode}`` dict for the graph's class nodes."""
+    def _build_node_map(self, graph: CodeographKnowledgeGraph) -> dict[str, RenderableNode]:
+        """Return a ``{fqcn: node}`` dict for the graph's renderable nodes (ADR-010:
+        classes, repository interfaces, record DTOs, enums)."""
         from codeograph.graph.models.graph_schema import ClassNode as CN
+        from codeograph.graph.models.graph_schema import EnumNode as EN
+        from codeograph.graph.models.graph_schema import InterfaceNode as IN
+        from codeograph.graph.models.graph_schema import RecordNode as RN
 
-        result: dict[str, ClassNode] = {}
+        result: dict[str, RenderableNode] = {}
         for node_wrapper in graph.nodes:
             node = node_wrapper.root
-            if isinstance(node, CN):
+            if isinstance(node, (CN, IN, RN, EN)):
                 result[node.id] = node
         return result

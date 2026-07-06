@@ -36,8 +36,20 @@ from typing import TYPE_CHECKING
 from codeograph.rendering.models import SelectionResult
 
 if TYPE_CHECKING:
-    from codeograph.graph.models.graph_schema import ClassNode, CodeographKnowledgeGraph
+    from codeograph.graph.models.graph_schema import (
+        ClassNode,
+        CodeographKnowledgeGraph,
+        EnumNode,
+        InterfaceNode,
+        RecordNode,
+    )
     from codeograph.rendering.base import DomainGrouping
+
+    # ADR-010 locks TypeScript mapping targets for all four of these kinds
+    # (classes, repository interfaces, record DTOs, enums) — WMC/CBO (ADR-004)
+    # are class-only metrics, so callers must read them via getattr(), never
+    # direct attribute access, to stay safe across this union.
+    RenderableNode = ClassNode | InterfaceNode | RecordNode | EnumNode
 
 __all__ = ["ClassSelector"]
 
@@ -96,7 +108,7 @@ class ClassSelector:
             One ``SelectionResult`` per domain group, in ascending group-name
             order.  Groups with zero classes are omitted.
         """
-        class_nodes = self._extract_class_nodes(graph)
+        class_nodes = self._extract_renderable_nodes(graph)
         if not class_nodes:
             return []
 
@@ -104,7 +116,7 @@ class ClassSelector:
         self._grouping.prepare(all_fqcns)
 
         # Bucket by group
-        groups: dict[str, list[ClassNode]] = {}
+        groups: dict[str, list[RenderableNode]] = {}
         for node in class_nodes:
             label = self._grouping.group(node.id)
             groups.setdefault(label, []).append(node)
@@ -120,18 +132,25 @@ class ClassSelector:
     # Private helpers
     # ------------------------------------------------------------------
 
-    def _extract_class_nodes(self, graph: CodeographKnowledgeGraph) -> list[ClassNode]:
-        """Return only the ClassNode entries from *graph*."""
-        from codeograph.graph.models.graph_schema import ClassNode as CN
+    def _extract_renderable_nodes(self, graph: CodeographKnowledgeGraph) -> list[RenderableNode]:
+        """Return the class/interface/record/enum entries from *graph* (ADR-010).
 
-        out: list[ClassNode] = []
+        Excludes AnnotationTypeNode (no locked TypeScript mapping target) and
+        module/field/method nodes (never rendering targets in their own right).
+        """
+        from codeograph.graph.models.graph_schema import ClassNode as CN
+        from codeograph.graph.models.graph_schema import EnumNode as EN
+        from codeograph.graph.models.graph_schema import InterfaceNode as IN
+        from codeograph.graph.models.graph_schema import RecordNode as RN
+
+        out: list[RenderableNode] = []
         for node_wrapper in graph.nodes:
             node = node_wrapper.root
-            if isinstance(node, CN):
+            if isinstance(node, (CN, IN, RN, EN)):
                 out.append(node)
         return out
 
-    def _apply_ladder(self, group_name: str, members: list[ClassNode]) -> SelectionResult:
+    def _apply_ladder(self, group_name: str, members: list[RenderableNode]) -> SelectionResult:
         """Select members from one group using the ADR-009 tier ladder."""
         n = len(members)
         cap = self._cap
@@ -153,9 +172,9 @@ class ClassSelector:
 
         return self._stratified_threshold_v1(group_name, members, cap, n)
 
-    def _top_n_v1(self, group_name: str, members: list[ClassNode], cap: int, total: int) -> SelectionResult:
+    def _top_n_v1(self, group_name: str, members: list[RenderableNode], cap: int, total: int) -> SelectionResult:
         """Tier 2: sort descending by WMC, take top ``cap``."""
-        sorted_members = sorted(members, key=lambda m: (m.wmc is None, -(m.wmc or 0)))
+        sorted_members = sorted(members, key=lambda m: (_wmc_of(m) is None, -(_wmc_of(m) or 0)))
         selected = sorted_members[:cap]
         excluded = sorted_members[cap:]
         return SelectionResult(
@@ -170,7 +189,7 @@ class ClassSelector:
         )
 
     def _stratified_threshold_v1(
-        self, group_name: str, members: list[ClassNode], cap: int, total: int
+        self, group_name: str, members: list[RenderableNode], cap: int, total: int
     ) -> SelectionResult:
         """Tier 3: bucket into high/mid/low, fill proportionally.
 
@@ -178,27 +197,33 @@ class ClassSelector:
             OR-high : CBO ≥ 5  OR  WMC ≥ 20
             OR-low  : CBO ≤ 1  AND WMC ≤ 5
             mid     : everything else (including metrics-missing classes)
+
+        WMC/CBO (ADR-004) are ClassNode-only metrics; interfaces/records/enums
+        (ADR-010) have neither field at all, so they fall into missing-metrics
+        mid-bucket treatment the same way a class with unresolved metrics does.
         """
-        high: list[ClassNode] = []
-        mid: list[ClassNode] = []
-        low: list[ClassNode] = []
+        high: list[RenderableNode] = []
+        mid: list[RenderableNode] = []
+        low: list[RenderableNode] = []
         missing_metrics = 0
 
         for m in members:
-            if m.cbo is None or m.wmc is None:
+            cbo = _cbo_of(m)
+            wmc = _wmc_of(m)
+            if cbo is None or wmc is None:
                 missing_metrics += 1
                 mid.append(m)
                 continue
-            if m.cbo >= _HIGH_CBO_THRESHOLD or m.wmc >= _HIGH_WMC_THRESHOLD:
+            if cbo >= _HIGH_CBO_THRESHOLD or wmc >= _HIGH_WMC_THRESHOLD:
                 high.append(m)
-            elif m.cbo <= _LOW_CBO_THRESHOLD and m.wmc <= _LOW_WMC_THRESHOLD:
+            elif cbo <= _LOW_CBO_THRESHOLD and wmc <= _LOW_WMC_THRESHOLD:
                 low.append(m)
             else:
                 mid.append(m)
 
         # Sort each bucket by descending WMC (nulls last).
-        def _wmc_key(m: ClassNode) -> tuple[bool, int]:
-            return (m.wmc is None, -(m.wmc or 0))
+        def _wmc_key(m: RenderableNode) -> tuple[bool, int]:
+            return (_wmc_of(m) is None, -(_wmc_of(m) or 0))
 
         high.sort(key=_wmc_key)
         mid.sort(key=_wmc_key)
@@ -210,7 +235,7 @@ class ClassSelector:
         # the difficulty-spread that D-009-1 explicitly locked.
         nonempty = [b for b in (high, mid, low) if b]
         pointers = [0] * len(nonempty)
-        selected: list[ClassNode] = []
+        selected: list[RenderableNode] = []
         while len(selected) < cap:
             added_this_cycle = 0
             for i, bucket in enumerate(nonempty):
@@ -243,5 +268,15 @@ class ClassSelector:
 # ---------------------------------------------------------------------------
 
 
-def _count_missing_metrics(members: list[ClassNode]) -> int:
-    return sum(1 for m in members if m.cbo is None or m.wmc is None)
+def _wmc_of(node: RenderableNode) -> int | None:
+    """WMC (ADR-004) is ClassNode-only; other renderable kinds have no such field."""
+    return getattr(node, "wmc", None)
+
+
+def _cbo_of(node: RenderableNode) -> int | None:
+    """CBO (ADR-004) is ClassNode-only; other renderable kinds have no such field."""
+    return getattr(node, "cbo", None)
+
+
+def _count_missing_metrics(members: list[RenderableNode]) -> int:
+    return sum(1 for m in members if _cbo_of(m) is None or _wmc_of(m) is None)

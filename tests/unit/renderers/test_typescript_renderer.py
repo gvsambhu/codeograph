@@ -5,7 +5,16 @@ from typing import cast
 
 import pytest
 
-from codeograph.graph.models.graph_schema import ClassNode, ExtractionMode, Modifier
+from codeograph.graph.models.graph_schema import (
+    ClassNode,
+    CodeographKnowledgeGraph,
+    ExtractionMode,
+    InterfaceNode,
+    Modifier,
+    Modifier1,
+    Node,
+    RecordNode,
+)
 from codeograph.llm.prompts.loader import PromptLoader
 from codeograph.llm.provider import LlmProvider
 from codeograph.renderers.typescript_nestjs.feature_policies import dispatch_feature_policies
@@ -158,3 +167,47 @@ class TestDuplicateRenderPath:
                             "Two classes resolved to the same output file — check class names and stereotypes."
                         )
                 file_map.update(gmap)
+
+
+# ---------------------------------------------------------------------------
+# ADR-010: _build_node_map must include interfaces/records, not just classes
+# ---------------------------------------------------------------------------
+
+
+class TestBuildNodeMapIncludesAllRenderableKinds:
+    """2026-07-06 manual run: _build_node_map was ClassNode-only, so even a
+    correctly-selected interface/record FQCN silently failed the node_map
+    lookup in _render_group (hitting a 'defensive: unreachable' continue that
+    was, in fact, reachable)."""
+
+    def test_interface_and_record_nodes_are_included(self):
+        class_node = _make_class_node("com.example.orders.OrderService")
+        interface_node = InterfaceNode(
+            id="com.example.orders.OrderRepository",
+            kind="interface",
+            name="OrderRepository",
+            modifiers=[Modifier1.public],
+            source_file="src/com/example/orders/OrderRepository.java",
+            line_range=[1, 10],
+        )
+        record_node = RecordNode(
+            id="com.example.orders.OrderDto",
+            kind="record",
+            name="OrderDto",
+            components=[],
+            source_file="src/com/example/orders/OrderDto.java",
+            line_range=[1, 5],
+        )
+        graph = CodeographKnowledgeGraph(
+            nodes=[Node(root=class_node), Node(root=interface_node), Node(root=record_node)],
+            edges=[],
+        )
+
+        renderer = _make_renderer()
+        node_map = renderer._build_node_map(graph)
+
+        assert set(node_map) == {
+            "com.example.orders.OrderService",
+            "com.example.orders.OrderRepository",
+            "com.example.orders.OrderDto",
+        }

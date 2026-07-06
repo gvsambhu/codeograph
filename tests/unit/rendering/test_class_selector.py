@@ -20,6 +20,7 @@ from codeograph.graph.models.graph_schema import (
     CodeographKnowledgeGraph,
     ExtractionMode,
     Modifier,
+    Modifier1,
     Node,
 )
 from codeograph.rendering.class_selector import (
@@ -296,3 +297,90 @@ class TestSelectionResult:
         assert result.refused == ()
         assert result.stub_todos == ()
         assert result.feature_policies_active == ()
+
+
+# ---------------------------------------------------------------------------
+# ADR-010: interfaces (repositories) and records (DTOs) must be selectable too
+# ---------------------------------------------------------------------------
+
+
+class TestRenderableNodeKinds:
+    """2026-07-06 manual run: ClassSelector was ClassNode-only, so repository
+    interfaces and record DTOs were never selected for rendering at all —
+    contradicting ADR-010's own locked mapping decisions for both kinds."""
+
+    def test_interface_and_record_are_selected_alongside_class(self):
+        from codeograph.graph.models.graph_schema import InterfaceNode, RecordNode
+
+        class_node = _make_class_node("com.example.orders.OrderService", wmc=5, cbo=1)
+        interface_node = InterfaceNode(
+            id="com.example.orders.OrderRepository",
+            kind="interface",
+            name="OrderRepository",
+            modifiers=[Modifier1.public],
+            source_file="src/main/java/com/example/orders/OrderRepository.java",
+            line_range=[1, 10],
+        )
+        record_node = RecordNode(
+            id="com.example.orders.OrderDto",
+            kind="record",
+            name="OrderDto",
+            components=[],
+            source_file="src/main/java/com/example/orders/OrderDto.java",
+            line_range=[1, 5],
+        )
+
+        graph = _make_graph([class_node])
+        graph = CodeographKnowledgeGraph(
+            nodes=[*graph.nodes, Node(root=interface_node), Node(root=record_node)],
+            edges=[],
+        )
+
+        selector = ClassSelector(cap=10)
+        results = selector.select(graph)
+
+        assert len(results) == 1
+        selected = set(results[0].selected)
+        assert selected == {
+            "com.example.orders.OrderService",
+            "com.example.orders.OrderRepository",
+            "com.example.orders.OrderDto",
+        }
+
+    def test_stratified_tier_treats_interfaces_and_records_as_metrics_missing(self):
+        """Interfaces/records have no wmc/cbo at all — must land in the mid
+        bucket (same treatment as a class with unresolved metrics), not crash."""
+        from codeograph.graph.models.graph_schema import InterfaceNode, RecordNode
+
+        classes = [_make_class_node(f"com.example.orders.C{i}", wmc=i, cbo=0) for i in range(8)]
+        interface_node = InterfaceNode(
+            id="com.example.orders.IRepo",
+            kind="interface",
+            name="IRepo",
+            modifiers=[Modifier1.public],
+            source_file="src/main/java/com/example/orders/IRepo.java",
+            line_range=[1, 10],
+        )
+        record_node = RecordNode(
+            id="com.example.orders.RDto",
+            kind="record",
+            name="RDto",
+            components=[],
+            source_file="src/main/java/com/example/orders/RDto.java",
+            line_range=[1, 5],
+        )
+
+        graph = _make_graph(classes)
+        graph = CodeographKnowledgeGraph(
+            nodes=[*graph.nodes, Node(root=interface_node), Node(root=record_node)],
+            edges=[],
+        )
+
+        # 10 members, cap=3 → 10 >= 2*3 → stratified_threshold_v1
+        selector = ClassSelector(cap=3)
+        results = selector.select(graph)
+
+        assert len(results) == 1
+        assert results[0].strategy == "stratified_threshold_v1"
+        # metrics_missing_count must include both non-class nodes (no wmc/cbo field at all).
+        assert results[0].metrics_missing_count >= 2
