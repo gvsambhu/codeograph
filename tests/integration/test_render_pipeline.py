@@ -1,12 +1,17 @@
+from __future__ import annotations
+
 import asyncio
 import tempfile
 from pathlib import Path, PurePosixPath
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from codeograph.graph.models.graph_schema import ClassNode, ExtractionMode, Modifier, Stereotype
+
+if TYPE_CHECKING:
+    from codeograph.rendering.class_selector import RenderableNode
 from codeograph.llm.prompts.loader import PromptLoader
 from codeograph.llm.provider import LlmProvider
 from codeograph.renderers.typescript_nestjs.typescript_config import TypeScriptConfig
@@ -83,7 +88,7 @@ def test_render_group_basic():
     )
 
     # 3. Build a mock node_map
-    node_map = {"com.example.orders.OrderService": class_node}
+    node_map: dict[str, RenderableNode] = {"com.example.orders.OrderService": class_node}
 
     # 4. Build TypeScriptRenderer with a mock/null provider
     config = TypeScriptConfig()
@@ -223,7 +228,7 @@ class TestRoleFileSuffix:
             metrics_missing_count=0,
             high_count=0,
         )
-        node_map = {node.id: node}
+        node_map: dict[str, RenderableNode] = {node.id: node}
         canned_ts = "export class OrderService {}\n"
         with patch.object(renderer, "_call_llm", new=AsyncMock(return_value=canned_ts)):
             semaphore = asyncio.Semaphore(5)
@@ -252,7 +257,7 @@ class TestRoleFileSuffix:
             metrics_missing_count=0,
             high_count=0,
         )
-        node_map = {node.id: node}
+        node_map: dict[str, RenderableNode] = {node.id: node}
         with patch.object(renderer, "_call_llm", new=AsyncMock(return_value="export class X {}")):
             semaphore = asyncio.Semaphore(5)
             file_map = asyncio.run(renderer._render_group(result, {}, node_map, semaphore))

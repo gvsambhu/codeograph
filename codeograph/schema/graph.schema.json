@@ -16,10 +16,64 @@
       "type": "array",
       "description": "All graph edges. Discriminated by the 'kind' property.",
       "items": { "$ref": "#/$defs/Edge" }
+    },
+    "projectOverview": {
+      "type": ["object", "null"],
+      "description": "Cross-domain corpus synthesis written by Pass 2 (ADR-015). Present only after a full LLM run; absent from AST-only output — not in the top-level 'required' list.",
+      "required": ["description", "architecturePattern", "domains", "crossDomainDependencies"],
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "type": "string",
+          "description": "2-3 sentences describing what the system does in plain business English."
+        },
+        "architecturePattern": {
+          "type": "string",
+          "description": "Overall architectural pattern (e.g., 'Layered Controller-Service-Repository with domain-driven packaging')."
+        },
+        "domains": {
+          "type": "array",
+          "description": "Echoed list of business domain names from the prompt.",
+          "items": { "type": "string" }
+        },
+        "crossDomainDependencies": {
+          "type": "array",
+          "description": "Concrete cross-domain dependencies — injected fields only, not general patterns.",
+          "items": { "$ref": "#/$defs/CrossDomainDependency" }
+        }
+      }
     }
   },
 
   "$defs": {
+
+    "CrossDomainDependency": {
+      "type": "object",
+      "required": ["from_class", "from_domain", "to_class", "to_domain", "dependency_type"],
+      "additionalProperties": false,
+      "properties": {
+        "from_class": {
+          "type": "string",
+          "description": "The fully-qualified class name that holds the dependency."
+        },
+        "from_domain": {
+          "type": "string",
+          "description": "The business domain the source class belongs to."
+        },
+        "to_class": {
+          "type": "string",
+          "description": "The class being injected or imported from another domain."
+        },
+        "to_domain": {
+          "type": "string",
+          "description": "The business domain the target class belongs to."
+        },
+        "dependency_type": {
+          "type": "string",
+          "description": "How the dependency is expressed: 'injected_field', 'method_param', 'return_type'."
+        }
+      }
+    },
 
     "Node": {
       "oneOf": [
@@ -129,7 +183,7 @@
         },
         "wmc": {
           "type": ["integer", "null"],
-          "description": "Weighted Method Count — sum of cyclomatic complexities of all methods (ADR-004, Chidamber & Kemerer 1994). Null when extraction_mode is 'signatures_only' or 'regex_fallback'."
+          "description": "Weighted Method Count — sum of cyclomatic complexities of all methods including constructors (ADR-004 §3.3, Chidamber & Kemerer 1994). Null when extraction_mode is 'signatures_only' or 'regex_fallback', or when the class declares no methods or constructors (D-004-1 method-less-class clause)."
         },
         "cbo": {
           "type": ["integer", "null"],
@@ -137,7 +191,7 @@
         },
         "lcom4": {
           "type": ["integer", "null"],
-          "description": "Lack of Cohesion of Methods 4 — number of connected components in the method-field usage graph (ADR-004, Hitz & Montazeri 1995). Null when extraction_mode is 'signatures_only' or 'regex_fallback'."
+          "description": "Lack of Cohesion of Methods 4 — number of connected components in the method-field usage graph (ADR-004, Hitz & Montazeri 1995). Null when extraction_mode is 'signatures_only' or 'regex_fallback', or when the class has no non-static methods or constructors (D-004-1 method-less-class clause; a constructor-only class still yields a non-null value)."
         }
       }
     },

@@ -48,5 +48,11 @@ class RetryingLlmProvider(LlmProvider):
                 if attempts >= self._policy.max_attempts:
                     raise LlmRateLimitExhausted(f"Exhausted {self._policy.max_attempts} attempts.") from e
 
-                time.sleep(backoff)
+                if self._policy.respect_retry_after_header and e.retry_after_s is not None:
+                    # Trust the server's own wait hint over our exponential guess
+                    # (e.g. a 429's Retry-After) rather than capping it to max_backoff_s —
+                    # a provider that says "wait 38s" knows its quota window better than we do.
+                    time.sleep(e.retry_after_s)
+                else:
+                    time.sleep(backoff)
                 backoff = min(backoff * self._policy.backoff_multiplier, self._policy.max_backoff_s)

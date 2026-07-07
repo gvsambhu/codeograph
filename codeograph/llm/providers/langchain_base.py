@@ -2,6 +2,7 @@ import time
 from typing import Any, TypeVar
 
 import anthropic
+import openai
 import pydantic
 from langchain_core.exceptions import OutputParserException
 from langchain_core.language_models.chat_models import BaseChatModel
@@ -22,6 +23,25 @@ from codeograph.llm.provider import LlmProvider
 T = TypeVar("T", bound=BaseModel)
 
 
+def _retry_after_seconds(e: Exception) -> float | None:
+    """Extract the Retry-After header (delta-seconds form) from an SDK exception, if present.
+
+    Both anthropic.APIStatusError and openai.APIStatusError carry a `.response`
+    (httpx.Response); HTTP-date form is not parsed — callers fall back to their
+    own backoff schedule when this returns None.
+    """
+    response = getattr(e, "response", None)
+    if response is None:
+        return None
+    header = response.headers.get("retry-after")
+    if header is None:
+        return None
+    try:
+        return float(header)
+    except (TypeError, ValueError):
+        return None
+
+
 def _classify_error(e: Exception) -> LlmError:
     """Classify raw LangChain/SDK exception into LlmError taxonomy."""
     if isinstance(e, (pydantic.ValidationError, OutputParserException)):
@@ -31,21 +51,32 @@ def _classify_error(e: Exception) -> LlmError:
             "structured output / tool-calling (ADR-013 D-013-7)."
         )
 
-    if isinstance(e, anthropic.APIError):
-        if isinstance(e, anthropic.RateLimitError):
-            return LlmTransientError("Rate limit exceeded")
-        if isinstance(e, (anthropic.InternalServerError, anthropic.APIConnectionError)):
-            return LlmTransientError(f"Provider transient error: {str(e)}")
-        if isinstance(e, anthropic.BadRequestError):
+    # Anthropic and the openai SDK (used by OpenAICompatibleProvider/ChatOpenAI for every
+    # non-Anthropic endpoint, ADR-013 D-013-7) mirror each other's exception hierarchy —
+    # classify both so rate limits on e.g. Gemini/DeepSeek/OpenRouter retry like Anthropic's do.
+    if isinstance(e, (anthropic.APIError, openai.APIError)):
+        if isinstance(e, (anthropic.RateLimitError, openai.RateLimitError)):
+            return LlmTransientError("Rate limit exceeded", retry_after_s=_retry_after_seconds(e))
+        if isinstance(
+            e,
+            (
+                anthropic.InternalServerError,
+                anthropic.APIConnectionError,
+                openai.InternalServerError,
+                openai.APIConnectionError,
+            ),
+        ):
+            return LlmTransientError(f"Provider transient error: {str(e)}", retry_after_s=_retry_after_seconds(e))
+        if isinstance(e, (anthropic.BadRequestError, openai.BadRequestError)):
             return LlmBadInputError(f"Bad request sent to provider: {str(e)}")
-        if isinstance(e, anthropic.AuthenticationError):
+        if isinstance(e, (anthropic.AuthenticationError, openai.AuthenticationError)):
             return LlmAuthError("Invalid API key or authentication failure")
-        if isinstance(e, anthropic.PermissionDeniedError):
+        if isinstance(e, (anthropic.PermissionDeniedError, openai.PermissionDeniedError)):
             return LlmContentPolicyError("Content policy or permission denied")
 
         status = getattr(e, "status_code", 500)
         if status in (429, 500, 502, 503, 504):
-            return LlmTransientError(f"HTTP {status}: {str(e)}")
+            return LlmTransientError(f"HTTP {status}: {str(e)}", retry_after_s=_retry_after_seconds(e))
         if status == 400:
             return LlmBadInputError(f"HTTP {status}: {str(e)}")
         if status in (401, 403):

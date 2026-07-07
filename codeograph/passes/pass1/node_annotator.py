@@ -21,6 +21,8 @@ _MAX_SOURCE_CHARS = 240_000
 _MIN_FAILURES_FOR_ABORT = 3
 # Floor below which ratio-gate does not apply (D-005-6 N-floor).
 _N_FLOOR = 10
+# Cap on distinct failure reasons logged before a ratio/absolute abort raises.
+_MAX_LOGGED_FAILURE_SAMPLES = 5
 
 # Regex to extract Java method signatures for the signatures-only fallback (DC2-02).
 # Non-capturing group avoids finditer returning only the access-modifier capture.
@@ -131,8 +133,10 @@ class NodeAnnotator:
         if total >= _N_FLOOR:
             ratio = failures / total
             if ratio > self._max_pass1_failure_ratio:
+                _log_failure_sample(normal, normal_results, LlmError)
                 raise LlmError(f"Pass 1 failure ratio {ratio:.2f} exceeds max {self._max_pass1_failure_ratio}")
         elif failures > _MIN_FAILURES_FOR_ABORT:
+            _log_failure_sample(normal, normal_results, LlmError)
             raise LlmError(
                 f"Pass 1 failures ({failures}) exceeds absolute minimum"
                 f" ({_MIN_FAILURES_FOR_ABORT}) for batch size {total}"
@@ -157,7 +161,7 @@ class NodeAnnotator:
             annotation: NodeAnnotation = result.value
             records.append(
                 AnnotationRecord(
-                    node_id=annotation.node_id,
+                    node_id=str(node.get("id", "")),
                     degraded=False,
                     annotation=annotation,
                 ).model_dump()
@@ -194,6 +198,28 @@ class NodeAnnotator:
         logger.info("Pass 1 complete — %d records written to %s", len(records), out_path)
 
         return records
+
+
+def _log_failure_sample(nodes: list[dict[str, Any]], results: list[Any], error_type: type) -> None:
+    """Log up to N distinct failure reasons before a ratio/absolute abort raises.
+
+    Without this, a total-batch failure (e.g. bad model id, auth) surfaces only
+    the generic ratio message in logs.jsonl — the real per-call exception is
+    never written anywhere (2026-07-06 manual-run finding MR-02).
+    """
+    seen: set[str] = set()
+    logged = 0
+    for node, result in zip(nodes, results):
+        if logged >= _MAX_LOGGED_FAILURE_SAMPLES:
+            break
+        if not isinstance(result, error_type):
+            continue
+        reason = str(result)
+        if reason in seen:
+            continue
+        seen.add(reason)
+        logger.warning("Pass 1 node %s failed: %s", node.get("id"), reason)
+        logged += 1
 
 
 def _extract_signatures(source_code: str) -> list[str]:

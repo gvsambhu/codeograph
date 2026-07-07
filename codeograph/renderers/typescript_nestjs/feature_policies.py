@@ -5,8 +5,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from codeograph.graph.models.graph_schema import ClassNode
     from codeograph.renderers.typescript_nestjs.typescript_config import TypeScriptConfig
+    from codeograph.rendering.class_selector import RenderableNode
 
 
 # Spring Security annotation simple names that trigger security_feature_policy.
@@ -27,7 +27,7 @@ _SPRING_SECURITY_ANNOTATIONS: frozenset[str] = frozenset(
 
 
 def dispatch_feature_policies(
-    class_node: ClassNode,
+    class_node: RenderableNode,
     annotations: dict[str, object],
     config: TypeScriptConfig,
 ) -> dict[str, str] | str:

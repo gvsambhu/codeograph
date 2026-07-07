@@ -104,6 +104,83 @@ class TestNoManifestOnInterrupt:
         manifest_path = out_dir / "manifest.json"
         assert not manifest_path.exists()
 
+    def test_llm_error_surfaces_as_graceful_click_exception(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """An LlmError abort (e.g. Pass 1 ratio-abort) prints a clean message, not a traceback.
+
+        2026-07-06 manual-run finding MR-04: only AcquisitionError was wrapped into a
+        click.ClickException in cli/main.py::run — every LlmError-family abort (ratio-abort,
+        auth errors, etc.) propagated as a raw, unhandled exception with a full traceback.
+        """
+        input_dir = tmp_path / "input"
+        input_dir.mkdir()
+        src = input_dir / "Main.java"
+        src.write_text(
+            "public class Main { public static void main(String[] args) {} }",
+            encoding="utf-8",
+        )
+
+        out_dir = tmp_path / "out"
+
+        monkeypatch.setenv("CODEOGRAPH_ANTHROPIC_API_KEY", "dummy-key")
+
+        import os
+        import platform
+        import shutil
+
+        is_windows = platform.system() == "Windows"
+        path_sep = ";" if is_windows else ":"
+
+        if not shutil.which("java"):
+            java_home = os.environ.get("JAVA_HOME")
+            if java_home:
+                if not is_windows and java_home.upper().startswith("C:"):
+                    for prefix in ("/mnt/c", "/c"):
+                        test_path = java_home.replace("C:", prefix)
+                        if os.path.exists(test_path):
+                            java_home = test_path
+                            break
+
+                java_bin = str(Path(java_home) / "bin")
+                if os.path.exists(java_bin):
+                    monkeypatch.setenv("JAVA_HOME", java_home)
+                    current_path = os.environ.get("PATH", "")
+                    monkeypatch.setenv("PATH", f"{java_bin}{path_sep}{current_path}" if current_path else java_bin)
+
+        from codeograph.llm.errors import LlmError
+        from codeograph.passes.pass1.node_annotator import NodeAnnotator
+
+        def boom(self: Any, nodes: list[Any]) -> None:
+            raise LlmError("Pass 1 failure ratio 0.70 exceeds max 0.1")
+
+        monkeypatch.setattr(NodeAnnotator, "annotate", boom)
+
+        from unittest.mock import MagicMock
+
+        monkeypatch.setattr(
+            "codeograph.llm.resolver.AnthropicProvider",
+            lambda *args, **kwargs: MagicMock(),
+        )
+
+        from codeograph.cli import main as cli_mod
+
+        runner = CliRunner()
+        result = runner.invoke(
+            cli_mod.cli,
+            ["run", str(input_dir), "--out", str(out_dir)],
+        )
+
+        assert result.exit_code == 1
+        # A ClickException-handled abort has no raw traceback in `result.exception`
+        # (click converts it to SystemExit before CliRunner sees it) and prints a
+        # single clean "Error: ..." line instead.
+        assert isinstance(result.exception, SystemExit)
+        assert "Pass 1 failure ratio 0.70 exceeds max 0.1" in result.output
+        assert "Traceback" not in result.output
+
 
 class TestTerminalWritePresenceImpliesValid:
     """If a manifest is on disk, it satisfies all §Invariants."""
