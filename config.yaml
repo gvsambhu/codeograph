@@ -1,10 +1,51 @@
-# Codeograph configuration — lowest priority source.
-# Env vars and .env always override values set here.
-# Do not store secrets (API keys) in this file.
+# Codeograph configuration — the lowest-priority settings source.
 #
-# All fields are optional; omitted fields use the hardcoded defaults in Settings.
+# Precedence (highest wins):
+#   CLI flags / init kwargs  >  environment variables  >  .env  >  config.yaml  >  built-in defaults
+#
+# Loaded from ./config.yaml relative to your CURRENT WORKING DIRECTORY when codeograph runs.
+#
+# SECRETS DO NOT GO HERE. API keys must be set via .env / environment only — see .env.example.
+#
+# Every field below is OPTIONAL; omit any field to use the default shown in its comment.
+# The environment-variable form of any field is CODEOGRAPH_<FIELD_NAME_UPPERCASED>
+# (e.g. llm_concurrency -> CODEOGRAPH_LLM_CONCURRENCY), and env always overrides this file.
+#
+# This file is the full catalogue of non-secret knobs. Uncomment and edit what you need.
 
-llm_provider: anthropic
-llm_model: claude-sonnet-4-6
-llm_concurrency: 5
-max_pass1_failure_ratio: 0.10
+# --- Provider / model -------------------------------------------------------
+# These typically live in .env alongside your API key (so provider + key + model
+# stay together), but can be pinned here instead when no secret is involved.
+# llm_provider: anthropic          # anthropic | openrouter | openai_compatible   (ollama | bedrock are v1.1, not wired)
+# llm_model: claude-sonnet-4-6     # exact model id for the active provider
+# openai_compat_base_url:          # REQUIRED when llm_provider is openai_compatible (the OpenAI-compat endpoint URL)
+# openai_compat_provider_label:    # ties an openai_compatible endpoint to a prices.toml row (else derived from the host)
+
+# Optional per-pipeline-stage model overrides (default: each falls back to llm_model)
+# llm_model_fast:                  # Pass 1 — per-class annotation
+# llm_model_deep:                  # Pass 2 — corpus synthesis
+# llm_model_render:                # render
+
+# --- Concurrency & reliability ----------------------------------------------
+# llm_concurrency: 5               # max parallel LLM calls; set to 1 for free-tier / low-rate-limit providers
+# max_pass1_failure_ratio: 0.10    # abort Pass 1 if more than this fraction of per-class annotations fail (0.0-1.0)
+
+# --- Cost ceilings ----------------------------------------------------------
+# On `run` these are also settable per-invocation via CLI flags (--max-llm-calls,
+# --max-tokens-total, --llm-call-confirm-threshold). `render` has no such flags —
+# for `render` set the ceilings here or via the CODEOGRAPH_* env vars instead.
+# max_llm_calls:                   # hard ceiling on total LLM calls in a run (default: no ceiling)
+# max_tokens_total:                # hard ceiling on total tokens across a run (default: no ceiling)
+# llm_call_confirm_threshold: 100  # estimated-call count above which `run` prompts for confirmation
+
+# --- Cache & telemetry ------------------------------------------------------
+# cache_dir:                       # SQLite response cache + telemetry JSONL live here (default: <home>/.codeograph/cache)
+# cache_warn_size_mb: 1024         # advisory warning once cache.db exceeds this size (MB)
+# cache_warn_entry_count: 50000    # advisory warning once cache.db exceeds this many entries
+
+# --- Parser -----------------------------------------------------------------
+# javaparser_jar:                  # path to a custom JavaParser sidecar JAR (default: the bundled parser.jar)
+
+# --- v1.1 providers (fields exist but are not wired up in v1) ----------------
+# ollama_base_url: http://localhost:11434
+# bedrock_region:
