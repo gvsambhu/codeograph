@@ -18,9 +18,13 @@ prerequisites, pipeline stages, CLI commands, and troubleshooting, not model cho
 
 ### 1.1 Java (the AST parser sidecar)
 
-Every `codeograph run` invocation — **including `--ast-only`** — launches a bundled JavaParser
-sidecar over the JVM to produce an accurate AST. There is no way to skip this step; `--ast-only`
-only skips the *LLM* passes, not the parser.
+Every `codeograph run` invocation — **including `--ast-only`** — launches a JavaParser sidecar over
+the JVM to produce an accurate AST. There is no way to skip this step; `--ast-only` only skips the
+*LLM* passes, not the parser. The sidecar JAR ships **pre-built and committed** in the repo
+(`codeograph/parser/lib/parser.jar`), so you never compile it to run Codeograph — but you do need a
+JVM present to *execute* it (that's what this section is about). Rebuilding the JAR from its Java
+source is only needed if you change the parser itself, and requires Maven — see
+[§8 Rebuilding the parser JAR](#8-rebuilding-the-parser-jar).
 
 - **Java 17+ required for full-fidelity parsing.** Without a working `java` on `PATH`
   (or `JAVA_HOME` pointing at one), Codeograph does **not** fail the run — it silently falls back
@@ -47,13 +51,26 @@ only skips the *LLM* passes, not the parser.
   java -version   # must print a real version string, not "command not found"
   ```
 
-### 1.2 Python environment
+### 1.2 Install Codeograph
+
+Codeograph isn't published to a package index — you install it from a checkout of this repo. This
+step is required before any command below works; nothing is compiled (the Python package is
+pure-Python and the Java parser ships pre-built — §1.1), but the package and its runtime
+dependencies still have to be installed. From the repo root:
 
 ```bash
-pip install -e ".[dev]"
+pip install -e .          # to RUN the tool: package + runtime deps only
 ```
-installs Codeograph plus all dev/test dependencies (pytest, ruff, mypy, etc.) in one shot from the
-repo root.
+
+If you're going to **develop/test** Codeograph (run the test suite, lint, type-check, regenerate
+schemas), install the `dev` extra instead — it adds pytest, ruff, mypy, pre-commit, etc.:
+
+```bash
+pip install -e ".[dev]"   # contributors: adds test/lint/codegen tooling
+```
+
+Either way, `-e` (editable) is convenient from a checkout; a plain `pip install .` also works if you
+don't need edits to be picked up live.
 
 ### 1.3 LLM provider configuration (`.env`)
 
@@ -314,3 +331,34 @@ context:
 
 Use `--non-interactive` alone for "never spend without a human present"; add `--yes` only once
 you've decided a given automated run is allowed to proceed unattended.
+
+---
+
+## 8. Rebuilding the parser JAR
+
+**You almost certainly don't need this.** The JavaParser sidecar JAR is committed pre-built at
+`codeograph/parser/lib/parser.jar`, so a fresh checkout + `pip install` (§1.2) runs without any
+Java build — you only need a JVM *present* to execute it (§1.1). Rebuild the JAR **only if you
+change the parser's Java source** under `codeograph/parser/java/`.
+
+Requires a JDK 17+ and Maven 3.9+ on `PATH`. From the repo root:
+
+```bash
+make parser-jar
+```
+
+That runs `mvn clean package` in the parser module and installs the resulting shaded fat JAR to
+`codeograph/parser/lib/parser.jar` (the path `Settings._DEFAULT_JAR` points at). The manual
+equivalent, if you don't have `make`:
+
+```bash
+cd codeograph/parser/java
+mvn --batch-mode --no-transfer-progress clean package
+# maven-shade writes the fat jar as target/codeograph-parser-<version>.jar
+# (the pre-shade original is target/original-*.jar — don't copy that one)
+cp target/codeograph-parser-*.jar ../lib/parser.jar
+```
+
+The committed `parser.jar` is a real build artefact checked into git deliberately (so users and CI
+never need a JVM+Maven toolchain just to run the tool) — if you rebuild it, commit the updated JAR
+alongside your parser-source change.

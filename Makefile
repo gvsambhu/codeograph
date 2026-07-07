@@ -1,10 +1,11 @@
-.PHONY: help schema-models lint typecheck test golden-update format format-java clean
+.PHONY: help schema-models parser-jar lint typecheck test golden-update format format-java clean
 
 PYTHON ?= python
 
 help:
 	@echo "Targets:"
 	@echo "  schema-models   Regenerate Pydantic models from JSON Schema"
+	@echo "  parser-jar      Rebuild the JavaParser sidecar JAR and install it to parser/lib/"
 	@echo "  lint            Run ruff lint + format check"
 	@echo "  typecheck       Run mypy"
 	@echo "  test            Run full test suite"
@@ -12,6 +13,16 @@ help:
 	@echo "  format          Format Python (ruff) + Java (spotless)"
 	@echo "  format-java     Apply google-java-format via Spotless (run once on first setup)"
 	@echo "  clean           Remove generated artefacts"
+
+# Rebuild the JavaParser sidecar and install the shaded fat JAR to where the Python
+# runtime expects it (codeograph/parser/lib/parser.jar — Settings._DEFAULT_JAR).
+# Only needed when the Java parser source changes; the JAR is committed pre-built so a
+# fresh checkout runs without this. maven-shade produces target/codeograph-parser-<version>.jar
+# (the pre-shade original is left as target/original-*.jar, which the glob below excludes).
+parser-jar:
+	cd codeograph/parser/java && mvn --batch-mode --no-transfer-progress clean package
+	cp codeograph/parser/java/target/codeograph-parser-*.jar codeograph/parser/lib/parser.jar
+	@echo "Installed parser.jar -> codeograph/parser/lib/parser.jar"
 
 # Regenerate Pydantic models from JSON Schema files into codeograph/graph/models/.
 # Multiple schema files → output must be a directory (codegen produces one .py per schema).
