@@ -2,7 +2,7 @@
 
 Reads a Java/Spring Boot codebase and emits a deterministic knowledge graph — nodes, edges, complexity metrics, Spring-aware annotations — reproducible byte-for-byte across runs.
 
-**Status:** v1 complete (DC1–DC5) — deterministic graph, LLM enrichment, eval framework, TypeScript/NestJS renderer, run manifest + structured logging. See [`docs/architecture.md`](docs/architecture.md) for the full pipeline.
+**Status:** v1 complete (DC1–DC6) — deterministic graph, LLM enrichment, eval framework, TypeScript/NestJS renderer, run manifest + structured logging, cost-safety floor + multi-provider LLM support. See [`docs/architecture.md`](docs/architecture.md) for the full pipeline.
 
 ## Point of view
 
