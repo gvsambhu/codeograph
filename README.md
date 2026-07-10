@@ -173,7 +173,7 @@ The run manifest (`manifest.json`) is written once at the terminal checkpoint, a
 
 - **Maven-only classpath resolution.** Gradle projects are detected and source files are parsed, but classpath resolution falls back to source-only mode. Method-call resolution is lower fidelity for Gradle inputs until v1.1.
 - **TypeScript/NestJS renderer only.** The Go renderer (ADR-011) is planned for v1.1.
-- **Anthropic (Claude) only — single model.** All v1 LLM calls use one Sonnet model. Ollama and Bedrock providers are wired but raise `NotImplementedError`; per-stage model selection (separate models for Pass 1 / Pass 2 / hazards) is v1.1.
+- **Providers: Anthropic, OpenRouter, and any OpenAI-compatible endpoint; Ollama and Bedrock deferred to v1.1.** All run through a LangChain-based provider abstraction (`AnthropicProvider`, `OpenRouterProvider`, `OpenAICompatibleProvider` with a configurable `base_url`). `Ollama` and `Bedrock` are wired in the resolver but raise `NotImplementedError`. A single model (default `claude-sonnet-4-6`) serves all stages by default; per-stage model overrides (`llm_model_fast` / `deep` / `render`, used by Pass 1 / Pass 2 / rendering) are configurable, but v1 ships no curated *differential* per-stage mapping — that is v1.1.
 - **Sync LLM calls; no Batch API.** All LLM calls are synchronous with prompt caching. The Anthropic Batch API (50% discount) is v1.1.
 - **CI runs on Linux only.** Local tests pass on Windows/macOS; the automated CI infrastructure runs on `ubuntu-latest`. Multi-OS CI is a v1.1 extension wired by contributor demand.
 - **No live-LLM tests.** The test suite uses a deterministic `MockLlmProvider`. No tests make live API calls in v1; the 80% line coverage gate applies to `codeograph/`.

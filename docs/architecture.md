@@ -81,13 +81,13 @@ graph.json  →  PASS 1 (per node)  →  PASS 2 (corpus-level)  →  llm-annotat
 |---|---|---|
 | Pass 1 — per-node semantics | `passes/pass1/node_annotator.py` (`NodeAnnotator`) | [ADR-005](adr/ADR-005-token-utilization.md) |
 | Pass 2 — corpus synthesis | `passes/pass2/corpus_synthesizer.py` (`CorpusSynthesizer`) | [ADR-005](adr/ADR-005-token-utilization.md) |
-| Provider abstraction | `llm/provider.py` (`LlmProvider` ABC), `llm/resolver.py` (`ProviderResolver`), `llm/providers/{anthropic,openrouter}_provider.py` + `langchain_base.py` | [ADR-013](adr/ADR-013-llm-provider-abstraction.md) |
+| Provider abstraction | `llm/provider.py` (`LlmProvider` ABC), `llm/resolver.py` (`LlmProviderResolver`), `llm/providers/{anthropic,openrouter,openai_compatible}_provider.py` + `langchain_base.py` | [ADR-013](adr/ADR-013-llm-provider-abstraction.md) |
 | Middleware stack (decorators over the base provider) | `llm/middleware/{caching,retrying,telemetry}_llm_provider.py` | [ADR-013](adr/ADR-013-llm-provider-abstraction.md), [ADR-015](adr/ADR-015-telemetry-and-response-cache.md) |
 | Prompt versioning | `llm/prompts/{loader,renderer,validation,models}.py`; prompt files in `codeograph/prompts/{annotate_node,synthesize_corpus}/` (Markdown + YAML frontmatter, required `content_hash_pin`) | [ADR-014](adr/ADR-014-prompt-versioning.md) |
 | Response cache | `llm/cache/{sqlite_backend,key,cache_entry,cache_stats}.py` — local SQLite `cache.db`, 8-component cache key | [ADR-015](adr/ADR-015-telemetry-and-response-cache.md) |
 | Telemetry | `telemetry/{jsonl_emitter,session,session_manager,stats_aggregator,telemetry_record}.py` — one structured JSONL row per LLM call | [ADR-015](adr/ADR-015-telemetry-and-response-cache.md) |
 
-v1 uses a single Sonnet model via `ProviderType.ANTHROPIC`; `OLLAMA` and `BEDROCK` are wired in the resolver but raise `NotImplementedError` (v1.1). Calls are synchronous with prompt caching — no Batch API in v1 (ADR-005).
+v1 supports `ANTHROPIC`, `OPENROUTER`, and `OPENAI_COMPATIBLE` (any OpenAI-compatible endpoint via a configurable `base_url`), defaulting to a single Anthropic Sonnet model across stages; per-stage model overrides (`llm_model_fast` / `deep` / `render`) are configurable, though no curated differential mapping ships in v1. `OLLAMA` and `BEDROCK` are wired in the resolver but raise `NotImplementedError` (v1.1). Calls are synchronous with prompt caching — no Batch API in v1 (ADR-005).
 
 ## DC3 — TypeScript/NestJS renderer
 
