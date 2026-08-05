@@ -10,7 +10,7 @@ Scopes follow the codebase layout: `parser`, `graph`, `input`, `analyzer`, `cli`
 Every AI-assisted commit ends with two attribution trailers (no email required):
 
 ```
-AI-assistant: <tool> v<version> (<provider-note>)
+AI-assistant: <tool> (<provider-note>)
 Model: <api-model-identifier>
 ```
 
@@ -18,8 +18,8 @@ Concrete forms by tool:
 
 ```
 # Claude Code (Opus / Sonnet)
-AI-assistant: Claude Code v0.2.6 (Claude Opus 4.1 via Anthropic)
-Model: claude-opus-4-1-20250514
+AI-assistant: Claude Code (Claude Opus 5 via Anthropic)
+Model: claude-opus-5
 
 # Google Antigravity (Gemini)
 AI-assistant: Google Antigravity (Gemini 3.5 Flash via Google)
@@ -146,6 +146,8 @@ Modifying an existing prompt version *changes its hash*. The loader strictly ver
 ## ADRs
 
 Architecture decisions land as ADRs under `docs/adr/`, numbered sequentially. Amendments to an existing ADR go in the same file under an "Amendment" heading with the date and rationale. Don't backfill ADRs to justify code — write the ADR first, then implement.
+
+**Proposing a new ADR requires reserving its number first** — see [`docs/adr/README.md`](docs/adr/README.md), which is the single home for the ADR template, numbering rules, status lifecycle, and the reservation process. A PR that adds an ADR without a reserved number will be declined.
 
 ## Running tests
 
