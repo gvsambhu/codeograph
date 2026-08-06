@@ -79,12 +79,13 @@ references continue to resolve.
 - **FR-18** `[v1]` — Every scorecard records exact model version strings, not family names.
 - **FR-19** `[v1]` — A `pytest` suite at `tests/` covers unit and integration tests. CI blocks merge
   on failure; unit-test coverage target is 80% or above.
-- **FR-20** `[v1]` — Every tool invocation creates a run manifest and structured logs under
-  `runs/<timestamp>/`.
+- **FR-20** `[v1]` — Every tool invocation writes a run manifest (`manifest.json`) and structured
+  logs (`logs.jsonl`) into the output directory, alongside the run's other artefacts.
 - **FR-21** `[v1]` — Secret scanning runs in CI on every push and pull request; merges are blocked on
   detection.
-- **FR-27** `[v1]` — Output-path safety: no writes outside the output directory, no silent overwrite
-  of a non-empty output directory, and `--force` is required to overwrite.
+- **FR-27** `[v1]` — Output-path safety: all run artefacts are written inside the output directory;
+  an output directory that is the working directory, or an ancestor of it, is rejected; a non-empty
+  output directory is never silently overwritten — `--force` is required.
 
 ### Quality hardening
 
