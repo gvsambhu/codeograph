@@ -36,9 +36,7 @@ LINK = re.compile(r"!?\[[^\]]*\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)")
 # A private-directory reference: the name followed by a separator. Guarded on the
 # left so "framework/", "workflows/", "network/" do not match, and on the right so
 # bare prose ("the work we did") does not either.
-WORKSPACE_PATH = re.compile(
-    r"(?<![\w.-])(?:\.\./)*(work|plan|archive)/[\w./*-]", re.IGNORECASE
-)
+WORKSPACE_PATH = re.compile(r"(?<![\w.-])(?:\.\./)*(work|plan|archive)/[\w./*-]", re.IGNORECASE)
 
 # Link targets that are not repo paths.
 EXTERNAL_SCHEME = re.compile(r"^(https?:|mailto:|ftp:|tel:|data:|#)", re.IGNORECASE)
@@ -52,16 +50,26 @@ EXEMPT_SUBSTRINGS = ("plan/execute",)
 
 TEXT_SUFFIXES = frozenset(
     {
-        ".md", ".py", ".txt", ".yml", ".yaml", ".toml", ".json", ".cfg",
-        ".ini", ".sh", ".ps1", ".j2", ".java", ".ts",
+        ".md",
+        ".py",
+        ".txt",
+        ".yml",
+        ".yaml",
+        ".toml",
+        ".json",
+        ".cfg",
+        ".ini",
+        ".sh",
+        ".ps1",
+        ".j2",
+        ".java",
+        ".ts",
     }
 )
 
 
 def tracked_files() -> list[Path]:
-    out = subprocess.run(
-        ["git", "ls-files"], cwd=REPO_ROOT, capture_output=True, text=True, check=True
-    )
+    out = subprocess.run(["git", "ls-files"], cwd=REPO_ROOT, capture_output=True, text=True, check=True)
     return [REPO_ROOT / line for line in out.stdout.splitlines() if line]
 
 
