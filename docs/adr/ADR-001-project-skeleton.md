@@ -34,7 +34,7 @@ Scope: the `codeograph` Python package skeleton, its entry point, and the single
 * Bundle A — `argparse` + manual 3-level YAML merge + `python-dotenv`
 * Bundle B — `typer` + `pydantic-settings` (unified)
 * Bundle C — `click` + manual 3-level YAML merge + `python-dotenv`
-* Bundle D — `click` + `pydantic-settings` (unified)  ← code sketches in [adr-001-examples.md](adr-001-examples.md)
+* Bundle D — `click` + `pydantic-settings` (unified)  ← code sketches in "Code sketches" below
 
 ## Decision Outcome
 
@@ -125,7 +125,7 @@ One typed `Settings` object, one click entry point.
 
 ## More Information
 
-Code sketches for all three CLI frameworks and all three config bundles live in [adr-001-examples.md](adr-001-examples.md) (scratch workspace, not committed to the repo).
+Code sketches for all three CLI frameworks and all three config bundles are in "Code sketches" at the end of this section.
 
 Structural outcome — the two files this ADR commits the skeleton to:
 
@@ -187,6 +187,203 @@ References:
 * MADR template — https://github.com/adr/madr
 * `pydantic-settings` docs — https://docs.pydantic.dev/latest/concepts/pydantic_settings/
 * `click` docs — https://click.palletsprojects.com/
+
+### Code sketches
+
+The sketches the options above were compared against. Same CLI surface in every example: source
+path, `--target`, `--max-classes-per-domain`, `--config`, `--dry-run`.
+
+> **Read these as of the decision date.** They are the material this ADR weighed, not current API.
+> The provider set shown (`anthropic | ollama | bedrock`) was later revised by D-013-1 and D-013-7 —
+> see ADR-013. Left unchanged so the comparison reads as it did when the choice was made.
+
+#### CLI frameworks
+
+`argparse` (stdlib):
+
+```python
+# codeograph/main.py
+import argparse
+
+def main():
+    parser = argparse.ArgumentParser(description="Analyse a Spring Boot codebase")
+    parser.add_argument("source", help="Path to source project")
+    parser.add_argument("--target", choices=["ts", "go"], default="ts")
+    parser.add_argument("--max-classes-per-domain", type=int, default=3)
+    parser.add_argument("--config", default="config.yaml")
+    parser.add_argument("--dry-run", action="store_true")
+    args = parser.parse_args()
+    run(args.source, args.target, args.max_classes_per_domain, args.dry_run)
+```
+
+`click`:
+
+```python
+# codeograph/main.py
+import click
+
+@click.command()
+@click.argument("source")
+@click.option("--target", type=click.Choice(["ts", "go"]), default="ts", show_default=True)
+@click.option("--max-classes-per-domain", type=int, default=3, show_default=True)
+@click.option("--config", default="config.yaml", show_default=True)
+@click.option("--dry-run", is_flag=True, default=False)
+def main(source, target, max_classes_per_domain, config, dry_run):
+    run(source, target, max_classes_per_domain, dry_run)
+```
+
+`typer`:
+
+```python
+# codeograph/main.py
+import typer
+from enum import Enum
+from typing import Annotated
+
+class Target(str, Enum):
+    ts = "ts"
+    go = "go"
+
+app = typer.Typer()
+
+@app.command()
+def main(
+    source: Annotated[str, typer.Argument(help="Path to source project")],
+    target: Annotated[Target, typer.Option(help="Target language")] = Target.ts,
+    max_classes_per_domain: Annotated[int, typer.Option(help="Cap per domain, 0=unlimited")] = 3,
+    config: Annotated[str, typer.Option()] = "config.yaml",
+    dry_run: Annotated[bool, typer.Option("--dry-run")] = False,
+):
+    run(source, target.value, max_classes_per_domain, dry_run)
+```
+
+#### Bundle A — `argparse` + 3-level YAML merge + `python-dotenv`
+
+```
+# .env  (gitignored)
+ANTHROPIC_API_KEY=sk-ant-...
+LLM_PROVIDER=anthropic
+```
+
+```yaml
+# config.yaml  (committed — no secrets)
+llm:
+  model: claude-sonnet-4-6
+max_classes_per_domain: 3
+```
+
+```python
+# codeograph/config.py
+import os
+import yaml
+from dotenv import load_dotenv
+
+load_dotenv()  # reads .env into os.environ before anything else
+
+DEFAULTS = {
+    "target": "ts",
+    "max_classes_per_domain": 3,
+    "llm": {
+        "provider": "anthropic",
+        "model": "claude-sonnet-4-6",
+    }
+}
+
+def load(yaml_path: str, cli_overrides: dict) -> dict:
+    cfg = dict(DEFAULTS)
+    if os.path.exists(yaml_path):
+        with open(yaml_path) as f:
+            cfg = deep_merge(cfg, yaml.safe_load(f) or {})
+    cfg.update({k: v for k, v in cli_overrides.items() if v is not None})
+    return cfg
+
+# Secrets accessed at call-site:
+# api_key = os.environ["ANTHROPIC_API_KEY"]
+```
+
+Three explicit layers, nothing implicit. To see where a value came from, you read the merge logic.
+
+#### Bundle B — `typer` + `pydantic-settings` (unified)
+
+```
+# .env  (gitignored)
+ANTHROPIC_API_KEY=sk-ant-...
+LLM_PROVIDER=anthropic
+```
+
+```yaml
+# config.yaml  (committed — no secrets)
+llm_model: claude-sonnet-4-6
+max_classes_per_domain: 3
+```
+
+```python
+# codeograph/settings.py
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import Field
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        yaml_file="config.yaml",   # pydantic-settings 2.3+
+        # priority: init kwargs > env vars > .env > yaml > field defaults
+    )
+
+    # Secrets — from .env or real env only, never from config.yaml
+    anthropic_api_key: str = Field(default="")
+    ollama_base_url: str = Field(default="http://localhost:11434")
+
+    # Pipeline config — can come from any layer
+    llm_provider: str = Field(default="anthropic")
+    llm_model: str = Field(default="claude-sonnet-4-6")
+    max_classes_per_domain: int = Field(default=3)
+    target: str = Field(default="ts")
+```
+
+```python
+# codeograph/main.py  (typer CLI overrides settings)
+@app.command()
+def main(source: str, target: Target = Target.ts, ...):
+    settings = Settings(target=target.value)  # CLI wins over everything
+    run(source, settings)
+```
+
+One object, typed and validated. CLI kwargs passed to the constructor override all lower layers.
+
+#### Bundle C — `click` + 3-level YAML merge + `python-dotenv`
+
+Same `config.py` and `.env` as Bundle A; the CLI layer is `click` instead of `argparse`. No
+structural difference beyond decorator syntax.
+
+#### Secrets handling — identical across all bundles
+
+```gitignore
+# Secrets — never committed
+.env
+.env.local
+.env.*.local
+
+# But DO commit the example template
+# .env.example  <-- not ignored
+```
+
+```
+# .env.example  (committed, placeholder values only)
+ANTHROPIC_API_KEY=your-key-here
+LLM_PROVIDER=anthropic          # anthropic | ollama | bedrock
+OLLAMA_BASE_URL=http://localhost:11434
+AWS_PROFILE=                    # for Bedrock
+```
+
+Contributors clone, copy `.env.example` to `.env`, and fill in their own keys. The real `.env` is
+never committed regardless of which bundle is chosen.
+
+---
+
+*Editorial note, 2026-08-05: these sketches were referenced from this ADR's first commit as a link
+to a file that was never committed, so the link had always resolved to nothing. The content is
+inlined here unchanged. No decision is altered — the material was always intended to be part of
+this ADR's supporting detail.*
 
 ## Amendments
 

@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   # ---------------------------------------------------------------------------
-  # Lint — ruff + mypy + 4 freshness gates (prompt, gitleaks pin, scorecard schema, manifest schema)
+  # Lint — ruff + mypy + 5 gates (prompt, gitleaks pin, scorecard schema, manifest schema, refs)
   # Fast-fail target: ~30s signal on trivial errors
   # ---------------------------------------------------------------------------
   lint:
@@ -70,6 +70,10 @@ jobs:
       - name: Manifest schema freshness (ADR-022 / ADR-025)
         shell: bash
         run: python -m codeograph.manifest.schema_cli --check
+
+      - name: No unresolvable or private-workspace references
+        shell: bash
+        run: python scripts/check_no_workspace_refs.py
 
   # ---------------------------------------------------------------------------
   # Unit — pytest fast suite (excludes slow/external/eval markers)
