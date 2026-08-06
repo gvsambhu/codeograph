@@ -1,5 +1,30 @@
 # Contributing
 
+## Before you start
+
+Codeograph is solo-maintained. v1 has shipped; v1.1 is in planning, and the roadmap is visible in
+the [ADR index](docs/adr/README.md) — anything marked deferred there is scope that has been thought
+about but not built.
+
+**Please open an issue before investing effort in a change.** Not a formality: it is so we can agree
+scope before you write anything. Some areas are settled and closed to outside proposals, some are
+mid-design, and some have constraints that are not obvious from the code — the deterministic-versus-LLM
+boundary in particular is load-bearing, and a change that blurs it will be declined however well it
+is written.
+
+What that means in practice:
+
+| You want to | Start with |
+|---|---|
+| Report a bug, or ask whether an idea fits | An issue |
+| Propose an architectural decision | An issue first, then the [ADR process](docs/adr/README.md) — which requires reserving a number before any ADR file exists |
+| Fix something small and self-evident | A PR directly is fine |
+
+The [ADR index](docs/adr/README.md) also lists the areas that do not accept outside proposals, with
+the reason for each. Reading that first will save you time.
+
+Response times are best-effort — this is not anyone's day job.
+
 ## Commits
 
 **Conventional Commits.** Subject line: `<type>(<scope>): <summary>`.
