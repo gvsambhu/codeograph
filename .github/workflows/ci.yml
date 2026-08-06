@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   # ---------------------------------------------------------------------------
-  # Lint — ruff + mypy + banned-terms + prompt freshness
+  # Lint — ruff + mypy + 4 freshness gates (prompt, gitleaks pin, scorecard schema, manifest schema)
   # Fast-fail target: ~30s signal on trivial errors
   # ---------------------------------------------------------------------------
   lint:
