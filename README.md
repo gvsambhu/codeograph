@@ -191,5 +191,6 @@ The run manifest (`manifest.json`) is written once at the terminal checkpoint, a
 - [Running Codeograph](docs/running-codeograph.md) — pipeline stages, command order, and exact flag combinations for common scenarios
 - [Model selection & cost](docs/model-selection-and-cost.md) — which model/provider to pick and what it costs
 - [Architecture snapshot](docs/architecture.md) — what's wired today
+- [Requirements](docs/requirements.md) — what the tool is built to do, marked v1 or v1.1
 - [ADRs](docs/adr/) — design decisions and their rationale
 - [Contributing](CONTRIBUTING.md) — commit conventions, branching, CI

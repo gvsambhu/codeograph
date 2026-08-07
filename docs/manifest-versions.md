@@ -64,5 +64,5 @@ bump date. Per ADR-022 Fork 7, every bump requires:
   (the load-bearing design ADR; Forks 1 + 2 + 7 govern this log)
 - [ADR-006 — Knowledge Graph Schema](adr/ADR-006-knowledge-graph-schema.md)
   (the base manifest shape; canonical-form sha256 substrate)
-- [ADR-017 — Eval Framework](adr/ADR-017-eval-framework.md)
+- [ADR-017 — Eval Framework](adr/ADR-017-evaluation-framework.md)
   (consuming ADR for the `scorecards` + `compile_checks` pointer collections and the `source_path` / `corpus_id` / `run_id` scalars)

@@ -1,5 +1,30 @@
 # Contributing
 
+## Before you start
+
+Codeograph is solo-maintained. v1 has shipped; v1.1 is in planning, and the roadmap is visible in
+the [ADR index](docs/adr/README.md) — anything marked deferred there is scope that has been thought
+about but not built.
+
+**Please open an issue before investing effort in a change.** Not a formality: it is so we can agree
+scope before you write anything. Some areas are settled and closed to outside proposals, some are
+mid-design, and some have constraints that are not obvious from the code — the deterministic-versus-LLM
+boundary in particular is load-bearing, and a change that blurs it will be declined however well it
+is written.
+
+What that means in practice:
+
+| You want to | Start with |
+|---|---|
+| Report a bug, or ask whether an idea fits | An issue |
+| Propose an architectural decision | An issue first, then the [ADR process](docs/adr/README.md) — which requires reserving a number before any ADR file exists |
+| Fix something small and self-evident | A PR directly is fine |
+
+The [ADR index](docs/adr/README.md) also lists the areas that do not accept outside proposals, with
+the reason for each. Reading that first will save you time.
+
+Response times are best-effort — this is not anyone's day job.
+
 ## Commits
 
 **Conventional Commits.** Subject line: `<type>(<scope>): <summary>`.
@@ -10,7 +35,7 @@ Scopes follow the codebase layout: `parser`, `graph`, `input`, `analyzer`, `cli`
 Every AI-assisted commit ends with two attribution trailers (no email required):
 
 ```
-AI-assistant: <tool> v<version> (<provider-note>)
+AI-assistant: <tool> (<provider-note>)
 Model: <api-model-identifier>
 ```
 
@@ -18,8 +43,8 @@ Concrete forms by tool:
 
 ```
 # Claude Code (Opus / Sonnet)
-AI-assistant: Claude Code v0.2.6 (Claude Opus 4.1 via Anthropic)
-Model: claude-opus-4-1-20250514
+AI-assistant: Claude Code (Claude Opus 5 via Anthropic)
+Model: claude-opus-5
 
 # Google Antigravity (Gemini)
 AI-assistant: Google Antigravity (Gemini 3.5 Flash via Google)
@@ -146,6 +171,8 @@ Modifying an existing prompt version *changes its hash*. The loader strictly ver
 ## ADRs
 
 Architecture decisions land as ADRs under `docs/adr/`, numbered sequentially. Amendments to an existing ADR go in the same file under an "Amendment" heading with the date and rationale. Don't backfill ADRs to justify code — write the ADR first, then implement.
+
+**Proposing a new ADR requires reserving its number first** — see [`docs/adr/README.md`](docs/adr/README.md), which is the single home for the ADR template, numbering rules, status lifecycle, and the reservation process. A PR that adds an ADR without a reserved number will be declined.
 
 ## Running tests
 

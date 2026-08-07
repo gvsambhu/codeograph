@@ -8,12 +8,15 @@ ADR numbers reflect **architectural layer** (input → graph → rendering → L
 
 ## Status legend
 
-| Symbol | Meaning |
-|---|---|
-| ✅ | Locked — decision committed; changes require a new ADR or formal amendment |
-| 📝 | Drafted — locked-decision form lives in `work/adr-drafts/`, awaiting promotion |
-| ⬜ | Designed but not yet drafted |
-| ⏸️ | Deferred — v1.1 or post-v1 scope; design not started |
+| Symbol | `status:` | Meaning |
+|---|---|---|
+| ✅ | `accepted` | Decision committed; changes require a new ADR or a formal amendment |
+| 📝 | `proposed` | File is in this directory, decision not yet accepted — open for review |
+| ⬜ | — | Number **reserved**; no file yet |
+| ⏸️ | — | Number reserved, deferred to v1.1 or later; design not started |
+
+The symbol in the index below and the `status:` field in each ADR's frontmatter describe the same
+state. ⬜ and ⏸️ have no file, so they have no frontmatter — the reservation row is the whole record.
 
 ---
 
@@ -100,7 +103,72 @@ For someone new to the project who wants to understand the design end-to-end, re
 
 ---
 
+## Proposing a new ADR
+
+Three steps. Step 1 is a precondition — a PR that adds an ADR file without a reserved number will be
+declined.
+
+### 1. Reserve the number
+
+Open a PR that adds a single row to the **Index by ADR number** table above: the next free number,
+the title, `⬜`, and your GitHub handle as owner. Nothing else — no ADR file yet.
+
+The index is one file with one row per number, so two people claiming the same number produce a
+merge conflict. That is the mechanism: reservation is serialised by merge, not by convention.
+
+A reservation with no PR activity for six months may be released and the number reassigned.
+
+### 2. Write the ADR
+
+Once the reservation is merged, add `ADR-<NNN>-<slug>.md` to this directory with
+`status: proposed`, on a branch, via PR. Use the number you reserved. Follow the template and
+conventions below; an ADR that doesn't meet them will be sent back rather than declined.
+
+Discussion happens in the PR. If the problem needs exploring before a decision is defensible, open
+an issue first — that's the cheaper place for option debates than a PR thread.
+
+### 3. Acceptance
+
+Merge to `main` with `status: accepted`. A reviewer checks that the decision is genuinely
+architectural (see "When to write a new ADR"), that at least two options were considered with real
+tradeoffs, that the Confirmation section states how the decision can be verified in code, and that
+no forward reference contradicts a locked ADR.
+
+### Areas that do not accept outside proposals
+
+These are maintainer-owned by design. Issues and discussion are welcome; ADR PRs will be declined.
+
+| Area | Why |
+|---|---|
+| ADR-003 — parsing strategy | Tool-selection call reserved to the maintainer |
+| ADR-004 — complexity model | Every threshold must cite a published source |
+| ADR-011 — Spring → Go idiom mapping | The mapping design is the project's core exercise |
+| README "Point of view" section | Author's personal voice |
+
+---
+
 ## Conventions
+
+### Numbering
+
+- Three digits, sequential from `001`. **Never reuse a number**, including for a withdrawn proposal.
+- Numbers `001`–`021` were allocated by architectural layer (input → graph → rendering → LLM →
+  quality → cross-cutting). That scheme is closed: from `022` onward numbers are allocated in
+  reservation order. The recommended reading order above carries the layer grouping instead.
+- One decision per file. If a file covers two decisions, split it into two numbers.
+
+### Status lifecycle
+
+```
+reserved (index row only) → proposed (file, status: proposed) → accepted
+                                                              ↘ withdrawn (number retired, not reused)
+accepted → deprecated
+        → superseded by ADR-NNN
+```
+
+An accepted ADR is immutable, with exactly two exceptions: its `status:` field, and append-only
+`## Amendments` sections. Never edit the original decision text to reflect a later change — that
+destroys the record of what was decided when, which is the entire point of an ADR.
 
 ### When to write a new ADR
 
@@ -145,11 +213,15 @@ Each ADR follows MADR with these sections:
 
 ---
 
-## How ADR design rounds work
+## Why the numbers don't match the design order
 
-ADRs are designed in **Rounds** (R1–R10), grouped by what gets locked in the same design session and sequenced by which Dev Chunk consumes them. The round sequence is **not** the same as the ADR number sequence — see `work/PROJECT-TRACKER.md` for the round-to-Dev-Chunk timeline.
+ADRs 001–021 were designed in batches, grouped by which decisions had to lock together, and
+numbered by architectural layer rather than by the order they were written. So the number sequence
+is neither the design sequence nor the runtime sequence — which is why the reading order above is
+grouped by topic instead.
 
-The round that drafted each ADR is recorded in PROJECT-TRACKER; it isn't part of the ADR itself because the design-time ordering is operational metadata, not architectural metadata. The ADR itself only carries what's needed to understand and confirm the decision.
+The design-time ordering is operational metadata, not architectural metadata, so it isn't recorded
+in the ADRs themselves. Each ADR carries only what's needed to understand and confirm its decision.
 
 ---
 
@@ -160,7 +232,7 @@ Some ADRs introduce concepts referenced across many others:
 - **Canonical-form sha256** — defined in ADR-006 amendment; consumed by ADR-007 (goldens), ADR-015 (cache key), ADR-022 (manifest integrity).
 - **`--ast-only` mode** — declared in ADR-007 §"Pipeline orchestration constraint"; honored by ADR-013 §"Decision Outcome".
 - **`CallContext` (purpose, prompt_id, prompt_version, prompt_content_hash, corpus_id)** — defined in ADR-013 Fork 3; consumed by ADR-015 cache key and telemetry record.
-- **Banned terms list** — operational discipline documented in `CONTRIBUTING.md`; no ADR enforces it (manual review baseline, not feature scope).
+- **Banned terms** — a maintainer-side review discipline, not a repo-enforced rule and not owned by any ADR.
 
 ---
 

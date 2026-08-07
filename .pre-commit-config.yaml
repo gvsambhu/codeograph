@@ -17,3 +17,8 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
+      - id: check-no-workspace-refs
+        name: No unresolvable or private-workspace references
+        entry: python scripts/check_no_workspace_refs.py
+        language: system
+        pass_filenames: true

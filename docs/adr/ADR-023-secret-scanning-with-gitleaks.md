@@ -567,11 +567,13 @@ An admin bypass mechanism is explicitly deferred. The v1.1 trigger is "a real fa
 
 The Fork 1 Decision Outcome and the pyproject.toml sketch both treated `.pre-commit-config.yaml` and the `pre-commit` Python framework as new introductions in DC5, including a `# NEW` annotation and an explicit "add `pre-commit` to dev deps" step.
 
-**This framing is incorrect.** The `pre-commit` framework has been present since DC2. The existing `.pre-commit-config.yaml` already contains four hooks: the ADR-014 prompt-hash and gen-constants freshness gates, plus two NFR-1 banned-terms hooks. The `pre-commit` package is already in `[project.optional-dependencies] dev`.
+**This framing is incorrect.** The `pre-commit` framework has been present since DC2. The existing `.pre-commit-config.yaml` already contains two hooks: the ADR-014 prompt-hash and gen-constants freshness gates. The `pre-commit` package is already in `[project.optional-dependencies] dev`.
 
 **Corrected Fork 1 scope:** the DC5 action is to **add the gitleaks `repo` entry to the existing `.pre-commit-config.yaml`** — not to bootstrap the pre-commit framework. The Decision Outcome's "add `pre-commit` to dev deps" step and the `# NEW` annotation in the pyproject example are removed from the design intent; they were already satisfied before DC5.
 
-**Cascade:** The DC5 M8 implementation plan must **not** overwrite the existing `.pre-commit-config.yaml`; it must append the gitleaks hook entry. Overwriting would clobber the four existing hooks. This is the learner's dev fix (DC5-04 in `dev-dc5.md`).
+**Cascade:** The DC5 M8 implementation plan must **not** overwrite the existing `.pre-commit-config.yaml`; it must append the gitleaks hook entry. Overwriting would clobber the two existing hooks. This is the learner's dev fix (DC5-04).
+
+> **Errata — 2026-08-05.** As first written, this amendment said the config held *four* hooks, counting two additional origin-hygiene hooks. That count was wrong on the date of the amendment: those two hooks had been moved out of the committed config on 2026-06-12, ten days earlier, and the config held two. The figures above are corrected to two. **The decision and its cascade are unaffected** — append the gitleaks entry, do not overwrite, do not bootstrap the framework — and Confirmation #2 was never affected, as it tests for the gitleaks entry specifically rather than counting entries.
 
 **No change to Confirmation items** — Confirmation #2 ("`.pre-commit-config.yaml` exists at repo root with one entry whose `repo` field is `https://github.com/gitleaks/gitleaks`") remains correct; it tests for the gitleaks entry specifically, not for other entries' presence.
 
