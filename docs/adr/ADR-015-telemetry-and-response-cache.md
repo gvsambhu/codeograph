@@ -658,3 +658,91 @@ of the telemetry / cache-backend / cache-key decisions of this ADR; the change i
 * A telemetry write failure warns and the LLM call still succeeds (D-015-5).
 
 No reversal of the telemetry / cache-backend decisions; the cache key gains a component and the telemetry schema takes an additive `run_id`. Clarification and additive evolution only.
+
+**2026-08-12 — Cost estimation is computed from the per-model price table (requirements-cascade).**
+The 2026-06-07 amendment above deferred the manifest cost fields *"because v1 has no cost model"* and
+named the trigger for re-adding them: *"when a cost model is introduced (the future cost-control work,
+**or an amendment to this ADR that lands the per-model price table**)."* **ADR-027 landed that table**
+(`codeograph/llm/prices.toml` — dated, per-model input / output / cache-read rates). The trigger
+condition is met, and this is that amendment.
+
+Until now `cost_usd_est` has been hardcoded `0.0`, so Fork 2's field existed but carried no
+information and Fork 6's cache-savings line (`~$2.14 saved, ~$3.72 incurred`) could not be produced.
+
+**Why the estimate is defensible post-call.** The pre-flight figure ADR-027 shows is estimated on two
+axes — expected token volume *and* table prices. **Post-call, volume is exact**: the provider response
+supplies `input_tokens`, `output_tokens` and `cached_tokens`. Only the price axis is estimated. The
+recorded cost is therefore materially tighter than the pre-flight figure, though still an estimate.
+
+**1. Scope — telemetry row and manifest aggregate.** Both, as the 2026-06-07 amendment anticipated.
+The per-call record carries the computed cost; `cache_stats` regains `saved_usd_est` and
+`incurred_usd_est` as an **additive manifest bump (`2.0.0` → `2.1.0`)**. `incurred` sums actual cost;
+`saved` is counterfactual — what cache-read tokens would have cost at the full input rate:
+
+```
+saved = (cached_tokens / 1e6) * (input_usd_per_million - cache_read_usd_per_million)
+```
+
+**2. An unpriced model is explicit, and the aggregate declares its coverage.** `PriceLoader.get_price`
+already returns `None` for a model absent from the table. That absence must not collapse into `0.0` —
+the table contains genuinely free models (`openrouter.qwen/qwen3-coder:free` is `0.00` on every axis),
+so a zero cost is a real value and cannot also mean *"we have no idea."* This is the same overloaded-
+sentinel defect ADR-025 removed from the nullable `sha256`.
+
+* **Per record:** `cost_usd_est` becomes nullable, with an additive `cost_unavailable_reason`
+  (`model_not_in_price_table` at v1; the field is an enum so later causes can be distinguished).
+  **Telemetry `schema_version` `1.1` → `1.2`.** This is a **type widening, not a pure addition** —
+  a consumer summing the field must handle `null`.
+* **Per pass:** the aggregate declares how much of the pass it actually priced. A total computed over
+  42 of 247 calls is not a total, and publishing it unqualified would state a run cost that is wrong
+  by an order of magnitude. When coverage is partial, `incurred_usd_est` and `saved_usd_est` are
+  `null` and `cost_coverage` carries the counts.
+
+**3. The estimate stays labelled where it is consumed.** ADR-027 Fork 4 requires the figure be
+labelled *"an estimate from a dated static table, not a quote."* A label attached only to the per-call
+row is lost the moment anything sums it, so the manifest carries a top-level `pricing` block —
+sourced from `PriceLoader.get_metadata()`, which already holds `capture_date` and
+`staleness_window_days`. Placing it at the manifest top level rather than inside `cache_stats` keeps
+that map cleanly keyed by pass name.
+
+A table older than its own staleness window sets `stale: true`; **it does not suppress the figure.**
+An aged price is imprecise, not ambiguous, and its age is stated — a consumer can discount it. This
+is deliberately weaker than nulling past the window: it preserves an order-of-magnitude estimate at
+the cost of trusting the consumer to read the flag.
+
+```json
+{ "schema_version": "2.1.0",
+  "cache_stats": {
+    "pass_1": { "calls": 247, "hits": 89, "hit_rate": 0.36,
+                "saved_usd_est": 2.14, "incurred_usd_est": 3.72,
+                "cost_coverage": { "priced": 247, "total": 247 } },
+    "pass_2": { "calls": 8, "hits": 0, "hit_rate": 0.0,
+                "saved_usd_est": null, "incurred_usd_est": null,
+                "cost_coverage": { "priced": 0, "total": 8 } } },
+  "pricing": { "source": "static_table", "capture_date": "2026-06-26",
+               "stale": false, "basis": "estimate, not billed amount" } }
+```
+
+**Relationship to ADR-027's removal contract.** ADR-027 is *"temporary by construction… removed when
+ADR-016 lands."* This amendment does not extend its life. The **obligation** to record cost lives
+here, permanently; ADR-027's table is merely v1's *source* for it. When ADR-016 supplies a live tally,
+it replaces the source and this decision is unaffected. That is why the amendment sits on this ADR and
+not on ADR-027.
+
+**Cascade.** ADR-025 owns the manifest shape and its YAGNI driver — *"fields with no v1 capability
+behind them (cost estimates without a cost model) are not shipped"* — was the reason these fields were
+removed. That precondition no longer holds; ADR-025 takes a companion note.
+
+**New Confirmation items.**
+* A call against a model present in the price table records a non-null `cost_usd_est` computed from
+  exact token counts and table rates.
+* A call against a model absent from the table records `cost_usd_est: null` and
+  `cost_unavailable_reason: "model_not_in_price_table"` — never `0.0`.
+* A call against a table-listed free model records `cost_usd_est: 0.0` with no reason field, and is
+  counted as priced.
+* A pass with any unpriced call reports `incurred_usd_est: null` and a `cost_coverage` count.
+* A manifest produced with a table older than its staleness window carries `pricing.stale: true` and
+  still reports figures.
+
+No reversal of any prior decision. Fork 2's field gains a computation and a null state; the manifest
+regains fields the 2026-06-07 amendment deferred, on the trigger that amendment specified.

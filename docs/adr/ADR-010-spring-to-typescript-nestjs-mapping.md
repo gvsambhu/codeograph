@@ -1006,3 +1006,50 @@ The same nine-fork structure (DI / HTTP / persistence / exceptions / config / va
 * A class matching both security and webflux refusal records `security` as the refuse reason in the audit log (D-010-2).
 
 No reversal of any prior decision; clarification only.
+
+### 2026-08-12 — Remove `silent_skip` from both encounter policies; warn on the behaviour, not the preset (requirements-cascade)
+
+**Change 1 — `silent_skip` is removed from `unsupported_feature_policy`.** The 2026-05-28 fixup round
+narrowed `UnsupportedFeaturePolicy` from three values to two by removing `refuse`. This amendment
+removes the second, leaving `stub_todo` as the only behaviour. Since a single-member policy is not a
+policy, **the field is removed with it** — an untranslatable feature always surfaces as a reviewable
+TODO stub.
+
+**Change 2 — `silent_skip` is removed from `security_feature_policy`**, leaving `stub_todo` and
+`refuse`, with `refuse` remaining the default.
+
+**Rationale.** Both removed values produce, by their own documented behaviour, exactly what Fork 9's
+governing driver forbids. `silent_skip` on the unsupported policy renders *"without the feature, no
+TODO"*; on the security policy it renders an endpoint *"WITHOUT auth and without any TODO"*. The
+driver reads *"No silent failures — features that cannot be translated faithfully become reviewable
+TODOs or refuse-to-render entries; **never silent drops**."* The published README makes the same
+promise to users. Two configuration values falsified both.
+
+Note the asymmetry with the 2026-05-28 removal: `refuse` was removed because it was **unimplementable**
+(no deterministic class-level detector exists for generic unsupported features). `silent_skip` is
+perfectly implementable — the render prompt simply omits the TODO. It is removed because it is
+**undesirable**, not because it cannot be built. Different reason, same outcome.
+
+**Change 3 — the permissive warning attaches to the behaviour, not to a preset.** Fork 9 attached the
+loud *"output is NOT production-ready without manual review"* warning to the `--permissive-features`
+CLI preset. A user setting a permissive value directly through configuration — which Fork 9 explicitly
+permits — received no warning at all. The warning now fires whenever a permissive value is active,
+however it was set. This is **new behaviour**: no warning path exists today, the presets having been
+dropped from the CLI.
+
+**Cascade.** The render prompt at `renderers/typescript_nestjs/prompts/render_file/` references the
+policy vocabulary, so this requires a **new prompt version** with its own `content_hash_pin` per
+ADR-014 — not an in-place edit. A new prompt version changes the response-cache key, so the next render
+run against any corpus pays full cost rather than hitting cache.
+
+**New Confirmation items.**
+* `TypeScriptConfig` rejects `silent_skip` for `security_feature_policy` (mirrors the existing `refuse`
+  rejection test).
+* `unsupported_feature_policy` no longer exists as a configurable field.
+* A run with any permissive feature policy active emits the not-production-ready warning, whether the
+  value was set by flag, config file, or environment.
+
+**Reversal note.** This **reverses** Fork 9's inclusion of `silent_skip` in both policy value sets and
+**relocates** its permissive-mode warning from the preset to the behaviour. Fork 9's remaining
+decisions — the coverage matrix, `webflux_policy`, and `refuse` as the security default — are
+unchanged.

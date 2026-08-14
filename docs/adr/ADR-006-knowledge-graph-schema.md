@@ -522,3 +522,23 @@ Impact on the graph builder: the builder copies `superclass`, `implements`, and 
 * **Fork 6 manifest example superseded by ADR-025.** The illustrative manifest block in Fork 6 (`manifest_version: 1.0.0` with nested `artifacts`) predates the ADR-025 terminal-write manifest, which is a **flat** `2.0.0` shape written exactly once. That block is retained only as historical illustration of the graph-side `sha256` contract; the authoritative manifest schema and version are ADR-025's. The graph.json canonical-form and `sha256` contract — the substance of Fork 6 — are unchanged.
 
 No reversal of any prior decision; clarification only.
+
+**2026-08-12 — Schema location is held by this ADR alone (requirements-cascade).** The requirements
+document no longer names a location for the schema files. It states the obligation — the schema is
+published as a committed artefact, every emitted graph validates against it at write time, and the
+schema-validity evaluation re-checks it — and leaves *where* the files live to this ADR, per the
+locked position that requirements state what must be true while ADRs own where things live.
+
+This **supersedes the closing clause of the 2026-06-17 item 2 amendment**, *"FR-7b is updated to
+match"*: FR-7b no longer carries `codeograph/schema/*.schema.json`, so there is no longer a location
+for it to match. **The decision itself is unchanged** — the language-neutral source of truth remains
+the set of `codeograph/schema/*.schema.json` files, and the two validation points remain write-time
+construction and the evaluation re-check. What changed is only which document is authoritative for the
+path: this one.
+
+Also note that the requirements no longer describe the write-time mechanism (previously "the generated
+Pydantic models"), which is implementation and belongs here rather than in a requirement. The
+obligation — a non-conforming graph cannot be written — is unchanged.
+
+No reversal of any prior decision; the authority for one detail moves, and one stale cross-reference
+is retired.

@@ -525,3 +525,25 @@ The same shape applies when a Go renderer is added: one new package under `codeo
 * Two classes resolving to the same render path raise a loud assembly error, not a silent overwrite (D-008-5).
 
 No reversal of any prior decision; clarification + additive contract definition only.
+
+**2026-08-12 — Target enumeration is part of the registry contract (requirements-cascade).** Fork 5
+decided registration (`@RendererRegistry.register`) and CLI validation (an unknown `--target` fails
+before pipeline init). It never decided an **enumeration** surface — a way to ask the registry what it
+holds. The CLI shipped one anyway (`--list-targets`), which is a surface with no design record.
+
+This amendment adds enumeration to the registry contract, and records why it is a consequence of an
+existing driver rather than a new capability. The driver *"adding a renderer is a one-package change;
+central code is closed for modification"* means the registered target set is **not statically known** —
+not to the core, and not to any document, since a third-party package may register a target no
+maintainer has heard of. Documentation therefore cannot enumerate the available targets; only the
+registry can. For a user to select a target at all, the registry must be able to report its contents at
+runtime. **Selectable without knowable is an incomplete contract**, and closing central code for
+modification is precisely what makes it so.
+
+The requirement states this at the capability level — the set of available targets is discoverable at
+runtime — without naming a mechanism, so the CLI flag remains this ADR's choice.
+
+**New Confirmation item.**
+* The registry can report its registered target names at runtime, and the CLI exposes that report.
+
+No reversal of any prior decision; an undesigned surface gains its design record.
