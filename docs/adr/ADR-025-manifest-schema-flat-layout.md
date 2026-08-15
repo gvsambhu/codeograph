@@ -436,3 +436,38 @@ outer `codeograph/` git-repo directory, which is the *parent* of the `codeograph
 freshness gate (`python -m codeograph.manifest.schema_cli --check`) validates against that path. No
 behaviour change; the address is clarified. Joint with the ADR-022 2026-06-23 amendment (item 3); the
 `status` remains `accepted`.
+
+**2026-08-12 — `cache_stats` regains cost fields; a `pricing` block is added (`2.1.0`).** Fork 5's
+v1 `cache_stats` shape is `{calls, hits, hit_rate}` only. The cost-estimate fields were excluded under
+this ADR's **YAGNI** driver — *"fields with no v1 capability behind them (cost estimates without a
+cost model) are not shipped; they are added when the capability exists."*
+
+**That precondition no longer holds.** ADR-027 landed a dated per-model price table, and the ADR-015
+amendment of the same date computes cost from it using exact post-call token counts. The capability
+exists, so the fields are added — which is the YAGNI driver operating as designed rather than an
+exception to it.
+
+**Schema `2.0.0` → `2.1.0`, additive**, per this ADR's strict-additive rule for the `2.x` line:
+
+* `cache_stats.<pass>` gains `saved_usd_est`, `incurred_usd_est` and `cost_coverage`. The two figures
+  are **nullable**: a pass containing any call against a model absent from the price table reports
+  `null` rather than a total computed over part of the pass, with `cost_coverage` carrying the
+  `{priced, total}` counts. This follows Fork 3's principle that an absent value must be explicit
+  rather than inferred — the same reasoning that made `sha256` non-nullable and `llm_skipped` a
+  first-class flag.
+* A new top-level `pricing` block records the estimate's provenance — `source`, `capture_date`,
+  `stale`, `basis`. It sits at the top level rather than inside `cache_stats` so that map stays
+  cleanly keyed by pass name, and it is a **scalar-category** field under Fork 2's three-category
+  layout: one small run-level fact, not an artefact pointer.
+
+ADR-015 owns what the figures mean and how they are computed; this ADR owns only their place in the
+manifest and the version bump.
+
+**New Confirmation items.**
+* A manifest whose passes were all priced validates at `2.1.0` with non-null `incurred_usd_est`.
+* A manifest containing an unpriced call reports `incurred_usd_est: null` with a `cost_coverage` count,
+  and still validates.
+* The committed JSON Schema regenerates cleanly at `2.1.0` and the CI freshness gate passes.
+
+No reversal of any prior decision; a deferral is discharged on the trigger Fork 5 named, and the `2.x`
+line evolves additively as designed.

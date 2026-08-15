@@ -453,7 +453,7 @@ The committed JSON Schema (`codeograph/_generated/manifest.schema.json`) and the
 
 ### Constraint flagged for future ADR-024 (output-path safety, v1.1)
 
-The shipped pattern of overwriting `<out>` on re-run (Fork 5) is the user-facing surface ADR-024 will add `--force` discipline to. ADR-024 doesn't change Fork 5's layout; it adds a pre-write check that `<out>` is empty or `--force` is set.
+The shipped pattern of overwriting `<out>` on re-run (Fork 5) is the user-facing surface that output-path safety adds `--force` discipline to. That discipline does not change Fork 5's layout; it adds a pre-write check that `<out>` is empty or `--force` is set. *(Ownership corrected 2026-08-16: this originally pointed at ADR-024, which was reserved for prompt-injection defence **and** output-path safety together. The two were split — 024 keeps prompt-injection defence, deferred to v1.1; output-path safety is ADR-028, covering behaviour that shipped in v1.)*
 
 ## Consequences
 

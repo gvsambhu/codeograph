@@ -565,3 +565,25 @@ Confirmation that this decision is implemented correctly will come from:
 * **`--ast-only` and the llm-annotations manifest pointer.** Under `--ast-only` no `llm-annotations.json` is produced, so the manifest carries no llm-annotations artefact pointer (it is `llm_skipped: true`). The authoritative manifest shape and the pointer presence/absence semantics are owned by ADR-025 (terminal-write manifest); ADR-007 consumes only `graph.json` for byte-equality.
 
 No reversal of any prior decision; clarification only.
+
+**2026-08-12 — Golden location is held by this ADR alone (requirements-cascade).** The requirements
+document no longer names a location for the golden files. It states the obligation — a golden is
+committed for a test corpus, CI diffs every run byte-equal in canonical form, and refreshes are
+deliberate and categorised — and leaves *where* the goldens live to this ADR, per the locked position
+that requirements state what must be true while ADRs own where things live.
+
+This **supersedes the closing clause of the 2026-06-17 item 1 amendment**, *"FR-7c is updated to match
+this design"*: FR-7c no longer carries `tests/golden/<corpus>/`, so there is no longer a location for
+it to match. **The decision itself is unchanged** — goldens remain at `tests/golden/<corpus>/graph.json`,
+the diff-category convention remains a tracked Confirmation item rather than a hard gate, and the
+committed example run still ships its `graph.json` as illustrative output rather than a regression
+golden.
+
+One related requirement correction is recorded here for traceability: FR-7c previously required
+goldens for both the hand-built fixture corpus **and** a pinned real Spring project under a single
+v1 marker, while the 2026-06-19 amendment above defers the Tier-2 corpus to v1.1. The requirement now
+splits those across v1 and v1.1, matching this ADR. The Tier-2 golden's absence is correct v1
+behaviour, not an unmet obligation.
+
+No reversal of any prior decision; the authority for one detail moves, and one stale cross-reference
+is retired.

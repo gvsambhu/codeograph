@@ -65,7 +65,7 @@ For someone new to the project who wants to understand the design end-to-end, re
 - `ADR-019 — Snapshot + negative tests`
 - `ADR-020 — LLM-judge calibration`
 - `ADR-021 — Determinism contract`
-- `ADR-024 — Prompt-injection / output-path safety`
+- `ADR-024 — Prompt-injection defence`
 
 ---
 
@@ -96,10 +96,11 @@ For someone new to the project who wants to understand the design end-to-end, re
 | 021 | Determinism contract | ⏸️ | Deferred (v1.1) |
 | 022 | Run manifest and structured logging | ✅ (manifest forks superseded by 025) | Cross-cutting |
 | 023 | Secret scanning with gitleaks | ✅ | Cross-cutting |
-| 024 | Prompt-injection / output-path safety | ⏸️ | Deferred (v1.1) |
+| 024 | Prompt-injection defence | ⏸️ | Deferred (v1.1) |
 | 025 | Manifest schema 2.0.0 (flat layout) | ✅ | Cross-cutting |
 | 026 | Release & version management | ✅ | Cross-cutting |
 | 027 | Temporary v1 cost-safety floor | ✅ | Cross-cutting |
+| 028 | Output-path safety | ⬜ | gvsambhu |
 
 ---
 
