@@ -174,6 +174,18 @@ Architecture decisions land as ADRs under `docs/adr/`, numbered sequentially. Am
 
 **Proposing a new ADR requires reserving its number first** — see [`docs/adr/README.md`](docs/adr/README.md), which is the single home for the ADR template, numbering rules, status lifecycle, and the reservation process. A PR that adds an ADR without a reserved number will be declined.
 
+## Requirements
+
+`docs/requirements.md` states what the system must do. Two conventions keep it readable:
+
+- **Criteria state the obligation; interfaces are named separately.** Where a requirement has a
+  user-facing surface — a CLI flag, an environment variable — name it on an `Interface` line rather
+  than inside an acceptance criterion. An `AC` that names a flag couples the obligation to the
+  mechanism, and the mechanism changes more often than the obligation does.
+- **A `planned` requirement may have no acceptance criteria**; they are written when the design that
+  satisfies it is decided. A `shipped` or `partial` requirement must have them — the status table
+  cites criteria by number, so `partial` cannot be stated precisely without them.
+
 ## Running tests
 
 We use `pytest` for Python tests and Maven for Java tests.
