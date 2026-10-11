@@ -4,7 +4,7 @@ The functional and non-functional requirements codeograph is built against. Arch
 that implement them are recorded as ADRs under [`docs/adr/`](adr/README.md), and each ADR cites the
 requirements it satisfies — so traceability runs from a decision back to its requirement, not the
 other way round. Requirements here state *what* the system must do; they do not name the designs
-that chose *how*.
+that chose *how*, beyond the interface a user invokes.
 
 **Requirement statements describe the target system.** They are not a changelog of what ships today.
 What ships today is recorded once, in the [status table](#status), which is also the numeric index
@@ -37,27 +37,34 @@ LLM-derived semantics kept separable from the deterministic output; rendering a 
 measuring the quality of both the graph and the rendered output; and the operational surface that
 makes a run reproducible, inspectable, and bounded in cost.
 
-**Out of scope.** Building, running, testing, or deploying either the source project or the rendered
-output. Runtime or dynamic analysis. Non-JVM source languages. Security scanning, architecture
-governance, and same-language refactoring — mature tools already cover those. Migrating data,
-infrastructure, or build pipelines. Any claim that rendered output is production-ready without
-review.
+**Out of scope.** Building, running, testing, or deploying the source project. Running, testing, or
+deploying the rendered output — it is compile-checked (FR-7) and nothing further. Runtime or dynamic
+analysis. Source languages other than Java — including other JVM languages
+such as Kotlin. Security scanning, architecture governance, and same-language refactoring — mature
+tools already cover those. Migrating data, infrastructure, or build pipelines. Any claim that rendered
+output is production-ready without review.
 
 ## 3. Definitions
 
 | Term | Meaning in this document |
 |---|---|
 | **Corpus** | The set of source files in scope for one run, after acquisition and discovery. Not the same as "the repository" — excluded and non-source files are not part of the corpus. |
+| **Module** | A build unit within the corpus — a directory with its own build file. A single-module project has one; a multi-module project has several, each with its own source roots. |
 | **Run** | One end-to-end invocation of the tool against one corpus, producing one output directory. |
-| **Artefact** | A file the tool writes into the output directory as part of its contract with consumers (graph, annotations, manifest, logs, telemetry, scorecards, rendered source). |
-| **Deterministic artefact** | An artefact whose bytes are a pure function of the corpus and the tool version — reproducible across runs and machines. |
-| **Knowledge graph** | The deterministic property graph of nodes (classes, methods) and edges (calls, injection, inheritance, persistence relations) carrying structural facts and complexity metrics. |
+| **Artefact** | An output the tool produces for a consumer: the run manifest, the knowledge graph, the annotations, the rendered source, and the evaluation scorecards and sidecars. |
+| **Deterministic artefact** | An artefact produced with no LLM contribution to its content (FR-34). NFR-6 states the byte-reproducibility guarantee that applies to this class, and the environment envelope it holds within. |
+| **Diagnostic record** | A file the tool writes for later inspection rather than as an output — the structured run log and the per-call telemetry. Not an artefact. |
+| **Structural fact** | A fact readable from the source text without inference — what the code declares, and what it references. |
+| **Knowledge graph** | The deterministic property graph of a corpus — the elements it declares, the relationships between them, and named complexity metrics on those elements. The node and edge taxonomy is fixed by a published schema (FR-7b), not by this document. |
+| **Degraded** | A corpus file whose extraction fell short of full fidelity — reduced-extractor output, or no usable structure at all (FR-31). |
+| **Semantic fact** | A conclusion about what code means or is for. It requires inference rather than reading. |
 | **Enrichment** | LLM-derived semantic output about the graph — role, intent, summaries, migration hazards, corpus-level synthesis. Always advisory, and always separable from the deterministic output. |
-| **Domain** | A deterministically-computed grouping of classes used to partition the corpus for rendering. It is derived from the graph, not assigned by an LLM. |
-| **Render target** | A language/framework stack the graph can be rendered into, supplied by a renderer implementing the common interface. |
+| **Domain** | A grouping of classes used to partition the corpus for rendering, derived from the graph rather than assigned by an LLM. |
+| **Render target** | A language/framework stack the graph can be rendered into, supplied by a renderer implementing the renderer interface (NFR-5). |
 | **Idiomatic** | Output a competent engineer in the target stack would recognise as written for that stack — using its own framework conventions — rather than transliterated Java. |
-| **Scorecard** | A machine-readable JSON record of quality checks, each with an id, a result, a threshold, and the rationale for that threshold. |
-| **Golden** | A committed known-good artefact for a pinned input, compared byte-for-byte on every run to catch unintended drift. |
+| **Scorecard** | A machine-readable record of quality checks, each with an id, a result, a threshold, and the rationale for that threshold. |
+| **Golden** | A committed known-good artefact for a pinned input, compared on every run so that any difference is caught. |
+| **Execution envelope** | The declared, pinned environment within which byte-level reproducibility holds (NFR-6 AC-4). Determinism claims elsewhere in this document are made within it. |
 | **Canonical form** | The single byte-level serialisation rule for an artefact (key ordering, separators, encoding, line ending) that makes byte-comparison and hashing meaningful. |
 
 ## 4. Assumptions
@@ -70,6 +77,8 @@ review.
 5. LLM access requires the user's own provider credentials, supplied through the environment; any
    run may be performed with the LLM layer switched off entirely.
 6. Rendered output is a reviewable starting point, not a finished port.
+7. The target stack's own toolchain is available when rendered output is compile-checked. (What the
+   tool does when it is absent is an obligation, not an assumption — see FR-7 AC-4.)
 
 ---
 
@@ -78,18 +87,19 @@ review.
 ### 5.1 Source intake
 
 #### FR-1 · Accept a Java/Spring Boot project regardless of its build system
-The tool works on any reasonably-shaped Spring Boot project without per-project configuration.
+The tool works without per-project configuration.
 - **AC-1** Maven projects are accepted.
 - **AC-2** Gradle projects are accepted.
-- **AC-3** The detected build system is recorded in the run's output as Maven or Gradle. It is never
-  recorded as unknown.
+- **AC-3** The build system detected for each module is recorded in the graph, and is never left
+  unspecified.
 
-#### FR-29 · Accept the source in any of the three forms a codebase is handed over in
+#### FR-29 · Accept the source in the forms a codebase is handed over in
 Input handling covers the real handover paths, not just the local checkout.
 - **AC-1** A local directory path is accepted.
 - **AC-2** A git URL is accepted and the repository is acquired.
 - **AC-3** A `.zip` archive is accepted and extracted.
 - **AC-4** Archive extraction is bounded and path-checked (FR-24 AC-1, AC-2).
+- **AC-5** Source acquired into a temporary location is removed when the run ends.
 
 #### FR-30 · Discover the in-scope sources of the project
 Turning "a project" into "a known set of files" is a defined, inspectable step.
@@ -97,34 +107,35 @@ Turning "a project" into "a known set of files" is a defined, inspectable step.
   belongs to.
 - **AC-2** Files excluded by the project's own ignore rules are not in the corpus, so custom output
   and generated-source directories are skipped without per-project configuration.
-- **AC-3** Files are categorised by role, so non-source files never reach the parser.
+- **AC-3** Only source files reach the parser.
+- **AC-4** Source in a language other than Java is excluded from the corpus, and the exclusion is
+  visible in the run's output.
 
 ### 5.2 Deterministic extraction
 
-#### FR-10 · Structural and syntactic facts are extracted deterministically, not by an LLM
-Classes, methods, annotations, imports, and dependencies are syntactic; they must come out identical
-on every run.
+#### FR-10 · Structural facts are extracted deterministically, not by an LLM
+These facts are syntactic — readable from the source text without inference — so they must come out
+identical on every run.
 - **AC-1** No LLM call participates in producing any structural fact.
-- **AC-2** The same corpus yields the same structural facts on re-run (NFR-6).
+- **AC-2** The same corpus yields the same structural facts on re-run, within the execution envelope.
 
 #### FR-31 · No source file is ever silently dropped
 **Negative guarantee.** Every file in the corpus is represented in the graph, whatever went wrong
 while reading it.
-- **AC-1** A file that cannot be fully parsed still yields a node, marked with the confidence of the
-  extraction that produced it.
-- **AC-2** A file that yields no usable structure at all still yields an identifiable node, marked
-  lowest-confidence.
-- **AC-3** A failure of the parsing machinery degrades the affected files and reports it at run level;
-  it never silently aborts the run.
+- **AC-1** Every file in the corpus yields a node that records which extraction produced it —
+  including the limiting case where no usable structure could be extracted at all.
+- **AC-2** A failure of the parsing machinery degrades the affected files; the run continues.
+- **AC-3** The degradation is reported to the user at the end of the run, naming the affected files.
 - **AC-4** Every degraded file is recorded in the run's output with the reason.
 
 #### FR-32 · Framework semantics are interpreted, not merely captured
 The graph carries Spring's meaning, not just its annotation text.
 - **AC-1** Every annotation present in source is captured on the node it applies to.
 - **AC-2** A documented subset is additionally *interpreted* — lifted to a structured field, an edge,
-  or a hazard tag. The membership criterion is documented: an annotation is interpreted when it lifts
-  to a structured graph field or edge.
-- **AC-3** Members generated by compile-time code generation (e.g. Lombok) are synthesised so the
+  or a hazard tag.
+- **AC-3** The criterion determining that subset is documented, and is stated independently of the
+  outcome it produces.
+- **AC-4** Members generated by compile-time code generation (e.g. Lombok) are synthesised so the
   graph reflects the compiled shape of the class, not only its written text.
 
 #### FR-40 · An unresolvable reference is recorded as unresolved, never dropped
@@ -133,10 +144,11 @@ The graph carries Spring's meaning, not just its annotation text.
 - **AC-1** A reference the tool cannot resolve to a known target is still emitted, marked unresolved.
 - **AC-2** An absent edge therefore means the reference is absent from the source — never that
   resolution failed.
-- **AC-3** Conditions that degrade resolution across the run are reported to the user, with the
-  remediation where one exists.
+- **AC-3** Conditions that reduce how many references can be resolved are reported to the user at the end
+  of the run.
+- **AC-4** Each condition reported under AC-3 states its remediation, or states that none is known.
 
-#### FR-12 · The complexity scorecard uses named industry-standard metrics with numeric thresholds
+#### FR-12 · Complexity is measured with named industry-standard metrics
 - **AC-1** Each metric is named, and its computation method cites a published source.
 - **AC-2** Every reference threshold value cites a published source — a paper or a published rule
   reference. No threshold is chosen from memory.
@@ -146,19 +158,28 @@ The graph carries Spring's meaning, not just its annotation text.
 ### 5.3 Semantic enrichment
 
 #### FR-11 · Semantic facts are extracted by an LLM operating on the deterministic output
-Service intent, domain boundaries, and migration hints are inferred; they are inferred *from* the
-extracted structure, not from raw source in place of it.
+Service intent, domain boundaries, and migration hazards are inferred by the LLM layer. It works from
+what deterministic extraction produced — the nodes, and the source locations they record — rather than
+discovering code on its own.
+- **AC-1** The enrichment layer produces semantic facts about individual nodes and about the corpus
+  as a whole.
+- **AC-2** Which nodes are enriched, and where their source is read from, are determined by the
+  deterministic graph; the enrichment layer does not discover or parse code that extraction did not
+  produce.
+- **AC-3** Source loaded for enrichment is an input to that layer only; it never enters the
+  deterministic graph.
 
-#### FR-35 · Enrichment degrades; individual failures do not fail the run
+#### FR-35 · An enrichment failure costs quality, not the run
 **Negative guarantee.** A provider outage, rate limit, or oversized input costs quality rather than
-the run — up to a defined bound (AC-3).
-- **AC-1** A per-call failure is recorded and the run proceeds; the affected node keeps its
-  deterministic facts and is marked as un-enriched.
-- **AC-2** An input too large for quality extraction is reduced rather than dropped, and the
-  reduction is recorded on the node.
-- **AC-3** There is a defined threshold of enrichment failure past which the run fails loudly rather
+the run — up to a defined bound (AC-6).
+- **AC-1** A per-call enrichment failure does not stop the run.
+- **AC-2** The failure is recorded.
+- **AC-3** The affected node is marked un-enriched.
+- **AC-4** An input too large for quality extraction is reduced rather than dropped.
+- **AC-5** The reduction is recorded on the node.
+- **AC-6** There is a defined threshold of enrichment failure past which the run fails loudly rather
   than emitting a substantially unenriched result.
-- **AC-4** The full pipeline can be run with LLM passes disabled, producing the deterministic
+- **AC-7** The full pipeline can be run with LLM passes disabled, producing the deterministic
   artefacts alone.
 
 ### 5.4 Output artefacts and their contracts
@@ -178,13 +199,12 @@ may change a single byte of it.
 #### FR-2 · Emit a structured knowledge graph, independent of any render target
 The graph is the product, not an intermediate. Structure is extracted deterministically (FR-10);
 semantic enrichment is layered on top of it (FR-11).
-- **AC-1** The graph is a language-neutral property graph of nodes and edges.
-- **AC-2** It carries no target-language concepts.
-- **AC-3** Every class in the corpus is present in the graph, whatever the rendering budget (FR-13).
+- **AC-1** The graph carries no target-language concepts.
+- **AC-2** Every class in the corpus is present in the graph, whatever the rendering budget (FR-13).
 
-#### FR-7b · The graph schema is a published, machine-readable contract
-Documented JSON Schema files are the language-neutral source of truth for the emitted artefacts.
-- **AC-1** Every emitted graph validates against the published schema at write time.
+#### FR-7b · The graph and annotation schemas are published, machine-readable contracts
+Published, machine-readable schema files are the language-neutral source of truth for these artefacts.
+- **AC-1** Every emitted graph and annotation file validates against its published schema at write time.
 - **AC-2** Validity is re-checked independently by the graph scorecard (FR-7a).
 - **AC-3** The schema is published as a committed artefact, so an external consumer can validate
   output without importing the producing package.
@@ -197,12 +217,15 @@ Documented JSON Schema files are the language-neutral source of truth for the em
   is controllable at invocation.
 
 #### FR-33 · The manifest is an integrity contract over the run's artefacts
-- **AC-1** The manifest indexes every artefact the run produced.
-- **AC-2** Each indexed artefact carries a SHA-256 of its committed bytes.
-- **AC-3** A missing artefact is explicit — an absent hash never doubles as "this stage was skipped".
-- **AC-4** A consumer can detect any post-run modification of an artefact from the manifest alone.
+- **AC-1** The manifest indexes every artefact the tool produced in the output directory, except the
+  manifest itself, which is the index.
+- **AC-2** Pointers to artefacts produced by an earlier run against the same directory are retained
+  when a later run rewrites the manifest.
+- **AC-3** Each indexed artefact carries a SHA-256 of its committed bytes.
+- **AC-4** A missing artefact is explicit — an absent hash never doubles as "this stage was skipped".
+- **AC-5** A consumer can detect any post-run modification of an artefact from the manifest alone.
 
-#### FR-28 · A determinism contract documents per-field determinism classification for the graph schema
+#### FR-28 · Each field in the graph schema is documented as deterministic or not
 
 ### 5.5 Rendering
 
@@ -214,29 +237,27 @@ Documented JSON Schema files are the language-neutral source of truth for the em
 
 #### FR-4 · Render the knowledge graph into idiomatic Go source
 Same graph, different target — the proof that the graph is target-independent.
+- **AC-1** FR-3's acceptance criteria apply, read against Go and its ecosystem conventions.
 
 #### FR-5 · The render target is selectable at invocation, without a code change
-- **AC-1** A `--target` flag selects the renderer.
-- **AC-2** The set of available targets is discoverable at runtime.
-- **AC-3** An unknown target fails before pipeline work begins.
-
-#### FR-6 · All renderers implement a common interface; no target-specific code sits in the core pipeline
+- **AC-1** The set of available targets is discoverable at runtime.
+- **AC-2** An unknown target fails before pipeline work begins.
+- **Interface** `--target <name>`
 
 #### FR-13 · Rendering output is capped per domain
 Bounds token spend and keeps runs reproducible.
-- **AC-1** The default cap is 3 classes per domain.
+- **AC-1** A default cap applies when none is given, and its value is documented.
 - **AC-2** A value of `0` disables the cap entirely.
 - **AC-3** Selection at the cap is deterministic and documented (FR-14).
-- **AC-4** The user is told at run end that the cap bound, and for which domains, so a capped output
-  is never mistaken for a full run.
-- **Interface** `--max-classes-per-domain N`
+- **AC-4** The cap binding is reported to the user at the end of the run, naming the affected domains,
+  so a capped output is never mistaken for a full run.
+- **Interface** `--max-classes-per-domain N` — default 3
 
 #### FR-14 · Selection under the cap is deterministic and documented
-- **AC-1** The same corpus and cap select the same classes on every run.
+- **AC-1** The same corpus and cap select the same classes on every run, within the execution envelope.
 - **AC-2** The ordering rule is documented. Where it uses thresholds, each cites a published source.
 - **AC-3** The selection is auditable — what was selected, what was skipped, and by which rule.
-- **AC-4** The knowledge graph always covers every class; only rendering is capped.
-- **AC-5** The partition of the corpus into domains is computed deterministically from the graph.
+- **AC-4** The partition of the corpus into domains is computed deterministically from the graph.
 
 #### FR-36 · No source feature is ever silently dropped from rendered output
 **Negative guarantee.** Anything the renderer cannot translate faithfully is visible in the output.
@@ -265,7 +286,7 @@ Bounds token spend and keeps runs reproducible.
 Checks: structural completeness, relationship correctness, schema validity, internal consistency,
 semantic accuracy, reproducibility, and golden-graph agreement.
 - **AC-1** Each check records a result, the threshold applied, and the rationale for that threshold.
-- **AC-2** Every check is deterministic, or explicitly skipped with a reason.
+- **AC-2** Every check is deterministic within the execution envelope, or explicitly skipped with a reason.
 - **AC-3** Scorecards are machine-readable artefacts a consumer can locate from the run's manifest.
 
 #### FR-41 · Graph correctness is measured against a human-validated expectation
@@ -305,36 +326,37 @@ the model.
 #### FR-25 · An LLM-judge calibration suite discriminates known-good from known-bad output at documented thresholds, committed as a calibration record
 
 #### NFR-3 · Evaluation results are reproducible
-Seed is tracked per target; where the scored artefact was LLM-derived, so are the model version and
-prompt version that produced it (FR-18) — so a past score can be re-derived.
+A past score can be re-derived from what the scorecard records.
+- **AC-1** A scorecard records the seed used to produce it.
+- **AC-2** Where the scored artefact was LLM-derived, the provenance FR-18 records is available for
+  re-derivation.
 
 ### 5.7 LLM platform control
 
 #### FR-8 · Provider and model are both selectable, and neither is allowlisted
 Two independent axes: which provider runs the call, and which model it runs.
-- **AC-1** The provider is selectable by environment variable. The v1 provider set is
-  `anthropic | openrouter | openai_compatible`; `ollama` and `bedrock` follow.
-- **AC-2** The `openai_compatible` provider reaches any API-key, OpenAI-compatible endpoint through a
-  configurable base URL, with no coded vendor allowlist; `openrouter` is its OpenRouter-URL preset.
+- **AC-1** The provider is selectable without a code change.
+- **AC-2** Any OpenAI-compatible endpoint is reachable by configuration alone, with no vendor
+  allowlist in code.
 - **AC-3** Any model id is accepted as free-form pass-through — no project-blessed allowlist.
 - **AC-4** Per-pipeline-stage model overrides are available, each falling back to the single
   configured default.
+- **Interface** `CODEOGRAPH_LLM_PROVIDER` — `anthropic | openrouter | openai_compatible` in v1;
+  `ollama` and `bedrock` follow.
 
 #### FR-15 · Prompts are versioned artefacts, not inline strings
 - **AC-1** Each prompt version is a distinct, reviewable file; editing one in place is not how a new
   version is made.
 - **AC-2** The production default for a prompt is declared explicitly, so promotion is a visible diff.
-- **AC-3** A scorecard over LLM-derived output records the prompt identity and version that produced
-  it (FR-18).
-- **AC-4** A prompt declares the inputs it requires, and a missing or unknown input fails before the
+- **AC-3** A prompt declares the inputs it requires, and a missing or unknown input fails before the
   call is made.
 
 #### FR-16 · Every LLM call emits telemetry
 - **AC-1** Each call records: run id, provider, model, prompt identity, prompt version, input tokens,
   output tokens, cost estimate, latency, and timestamp.
-- **AC-2** Per-call records are written to a sidecar JSONL artefact.
+- **AC-2** Per-call records are written to a machine-readable record, separate from the manifest, that
+  can be inspected without an external service.
 - **AC-3** Aggregate statistics roll into the run manifest.
-- **AC-4** The run id is the correlation key joining manifest, logs, and telemetry.
 
 #### FR-17 · LLM responses are cached content-addressed
 - **AC-1** The cache key covers everything that would change the response — provider, model, prompt
@@ -367,7 +389,7 @@ The permanent budget surface, superseding the call-and-token floor of FR-39.
 
 #### NFR-2 · A defined token-utilization strategy governs LLM input construction
 - **AC-1** Repeated prompt prefixes are not re-billed per call.
-- **AC-2** A token and cost scorecard surfaces spend per run.
+- **AC-2** Token use and cost per run are surfaced to the user.
 
 ### 5.8 Configuration and run safety
 
@@ -384,11 +406,15 @@ This is the falsifiable form of "the tool is configurable".
 #### FR-27 · Output-path safety
 - **AC-1** All run artefacts are written inside the output directory.
 - **AC-2** An output directory that is the working directory, or an ancestor of it, is rejected.
-- **AC-3** A non-empty output directory is never silently overwritten — `--force` is required.
+- **AC-3** Re-running against the output of a previous run does not require `--force`.
+- **AC-4** Content the tool did not produce is never deleted.
+- **AC-5** Content the tool did not produce is overwritten only where its path matches a file this run
+  would write, and only with `--force`.
+- **Interface** `--force`
 
 #### FR-26 · Prompt-injection mitigation
-Source is wrapped in data tags with explicit instruction guards, escaped for prompt-breaking
-sequences, and validated by a negative test.
+Source text reaching an LLM is treated as data, never as instruction — content crafted to look like
+an instruction does not change what the model is asked to do.
 
 ### 5.9 Engineering assurance
 
@@ -399,28 +425,36 @@ sequences, and validated by a negative test.
 
 #### FR-7c · The deterministic graph is regression-tested against committed goldens
 - **AC-1** A golden is committed for a hand-built edge-case fixture corpus.
-- **AC-1b** A golden is committed for a pinned real Spring project. *(v1.1 — the harness ships with
-  the fixture corpus alone; the real-project corpus follows.)*
-- **AC-2** CI diffs every run byte-equal in canonical form.
-- **AC-3** A golden refresh is deliberate (`--update-goldens`), and each refresh records its diff
-  category: update-golden, fix-bug, or intentional-change.
+- **AC-2** A golden is committed for a pinned real Spring project. *(v1.1 — the harness ships with the
+  fixture corpus alone; the real-project corpus follows.)*
+- **AC-3** CI diffs every run byte-equal in canonical form.
+- **AC-4** A golden refresh is deliberate, never incidental.
+- **AC-5** Each refresh records its diff category: update-golden, fix-bug, or intentional-change.
+- **Interface** `pytest --update-goldens`
 
-#### FR-23 · Snapshot tests lock byte-stable rendered output for a fixed input and cached responses; unexplained drift fails CI
+#### FR-23 · Rendered output is byte-stable for a fixed input
+With cached LLM responses held constant, re-rendering the same graph produces identical bytes.
+Unexplained drift fails CI.
 
 #### FR-24 · Negative tests assert graceful failure with specific error messages
-At least six malformed-input classes, each failing loudly and actionably:
-1. **Zip bomb** — extracted size exceeds the configured cap; abort with a size-limit error before
-   extraction completes.
-2. **Zip path traversal** — an archive entry resolves outside the extraction root; reject the archive.
-3. **Corrupt or malformed archive** — input is not a readable archive; return a clear error.
-4. **Acquisition failure** — the source cannot be fetched, or the URL is unreachable or
-   credential-gated; return an actionable error naming the cause.
-5. **Empty corpus** — no `.java` files remain in scope after discovery; fail loudly with a
-   user-readable message and a non-zero exit, never an empty-graph pass-through.
-6. **No recognised build file** — neither a Maven nor a Gradle build file is present; reject the
-   corpus with a clear error rather than recording an unknown build system.
+These malformed-input classes at minimum, each failing loudly and actionably:
+- **AC-1** *Zip bomb* — extracted size exceeds the configured cap; abort with a size-limit error before
+  extraction completes.
+- **AC-2** *Zip path traversal* — an archive entry resolves outside the extraction root; reject the
+  archive.
+- **AC-3** *Corrupt or malformed archive* — input is not a readable archive; return a clear error.
+- **AC-4** *Acquisition failure* — the source cannot be fetched, or the URL is unreachable or
+  credential-gated; return an actionable error naming the cause.
+- **AC-5** *Empty corpus* — no `.java` files remain in scope after discovery; fail loudly with a
+  user-readable message and a non-zero exit, never an empty-graph pass-through.
+- **AC-6** *No recognised build file* — neither a Maven nor a Gradle build file is present; reject the
+  corpus with a clear error rather than recording an unknown build system.
 
 #### FR-21 · Secret scanning runs in CI on every push and pull request; merges are blocked on detection
+- **AC-1** A secret scan runs on every push and every pull request.
+- **AC-2** A detection blocks the merge, with no maintainer bypass.
+- **AC-3** The scanner version is exactly pinned, and a check fails when the pin drifts.
+- **AC-4** A full-history scan runs on a schedule, independently of per-commit scanning.
 
 #### NFR-4 · CI runs lint, unit tests, and the evaluation path on every push
 - **AC-1** Lint and unit tests gate merge.
@@ -432,7 +466,7 @@ Re-running the tool on the same corpus with the same version, within the declare
 environment (AC-4), produces byte-identical deterministic artefacts.
 - **AC-1** A single canonical serialisation rule governs those artefacts — key ordering, separators,
   encoding, and line ending.
-- **AC-2** The canonical bytes are what is hashed for integrity (FR-33 AC-2), so one mechanism serves
+- **AC-2** The canonical bytes are what is hashed for integrity (FR-33 AC-3), so one mechanism serves
   both comparison and integrity.
 - **AC-3** No machine-specific value — absolute path, timestamp, locale, or iteration order — reaches
   a deterministic artefact.
@@ -460,62 +494,70 @@ Consumers pin the format, not the tool.
 
 ## 7. Status
 
-Requirement statements above describe the target system. This table records what ships today.
-`shipped` · `partial` · `planned` · `retired`.
+This table records what ships today. `shipped` · `partial` · `planned` · `retired`.
+
+A requirement targeted at a future release may carry no acceptance criteria; its criteria are written
+when the design that satisfies it is decided. A `shipped` or `partial` requirement must carry criteria —
+this table cites them by number, and a status of `partial` is not expressible without them.
+
+**Rows whose note begins *Re-verify*** carry the status recorded before the acceptance criteria were
+reworked in the 2026-08-23 re-specification. They have not yet been traced against the current
+criteria: a `shipped` there is an unconfirmed claim, and an AC number its note cites may predate the
+rework. Every other `shipped` or `partial` row has been traced to the code against the current criteria.
 
 | ID | Status | Target | Note |
 |---|---|---|---|
-| FR-1 | shipped | v1 | Maven and Gradle both accepted. Gradle classpath resolution falls back to source-only, so method-call resolution is lower fidelity |
+| FR-1 | shipped | v1 | Maven and Gradle both accepted; the build system is recorded per module. Neither gets classpath resolution: no symbol solver is configured in the parser, so method-call resolution is a source-only heuristic for both |
 | FR-2 | shipped | v1 | |
 | FR-3 | partial | v1 | AC-2 holds — per-class render granularity plus a deterministic project scaffold; full method bodies, not skeletons. AC-1 is not yet verified — the compile check runs the type-checker only, and no check installs or starts the rendered app |
 | FR-4 | planned | v1.1 | |
-| FR-5 | shipped | v1 | `--target` on `render`; `--list-targets` enumerates |
-| FR-6 | shipped | v1 | Registry-based; one renderer registered |
-| FR-7 | partial | v1 | Compile check runs the target toolchain. AC-2 skips pending the render-time producer for its input. AC-3 llm_judge deferred |
-| FR-7a | partial | v1 | Six of seven checks run; `semantic_accuracy` returns an explicit skip pending judge calibration. Separately, `structural_completeness` runs but its ground-truth source is an open question — a completeness ratio can only count declarations the extractor produced, so a declaration it never saw is absent from both sides. FR-41 is the intended oracle |
-| FR-7b | shipped | v1 | Graph and annotation schemas published; manifest schema published and CI-gated against drift |
-| FR-7c | shipped | v1 | AC-1 and AC-2 hold — the hand-built fixture corpus golden is committed and CI-gated. **AC-1b is correctly deferred**, not missing: the real-project corpus and its golden were moved to v1.1 by design, and the fixture golden satisfies the v1 drift guardrail |
-| FR-8 | shipped | v1 | `anthropic`, `openrouter`, `openai_compatible` live; `ollama` and `bedrock` wired in the resolver but raise `NotImplementedError`. Per-stage overrides present; no curated differential mapping |
-| FR-9 | partial | v1 | Two committed example corpora ship a graph scorecard each. No committed run output, target scorecard, or rendered source |
+| FR-5 | partial | v1 | AC-1 holds — `--list-targets` on `render` enumerates the registered targets. **AC-2 not met** — an unknown `--target` is rejected only after the input artefacts are loaded, the output directory is cleared (under `--force`), a telemetry file is opened, and the LLM provider is constructed |
+| FR-6 | retired | v1 | Retired 2026-08-23. Clause 1 (*a common renderer interface*) was ADR-008's mechanism, not an obligation; clause 2 (*no target-specific code in the core pipeline*) duplicated **NFR-5**, which carries it with acceptance criteria |
+| FR-7 | partial | v1 | **AC-1 not met** — the compile check reads the manifest's `1.x` nested location for its sidecar pointer, which the `2.0.0` schema moved to a top-level peer, so it returns `skip` regardless of whether a render happened; its sidecar path also resolves against the run directory while the file is written to the render directory. AC-2 skips pending the render-time producer for its input. AC-3 llm_judge deferred |
+| FR-7a | partial | v1 | **Re-verify.** **The statement's seven-check list is not fully met** — six of seven run; `semantic_accuracy` returns an explicit skip pending judge calibration, which is AC-2's permitted form, so no AC is breached. Separately, `structural_completeness` runs but its ground-truth source is an open question — a completeness ratio can only count declarations the extractor produced, so a declaration it never saw is absent from both sides. FR-41 is the intended oracle |
+| FR-7b | partial | v1 | AC-3 holds — both schemas are committed. Graph half of AC-1 and AC-2 holds — the Pass-0 graph is built through the schema-generated model, and the graph scorecard re-validates it. **AC-1 not met for annotations** — they are written from a hand-written model, the schema-generated annotations model is never imported, and real annotation files fail the published schema at the root (the file is a list; the schema requires an object). **AC-2 not met for annotations** — the scorecard's validity check covers the graph only |
+| FR-7c | shipped | v1 | **Re-verify.** AC-1 and AC-3 hold — the hand-built fixture corpus golden is committed and CI-gated byte-equal. **AC-2 is correctly deferred**, not missing: the real-project corpus and its golden were moved to v1.1 by design, and the fixture golden satisfies the v1 drift guardrail. AC-4 and AC-5 are obligations on the refresh procedure and are not separately verified here |
+| FR-8 | shipped | v1 | **Re-verify.** `anthropic`, `openrouter`, `openai_compatible` live; `ollama` and `bedrock` wired in the resolver but raise `NotImplementedError`. Per-stage overrides present; no curated differential mapping |
+| FR-9 | partial | v1 | **Re-verify.** **AC-1 and AC-3 not met; AC-2 partially met** — two committed example corpora ship a graph scorecard each; no committed run output, target scorecard, or rendered source. AC-4 holds |
 | FR-10 | shipped | v1 | |
 | FR-11 | shipped | v1 | |
 | FR-12 | shipped | v1 | Cyclomatic, cognitive, WMC, CBO, LCOM4, MLOC — each cited; null where not computable |
-| FR-13 | partial | v1 | Default 3 ships. AC-2 not yet met — `0` is currently rejected rather than disabling the cap |
-| FR-14 | shipped | v1 | Stratified selection with cited thresholds; audit fields persisted |
-| FR-15 | partial | v1 | Versioned prompt files with content-hash pinning ship. AC-3 not yet met — the scorecard `prompt_id` field is present but unpopulated |
-| FR-16 | partial | v1 | All fields emitted to the sidecar JSONL and aggregated into the manifest. Cost estimate is hardcoded `0.0` — the field exists, the value is never computed |
-| FR-17 | shipped | v1 | SQLite content-addressed store; key covers all response-affecting inputs |
-| FR-18 | partial | v1 | AC-2 holds — the graph scorecard records no model provenance, correctly, since its subject is deterministic. **AC-1 unmet**: the code scorecard grades LLM-rendered source and its `model_version` / `prompt_id` fields, present in both the model and the published schema, are never populated |
-| FR-19 | shipped | v1 | `--cov-fail-under=80` enforced in CI; mock provider, no live calls |
+| FR-13 | partial | v1 | AC-1 holds — default 3, documented in the user guide. **AC-2 not met** — `0` is rejected rather than disabling the cap. **AC-3 not met** — see FR-14. **AC-4 not met** — nothing reports the cap binding at the end of a render; the user guide itself says classes beyond the cap are *"silently excluded"* |
+| FR-14 | partial | v1 | AC-1 and AC-4 hold — selection and the domain partition are pure functions of the graph. **AC-2 not met** — the thresholds are cited, but the documented ordering rule (ADR-009: a composite of CBO and WMC) is not the one implemented (WMC alone). **AC-3 not met** — no record of what was selected or skipped is persisted. Only the strategy name reaches the output, in a generated module's header comment, beside a "selected" count that is the group's total |
+| FR-15 | partial | v1 | **Re-verify.** Versioned prompt files with content-hash pinning ship. **AC-3 not verified** — the prompt input-contract check is not separately confirmed. *(The scorecard `prompt_id` gap moved to FR-18 AC-1, which owns provenance.)* |
+| FR-16 | partial | v1 | **AC-1 not met** — cost estimate is hardcoded `0.0`; the field exists, the value is never computed. AC-2 and AC-3 hold: all other fields are emitted to the sidecar JSONL and aggregates roll into the manifest |
+| FR-17 | shipped | v1 | **Re-verify.** SQLite content-addressed store; key covers all response-affecting inputs |
+| FR-18 | partial | v1 | **Re-verify.** AC-2 holds — the graph scorecard records no model provenance, correctly, since its subject is deterministic. **AC-1 unmet**: the code scorecard grades LLM-rendered source and its `model_version` / `prompt_id` fields, present in both the model and the published schema, are never populated |
+| FR-19 | shipped | v1 | **Re-verify.** `--cov-fail-under=80` enforced in CI; mock provider, no live calls |
 | FR-20 | shipped | v1 | `manifest.json` + `logs.jsonl` in the output directory; `run_id` correlates; dual-channel emission with `-v`/`-q`/`--log-level` |
-| FR-21 | shipped | v1 | Exact-pinned gitleaks in CI with a parity check and a nightly full-history scan; no admin bypass |
-| FR-22 | planned | v1.1 | Superseded by FR-39 for v1; FR-39 is removed when this lands |
+| FR-21 | shipped | v1 | **Re-verify.** Exact-pinned gitleaks in CI with a parity check and a nightly full-history scan; no admin bypass |
+| FR-22 | planned | v1.1 | FR-39's call-and-token floor stands in for v1; FR-39 is retired when this lands |
 | FR-23 | planned | v1.1 | |
 | FR-24 | planned | v1.1 | |
 | FR-25 | planned | v1.1 | |
 | FR-26 | planned | v1.1 | |
-| FR-27 | shipped | v1 | cwd-or-ancestor rejection and non-empty `--force` gate both verified |
+| FR-27 | partial | v1 | AC-1 holds — telemetry, the one output written outside the directory, is a diagnostic record rather than an artefact (§3). AC-2's cwd-or-ancestor rejection is verified. AC-4 and AC-5 hold today only incidentally: nothing is overwritten or deleted without `--force`, so foreign content is protected by a rule that protects everything. **AC-3 not met** — a re-run against a previous run's output is refused unless `--force` is given. |
 | FR-28 | planned | v1.1 | |
 | FR-29 | shipped | v1 | Local, git, and zip acquirers all present |
-| FR-30 | shipped | v1 | Multi-module enumeration with module labelling; ignore-rule-driven exclusion |
-| FR-31 | shipped | v1 | AST → regex → name-only stub ladder; degraded files recorded |
-| FR-32 | shipped | v1 | Interpretation runs inside the parser; interpreted set documented with its membership criterion |
-| FR-33 | shipped | v1 | SHA-256 required on every present pointer; skipped LLM passes signalled by an explicit flag, not a null hash |
-| FR-34 | shipped | v1 | Enforced as a file boundary — the deterministic graph carries no LLM-derived value and no call outcome |
-| FR-35 | shipped | v1 | Per-call skip, oversized-input reduction, configurable abort ratio, and a full LLM-off mode |
-| FR-36 | shipped | v1 | Placeholder/refuse policies configurable, security defaulting to refuse. The bundled preset flags are not on the CLI; policies are set through configuration |
-| FR-37 | shipped | v1 | `cache stats`, `cache purge` (dry-run by default), `cache report` |
-| FR-38 | shipped | v1 | Precedence documented in the committed config file and enforced by the settings layer |
-| FR-39 | shipped | v1 | Pre-flight estimate from a dated local price table, TTY-aware confirmation gate, and mid-run call/token ceilings |
+| FR-30 | partial | v1 | AC-1, AC-2 and AC-3 hold — multi-module enumeration with module labelling, ignore-rule-driven exclusion, `.java`-only parsing. **AC-4 not met** — the Kotlin source root is dropped silently, with no log, warning, or record in the run's output |
+| FR-31 | partial | v1 | AC-1, AC-2 and AC-4 hold — the AST → regex → name-only stub ladder runs, the run continues on parser failure, and each degraded file records its extraction mode. **AC-3 not met** — fallback is logged per file (`parser/file_parser_dispatcher.py:74`); no run-level report names the affected files, which is what ADR-003's amendment specifies |
+| FR-32 | partial | v1 | AC-2 and AC-4 hold — 38 interpreted annotations are documented, and Lombok members are synthesised in the parser. **AC-1 not met in one case** — annotation-type declarations carry no annotations, so meta-annotations such as `@Retention` on a custom annotation are not captured. **AC-3 not met** — the documented criterion (*"interpreted when it lifts to a structured graph field or edge"*) is stated in terms of its own outcome |
+| FR-33 | partial | v1 | AC-4 holds — skipped LLM passes are signalled by an explicit flag, not a null hash. **AC-3 and AC-5 not met on LLM-enabled runs** — the graph's recorded SHA-256 is of the graph as first written; enrichment then rewrites the file, so the hash no longer matches what is on disk and an integrity check reports the tool's own output as modified (see FR-34). **AC-1 not met** — the rendered source is an artefact (§3) and is not indexed; the manifest's `artefacts` map holds only the graph and the annotations. **AC-2 not met** — a re-run resets the scorecard and compile-check pointer maps |
+| FR-34 | partial | v1 | Holds when enrichment is disabled. **AC-1, AC-3 and AC-4 not met on LLM-enabled runs** — the corpus-synthesis pass writes four LLM-derived fields (`projectOverview`: description, architecture pattern, domains, cross-domain dependencies) into the graph and rewrites the file without the canonical form. The deterministic graph then differs from an enrichment-disabled run and cannot be obtained on its own. The graph schema declares the field; no design record decides it. AC-2 holds — no call outcome is recorded in the graph |
+| FR-35 | partial | v1 | AC-2 to AC-7 hold — per-node annotation failures are logged and the node marked un-enriched (the annotation record's `degraded` flag), oversized inputs fall back to signatures with the reduction recorded, a failure ratio above the configured maximum aborts loudly, and the pipeline runs with LLM passes off. **AC-1 not met for corpus synthesis** — it is a single call, and its failure aborts the whole run, discarding the per-node annotations already produced |
+| FR-36 | partial | v1 | AC-4 holds as documentation — ADR-010 Fork 9 is the matrix — but the code enforces only two of its refuse rows (Security, WebFlux); classes in the other refuse rows are rendered. **AC-1 not met** — a class refused by policy, or whose render call fails, is absent from the output with no placeholder, and a refusal is logged at debug level only. Placeholders inside a rendered class are asked for in the prompt, not enforced. **AC-2 not met for method-level security** — the policy checks class-level annotations only, so a controller secured by `@PreAuthorize` on its methods is rendered with no refusal and no guard stub. **AC-3 not met** — no user-reachable setting changes any policy: `render` builds the renderer's configuration from three CLI flags and reads no configuration section, and the permissive values carry no warning |
+| FR-37 | shipped | v1 | **Re-verify.** `cache stats`, `cache purge` (dry-run by default), `cache report` |
+| FR-38 | shipped | v1 | **Re-verify.** Precedence documented in the committed config file and enforced by the settings layer |
+| FR-39 | shipped | v1 | **Re-verify.** Pre-flight estimate from a dated local price table, TTY-aware confirmation gate, and mid-run call/token ceilings |
 | NFR-1 | retired | — | Number retained so existing references resolve |
-| NFR-2 | partial | v1 | Prefix caching ships. AC-2 token and cost scorecard not shipped, and blocked behind FR-16's uncomputed cost |
-| NFR-3 | partial | v1 | Scorecard carries `seed`. Model and prompt provenance for LLM-derived output is unpopulated — same root cause as FR-18 AC-1 and FR-15 AC-3 |
-| NFR-4 | partial | v1 | Lint, unit tests, and a per-corpus eval job all run. AC-3 not yet met — the eval job runs the deterministic path and does not invoke the target toolchain |
-| NFR-5 | partial | v1 | The architecture holds — a renderer is a self-contained package behind a registry. AC-2 not yet met — the renderer-authoring section is not yet written |
-| FR-40 | shipped | v1 | The graph schema carries a `calls_unresolved` edge kind, so an unresolvable reference is emitted rather than dropped. AC-3's degraded-resolution reporting is decided (remediation hint on an unpopulated local Maven repository) but not separately verified here |
+| NFR-2 | partial | v1 | **Re-verify.** Prefix caching ships. AC-2 token and cost scorecard not shipped, and blocked behind FR-16's uncomputed cost |
+| NFR-3 | partial | v1 | **Re-verify.** AC-1 holds — the scorecard carries `seed`. **AC-2 not met** — the provenance FR-18 requires is unpopulated, so a past LLM-derived score cannot be re-derived; same root cause as FR-18 AC-1 |
+| NFR-4 | partial | v1 | **Re-verify.** Lint, unit tests, and a per-corpus eval job all run. AC-3 not yet met — the eval job runs the deterministic path and does not invoke the target toolchain |
+| NFR-5 | partial | v1 | The architecture holds — a renderer is a self-contained package behind a registry. **AC-1 not met** — `Scorecard.kind` is a hardcoded `Literal["graph","ts","go"]`, so a new target also requires editing the eval model. **AC-2 not met** — the renderer-authoring section is not yet written. Also, the render pipeline hardcodes the TypeScript renderer's prompt directory and prompt id when it builds the render cache key, and the CLI imports the TypeScript package by name to register it — so a second target would also edit the core pipeline and the CLI, and until then its cache key would hash the TypeScript prompt |
+| FR-40 | partial | v1 | AC-1 and AC-2 hold — unresolvable calls are emitted as `calls_unresolved`, and an unresolved edge is replaced only by a resolved one, never dropped. **AC-3 not met** — nothing reports conditions that reduce resolution to the user. The remediation hint the status once cited does not exist, and the symbol solver that would consult a local Maven repository is not configured: resolution is a four-case source-only heuristic, and local-variable callees always stay unresolved. AC-4 has nothing to act on while AC-3 is unmet |
 | FR-41 | planned | v1.1 | Not shipped in any form. FR-7c's harness detects drift against a captured baseline, which cannot serve as a correctness oracle. The two accuracy checks that need this expectation are `structural_completeness` (its ground-truth source is an open question) and `semantic_accuracy` (skipped, deferred) |
-| NFR-6 | shipped | v1 | Canonical serialisation in the writer; the same bytes feed the manifest hash and the golden assertion |
-| NFR-7 | shipped | v1 | Graph and manifest schema versions are independent of the application version; manifest is `2.0.0`, strict-additive within `2.x` |
+| NFR-6 | partial | v1 | Holds when enrichment is disabled — canonical serialisation in the writer, and the same bytes feed the manifest hash and the golden assertion. **AC-1 and AC-2 not met on LLM-enabled runs** — the corpus-synthesis pass rewrites the graph without the canonical form, so the file on disk is neither canonical nor the bytes that were hashed (see FR-34). Goldens are captured without enrichment, so they never see this |
+| NFR-7 | shipped | v1 | **Re-verify.** Graph and manifest schema versions are independent of the application version; manifest is `2.0.0`, strict-additive within `2.x` |
 
 ---
 
