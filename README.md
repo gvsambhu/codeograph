@@ -1,6 +1,7 @@
 # Codeograph
 
 Reads a Java/Spring Boot codebase and emits a deterministic knowledge graph — nodes, edges, complexity metrics, Spring-aware annotations — reproducible byte-for-byte across runs.
+*(Not yet on runs with LLM enrichment enabled — see [Known gaps](#known-gaps).)*
 
 **Status:** v1 complete (DC1–DC6) — deterministic graph, LLM enrichment, eval framework, TypeScript/NestJS renderer, run manifest + structured logging, cost-safety floor + multi-provider LLM support. See [`docs/architecture.md`](docs/architecture.md) for the full pipeline.
 
@@ -105,6 +106,8 @@ To prevent accidental runaway API bills during large runs, Codeograph implements
 
 `codeograph render` converts an existing run output into a TypeScript/NestJS project: each selected class is translated into **full idiomatic NestJS source — method bodies included, not skeletons** — via one LLM call, emitted alongside a deterministic Jinja2 project scaffold (`package.json`, `tsconfig.json`, bootstrap `main.ts`). Features v1 cannot translate faithfully surface as reviewable **TODO/stub** placeholders or explicit **refuse-to-render** entries — never silent drops — under a configurable per-feature policy. Rendering is decoupled from LLM execution so you can tune rendering parameters (ORM mode, class budget, domain grouping) without re-running the expensive annotation passes.
 
+Two parts of this do not hold yet: a class refused by a feature policy is currently left out of the output without a placeholder, and the per-feature policies and domain grouping cannot yet be set — see [Known gaps](#known-gaps).
+
 ```bash
 codeograph render --from ./out --out ./ts-out --target typescript
 ```
@@ -116,8 +119,8 @@ Key flags:
 | `--from DIR` | required | Output directory from a prior `codeograph run` |
 | `--out DIR` | required | Destination for the rendered TypeScript project |
 | `--target` | `typescript` | Renderer target (`--list-targets` prints registered targets) |
-| `--db-layer` | config default | Override ORM mode: `typeorm`, `typeorm_raw_sql`, or `hybrid` |
-| `--render-budget N` | config default | Per-domain class cap (stratified sampling, ADR-009) |
+| `--db-layer` | `typeorm` | ORM mode. `typeorm` is the only value in v1 |
+| `--max-classes-per-domain N` | `3` | Per-domain class cap (stratified sampling, ADR-009) |
 | `--no-scaffold` | off | Skip NestJS scaffold files (package.json, tsconfig, etc.) |
 | `--force` | off | Overwrite `--out` if non-empty |
 
@@ -171,7 +174,6 @@ The run manifest (`manifest.json`) is written once at the terminal checkpoint, a
 
 ## Limitations (v1)
 
-- **Maven-only classpath resolution.** Gradle projects are detected and source files are parsed, but classpath resolution falls back to source-only mode. Method-call resolution is lower fidelity for Gradle inputs until v1.1.
 - **TypeScript/NestJS renderer only.** The Go renderer (ADR-011) is planned for v1.1.
 - **Providers: Anthropic, OpenRouter, and any OpenAI-compatible endpoint; Ollama and Bedrock deferred to v1.1.** All run through a LangChain-based provider abstraction (`AnthropicProvider`, `OpenRouterProvider`, `OpenAICompatibleProvider` with a configurable `base_url`). `Ollama` and `Bedrock` are wired in the resolver but raise `NotImplementedError`. A single model (default `claude-sonnet-4-6`) serves all stages by default; per-stage model overrides (`llm_model_fast` / `deep` / `render`, used by Pass 1 / Pass 2 / rendering) are configurable, but v1 ships no curated *differential* per-stage mapping — that is v1.1.
 - **Sync LLM calls; no Batch API.** All LLM calls are synchronous with prompt caching. The Anthropic Batch API (50% discount) is v1.1.
@@ -185,6 +187,16 @@ The run manifest (`manifest.json`) is written once at the terminal checkpoint, a
 - **No log rotation or color output in v1.** `logs.jsonl` grows unboundedly per run; no log-level env-var override. These are v1.1 items.
 - **Gitleaks secret scanning is enforced in CI; merges are blocked on detection; no admin bypass.** The `pre-commit` hook is opt-in (`pre-commit install` after setup); CI is the mandatory gate. The gitleaks version is exact-pinned in both `secrets-scan.yml` and `.pre-commit-config.yaml` with a CI parity check, and a scheduled full-history scan runs nightly (non-blocking). See `CONTRIBUTING.md` for the finding-response runbook.
 - **Output stability tracks `schema_version`, not the application version.** The app version (`codeograph --version`, currently `0.5.0`) and the artefact `schema_version` are independent version lines. Consumers scripting against `graph.json` / `manifest.json` should pin or check `schema_version`; the app version is not a format-stability guarantee. v1 ships in `0.x` — `1.0.0` is published only at the stability gate (ADR-026).
+
+### Known gaps
+
+The limitations above are deliberate v1 scope. These are different: places where the code does not yet do what this README, the requirements, or an accepted ADR says it does. Each is tracked for a fix.
+
+- **The graph is not byte-reproducible on runs with LLM enrichment enabled.** Corpus synthesis writes its project overview (`projectOverview`) into `graph.json` and rewrites the file outside the canonical form, so the graph differs from an enrichment-free run and the manifest's recorded hash no longer matches the file on disk. Runs with `--ast-only` are unaffected.
+- **No classpath resolution yet, for Maven or Gradle.** Method calls are resolved by a source-only heuristic (self-calls, static imports, field and parameter types); a call through a local variable stays unresolved and is emitted as `calls_unresolved`, never dropped. Symbol-solver resolution against the local Maven repository (ADR-003) is not yet implemented.
+- **The render security policy sees class-level annotations only.** A controller secured by method-level `@PreAuthorize`, `@Secured` or `@RolesAllowed` is rendered without a refusal and without a guard stub. Review rendered controllers whose source uses method-level security before relying on them.
+- **Refused classes leave no placeholder.** A class refused by a feature policy, or whose render call fails, is left out of the rendered output; a refusal is logged at debug level only.
+- **Render policies and domain grouping cannot yet be set.** `codeograph render` reads only its command-line flags; the `[render.typescript]` configuration section is not read yet, so the defaults always apply — security and WebFlux classes refused, other unsupported features rendered as stub + TODO, package-prefix domain grouping.
 
 ## Documentation
 

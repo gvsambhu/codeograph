@@ -93,6 +93,8 @@ v1 supports `ANTHROPIC`, `OPENROUTER`, and `OPENAI_COMPATIBLE` (any OpenAI-compa
 
 `codeograph render` is decoupled from `run`: it reads a prior run output, selects a representative subset of classes within a budget, groups them into domains, and translates each class into idiomatic TypeScript/NestJS source — full method bodies, not skeletons — via one LLM call. The translated files are emitted together with a deterministic Jinja2 project scaffold (`package.json`, `tsconfig.json`, bootstrap `main.ts`); features that cannot be translated faithfully become reviewable TODO/stub or refuse-to-render entries (never silent drops), configurable per feature. Targets are pluggable through a registry.
 
+Two parts of this do not hold yet: a class refused by a feature policy is currently left out of the output without a placeholder, and the per-feature policies and domain grouping cannot yet be set — see [Known gaps](../README.md#known-gaps).
+
 ```
 run output  →  ClassSelector  →  DomainGrouping  →  per-class render prompt (LLM)  →  ScaffoldEmitter  →  TS/NestJS project
                (stratified,       (package-prefix
