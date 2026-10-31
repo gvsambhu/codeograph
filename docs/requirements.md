@@ -51,9 +51,12 @@ output is production-ready without review.
 | **Corpus** | The set of source files in scope for one run, after acquisition and discovery. Not the same as "the repository" — excluded and non-source files are not part of the corpus. |
 | **Module** | A build unit within the corpus — a directory with its own build file. A single-module project has one; a multi-module project has several, each with its own source roots. |
 | **Run** | One end-to-end invocation of the tool against one corpus, producing one output directory. |
+| **Invocation** | One execution of any of the tool's commands against an output directory. |
+| **Output directory** | The directory a run writes to, and that every later invocation against the run writes to. |
+| **Superseded output** | Output that a later invocation has replaced, or whose inputs have changed since it was produced. |
 | **Artefact** | An output the tool produces for a consumer: the run manifest, the knowledge graph, the annotations, the rendered source, and the evaluation scorecards and sidecars. |
-| **Deterministic artefact** | An artefact produced with no LLM contribution to its content (FR-34). NFR-6 states the byte-reproducibility guarantee that applies to this class, and the environment envelope it holds within. |
-| **Diagnostic record** | A file the tool writes for later inspection rather than as an output — the structured run log and the per-call telemetry. Not an artefact. |
+| **Deterministic artefact** | The knowledge graph. FR-34 requires it to be a function of the corpus and the tool alone; NFR-6 states the byte-reproducibility guarantee that applies to it, and the environment envelope it holds within. |
+| **Diagnostic record** | A file the tool writes for later inspection rather than as an output — the structured run log, the per-call telemetry, and the invocation history (FR-43). Not an artefact. |
 | **Structural fact** | A fact readable from the source text without inference — what the code declares, and what it references. |
 | **Knowledge graph** | The deterministic property graph of a corpus — the elements it declares, the relationships between them, and named complexity metrics on those elements. The node and edge taxonomy is fixed by a published schema (FR-7b), not by this document. |
 | **Degraded** | A corpus file whose extraction fell short of full fidelity — reduced-extractor output, or no usable structure at all (FR-31). |
@@ -217,13 +220,22 @@ Published, machine-readable schema files are the language-neutral source of trut
   is controllable at invocation.
 
 #### FR-33 · The manifest is an integrity contract over the run's artefacts
-- **AC-1** The manifest indexes every artefact the tool produced in the output directory, except the
+- **AC-1** The manifest indexes every artefact produced by an invocation against the output directory
+  that has not since been superseded, including a rendered source written outside it, except the
   manifest itself, which is the index.
-- **AC-2** Pointers to artefacts produced by an earlier run against the same directory are retained
-  when a later run rewrites the manifest.
+- **AC-2** Pointers to artefacts produced by an earlier invocation against the same directory are
+  retained when a later invocation rewrites the manifest, unless the later invocation supersedes them.
 - **AC-3** Each indexed artefact carries a SHA-256 of its committed bytes.
 - **AC-4** A missing artefact is explicit — an absent hash never doubles as "this stage was skipped".
 - **AC-5** A consumer can detect any post-run modification of an artefact from the manifest alone.
+- **AC-6** An artefact whose inputs have changed since it was produced is never indexed as current.
+
+#### FR-43 · The history of an output directory is visible
+- **AC-1** Every invocation against an output directory is recorded with its command, its outcome, the
+  invocation whose output it built on, the outputs it produced, and the outputs it superseded.
+- **AC-2** An invocation that did not finish is distinguishable from one that finished.
+- **AC-3** The user can view this history without an external service.
+- **Interface** `history`
 
 #### FR-28 · Each field in the graph schema is documented as deterministic or not
 
@@ -234,6 +246,8 @@ Published, machine-readable schema files are the language-neutral source of trut
   manual repair.
 - **AC-2** Each source class maps to an identifiable unit of the output, so source and output can be
   compared side by side.
+- **AC-3** The rendered source is written to a location the user chooses, or to a documented default.
+- **Interface** `--source-out`
 
 #### FR-4 · Render the knowledge graph into idiomatic Go source
 Same graph, different target — the proof that the graph is target-independent.
@@ -404,13 +418,41 @@ This is the falsifiable form of "the tool is configurable".
 - **AC-4** A committed example environment file documents every credential a contributor must set.
 
 #### FR-27 · Output-path safety
-- **AC-1** All run artefacts are written inside the output directory.
+- **AC-1** All artefacts are written inside the output directory, except the rendered source, which is
+  written where FR-3 AC-3 places it.
 - **AC-2** An output directory that is the working directory, or an ancestor of it, is rejected.
-- **AC-3** Re-running against the output of a previous run does not require `--force`.
-- **AC-4** Content the tool did not produce is never deleted.
-- **AC-5** Content the tool did not produce is overwritten only where its path matches a file this run
-  would write, and only with `--force`.
-- **Interface** `--force`
+- **AC-3** Re-running against the output of a previous run succeeds without any overriding option,
+  except as AC-6 provides.
+- **AC-4** Content the tool did not produce is never deleted, except by a removal the user explicitly
+  requests.
+- **AC-5** Content the tool did not produce is overwritten only where its path matches a file the
+  invocation would write, and only with explicit consent given at invocation.
+- **AC-6** An output directory written by an incompatible earlier version is never modified; the
+  invocation is refused with a message stating how to proceed.
+- **Interface** `--on-existing`
+
+#### FR-42 · Superseded output is preserved, not overwritten
+**Negative guarantee.** Re-running never destroys an earlier result.
+- **AC-1** Output that a later invocation supersedes is preserved rather than overwritten.
+- **AC-2** Preserved output is never removed without the user acting.
+- **AC-3** The user can remove preserved output selectively — by age, by count, or entirely.
+- **AC-4** Removal that cannot be undone happens only with explicit consent.
+- **AC-5** A non-interactive invocation never waits for that consent and never proceeds without it.
+- **AC-6** The growth of preserved output is surfaced to the user.
+- **Interface** `purge`, `--yes`
+
+#### FR-44 · Concurrent invocations never corrupt their outputs
+**Negative guarantee.**
+- **AC-1** Invocations that write disjoint outputs can run at the same time.
+- **AC-2** An invocation that would write an output another running invocation is writing is refused.
+- **AC-3** An invocation whose inputs change while it runs does not publish outputs built from the
+  superseded inputs.
+- **AC-4** An interrupted invocation never leaves a partially written output indexed as complete.
+
+#### FR-45 · Every invocation's outcome is distinguishable by the caller
+- **AC-1** Success, failure, completion with recorded failures, and refusal are reported to the caller
+  as distinct exit statuses.
+- **AC-2** A refused invocation leaves every artefact, and all superseded output, as it was.
 
 #### FR-26 · Prompt-injection mitigation
 Source text reaching an LLM is treated as data, never as instruction — content crafted to look like
@@ -475,8 +517,8 @@ environment (AC-4), produces byte-identical deterministic artefacts.
 
 #### NFR-7 · Artefact schema versions are governed independently of the application version
 Consumers pin the format, not the tool.
-- **AC-1** Every emitted artefact's schema version is declared in the run's manifest, independently
-  per artefact.
+- **AC-1** Every emitted artefact whose format the tool defines declares its schema version in the
+  manifest, independently per artefact.
 - **AC-2** Artefact schema versions and the application version are separate version lines; neither
   implies the other.
 - **AC-3** Within a major schema line, evolution is additive, so an existing consumer keeps working.
@@ -487,6 +529,8 @@ Consumers pin the format, not the tool.
 
 ## 6. Retired identifiers
 
+- **FR-6** — **Retired.** Its obligation is carried by NFR-5. The number is retained so existing
+  references resolve.
 - **NFR-1** — **Retired.** No longer tracked as a requirement. The number is retained so existing
   references resolve.
 
@@ -509,9 +553,9 @@ rework. Every other `shipped` or `partial` row has been traced to the code again
 |---|---|---|---|
 | FR-1 | shipped | v1 | Maven and Gradle both accepted; the build system is recorded per module. Neither gets classpath resolution: no symbol solver is configured in the parser, so method-call resolution is a source-only heuristic for both |
 | FR-2 | shipped | v1 | |
-| FR-3 | partial | v1 | AC-2 holds — per-class render granularity plus a deterministic project scaffold; full method bodies, not skeletons. AC-1 is not yet verified — the compile check runs the type-checker only, and no check installs or starts the rendered app |
+| FR-3 | partial | v1 | AC-2 holds — per-class render granularity plus a deterministic project scaffold; full method bodies, not skeletons. AC-1 is not yet verified — the compile check runs the type-checker only, and no check installs or starts the rendered app. AC-3 holds — the user chooses `render`'s output location (it is required today; a documented default arrives with the output-layout change) |
 | FR-4 | planned | v1.1 | |
-| FR-5 | partial | v1 | AC-1 holds — `--list-targets` on `render` enumerates the registered targets. **AC-2 not met** — an unknown `--target` is rejected only after the input artefacts are loaded, the output directory is cleared (under `--force`), a telemetry file is opened, and the LLM provider is constructed |
+| FR-5 | partial | v1 | AC-1 holds — `--list-targets` on `render` enumerates the registered targets. **AC-2 not met** — an unknown `--target` is rejected only after the input artefacts are loaded, `render`'s `--out` directory is cleared (under `--force`), a telemetry file is opened, and the LLM provider is constructed |
 | FR-6 | retired | v1 | Retired 2026-08-23. Clause 1 (*a common renderer interface*) was ADR-008's mechanism, not an obligation; clause 2 (*no target-specific code in the core pipeline*) duplicated **NFR-5**, which carries it with acceptance criteria |
 | FR-7 | partial | v1 | **AC-1 not met** — the compile check reads the manifest's `1.x` nested location for its sidecar pointer, which the `2.0.0` schema moved to a top-level peer, so it returns `skip` regardless of whether a render happened; its sidecar path also resolves against the run directory while the file is written to the render directory. AC-2 skips pending the render-time producer for its input. AC-3 llm_judge deferred |
 | FR-7a | partial | v1 | **Re-verify.** **The statement's seven-check list is not fully met** — six of seven run; `semantic_accuracy` returns an explicit skip pending judge calibration, which is AC-2's permitted form, so no AC is breached. Separately, `structural_completeness` runs but its ground-truth source is an open question — a completeness ratio can only count declarations the extractor produced, so a declaration it never saw is absent from both sides. FR-41 is the intended oracle |
@@ -536,13 +580,13 @@ rework. Every other `shipped` or `partial` row has been traced to the code again
 | FR-24 | planned | v1.1 | |
 | FR-25 | planned | v1.1 | |
 | FR-26 | planned | v1.1 | |
-| FR-27 | partial | v1 | AC-1 holds — telemetry, the one output written outside the directory, is a diagnostic record rather than an artefact (§3). AC-2's cwd-or-ancestor rejection is verified. AC-4 and AC-5 hold today only incidentally: nothing is overwritten or deleted without `--force`, so foreign content is protected by a rule that protects everything. **AC-3 not met** — a re-run against a previous run's output is refused unless `--force` is given. |
+| FR-27 | partial | v1 | **AC-1 not met** — `render` writes the compile-check file under its own `--out`, outside the run's output directory; telemetry, also written outside it, is a diagnostic record rather than an artefact (§3). AC-2's cwd-or-ancestor rejection is verified. AC-5 holds today only incidentally: nothing is overwritten without `--force`, which is consent given at invocation. **AC-4 not met** — with `--force`, `render` clears its `--out` directory entirely, deleting content the tool did not produce. **AC-3 not met** — a re-run against a previous run's output is refused unless `--force` is given. **AC-6 not met** — an output directory from an incompatible earlier version is not detected. |
 | FR-28 | planned | v1.1 | |
 | FR-29 | shipped | v1 | Local, git, and zip acquirers all present |
 | FR-30 | partial | v1 | AC-1, AC-2 and AC-3 hold — multi-module enumeration with module labelling, ignore-rule-driven exclusion, `.java`-only parsing. **AC-4 not met** — the Kotlin source root is dropped silently, with no log, warning, or record in the run's output |
 | FR-31 | partial | v1 | AC-1, AC-2 and AC-4 hold — the AST → regex → name-only stub ladder runs, the run continues on parser failure, and each degraded file records its extraction mode. **AC-3 not met** — fallback is logged per file (`parser/file_parser_dispatcher.py:74`); no run-level report names the affected files, which is what ADR-003's amendment specifies |
 | FR-32 | partial | v1 | AC-2 and AC-4 hold — 38 interpreted annotations are documented, and Lombok members are synthesised in the parser. **AC-1 not met in one case** — annotation-type declarations carry no annotations, so meta-annotations such as `@Retention` on a custom annotation are not captured. **AC-3 not met** — the documented criterion (*"interpreted when it lifts to a structured graph field or edge"*) is stated in terms of its own outcome |
-| FR-33 | partial | v1 | AC-4 holds — skipped LLM passes are signalled by an explicit flag, not a null hash. **AC-3 and AC-5 not met on LLM-enabled runs** — the graph's recorded SHA-256 is of the graph as first written; enrichment then rewrites the file, so the hash no longer matches what is on disk and an integrity check reports the tool's own output as modified (see FR-34). **AC-1 not met** — the rendered source is an artefact (§3) and is not indexed; the manifest's `artefacts` map holds only the graph and the annotations. **AC-2 not met** — a re-run resets the scorecard and compile-check pointer maps |
+| FR-33 | partial | v1 | AC-4 holds — skipped LLM passes are signalled by an explicit flag, not a null hash. **AC-3 and AC-5 not met on LLM-enabled runs** — the graph's recorded SHA-256 is of the graph as first written; enrichment then rewrites the file, so the hash no longer matches what is on disk and an integrity check reports the tool's own output as modified (see FR-34). **AC-1 not met** — the rendered source is an artefact (§3) and is not indexed; the manifest's `artefacts` map holds only the graph and the annotations. **AC-2 not met** — a re-run resets the scorecard and compile-check pointer maps. **AC-6 not met** — nothing records an artefact's inputs, so an artefact built from changed inputs stays indexed as current |
 | FR-34 | partial | v1 | Holds when enrichment is disabled. **AC-1, AC-3 and AC-4 not met on LLM-enabled runs** — the corpus-synthesis pass writes four LLM-derived fields (`projectOverview`: description, architecture pattern, domains, cross-domain dependencies) into the graph and rewrites the file without the canonical form. The deterministic graph then differs from an enrichment-disabled run and cannot be obtained on its own. The graph schema declares the field; no design record decides it. AC-2 holds — no call outcome is recorded in the graph |
 | FR-35 | partial | v1 | AC-2 to AC-7 hold — per-node annotation failures are logged and the node marked un-enriched (the annotation record's `degraded` flag), oversized inputs fall back to signatures with the reduction recorded, a failure ratio above the configured maximum aborts loudly, and the pipeline runs with LLM passes off. **AC-1 not met for corpus synthesis** — it is a single call, and its failure aborts the whole run, discarding the per-node annotations already produced |
 | FR-36 | partial | v1 | AC-4 holds as documentation — ADR-010 Fork 9 is the matrix — but the code enforces only two of its refuse rows (Security, WebFlux); classes in the other refuse rows are rendered. **AC-1 not met** — a class refused by policy, or whose render call fails, is absent from the output with no placeholder, and a refusal is logged at debug level only. Placeholders inside a rendered class are asked for in the prompt, not enforced. **AC-2 not met for method-level security** — the policy checks class-level annotations only, so a controller secured by `@PreAuthorize` on its methods is rendered with no refusal and no guard stub. **AC-3 not met** — no user-reachable setting changes any policy: `render` builds the renderer's configuration from three CLI flags and reads no configuration section, and the permissive values carry no warning |
@@ -556,6 +600,10 @@ rework. Every other `shipped` or `partial` row has been traced to the code again
 | NFR-5 | partial | v1 | The architecture holds — a renderer is a self-contained package behind a registry. **AC-1 not met** — `Scorecard.kind` is a hardcoded `Literal["graph","ts","go"]`, so a new target also requires editing the eval model. **AC-2 not met** — the renderer-authoring section is not yet written. Also, the render pipeline hardcodes the TypeScript renderer's prompt directory and prompt id when it builds the render cache key, and the CLI imports the TypeScript package by name to register it — so a second target would also edit the core pipeline and the CLI, and until then its cache key would hash the TypeScript prompt |
 | FR-40 | partial | v1 | AC-1 and AC-2 hold — unresolvable calls are emitted as `calls_unresolved`, and an unresolved edge is replaced only by a resolved one, never dropped. **AC-3 not met** — nothing reports conditions that reduce resolution to the user. The remediation hint the status once cited does not exist, and the symbol solver that would consult a local Maven repository is not configured: resolution is a four-case source-only heuristic, and local-variable callees always stay unresolved. AC-4 has nothing to act on while AC-3 is unmet |
 | FR-41 | planned | v1.1 | Not shipped in any form. FR-7c's harness detects drift against a captured baseline, which cannot serve as a correctness oracle. The two accuracy checks that need this expectation are `structural_completeness` (its ground-truth source is an open question) and `semantic_accuracy` (skipped, deferred) |
+| FR-42 | planned | v1 | |
+| FR-43 | planned | v1 | |
+| FR-44 | planned | v1 | |
+| FR-45 | planned | v1 | |
 | NFR-6 | partial | v1 | Holds when enrichment is disabled — canonical serialisation in the writer, and the same bytes feed the manifest hash and the golden assertion. **AC-1 and AC-2 not met on LLM-enabled runs** — the corpus-synthesis pass rewrites the graph without the canonical form, so the file on disk is neither canonical nor the bytes that were hashed (see FR-34). Goldens are captured without enrichment, so they never see this |
 | NFR-7 | shipped | v1 | **Re-verify.** Graph and manifest schema versions are independent of the application version; manifest is `2.0.0`, strict-additive within `2.x` |
 
