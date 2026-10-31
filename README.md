@@ -95,7 +95,7 @@ The graph tells Codeograph what is there — nodes, edges, framework semantics, 
 
 To prevent accidental runaway API bills during large runs, Codeograph implements a pre-flight cost safety floor and middleware ceiling limits:
 
-- **Pre-flight Cost Estimate:** Before starting Pass 1, Codeograph parses the corpus (Pass 0), derives the expected call count (`class_count + 1`), queries a localized model pricing database (`prices.toml`), and prints an estimate of the total cost and calls.
+- **Pre-flight Cost Estimate:** Before starting Pass 1, Codeograph parses the corpus (Pass 0), derives the expected call count (`class_count + 1`), queries a localized model pricing database (`prices.toml`), and prints an estimate of the total cost and calls. The figure is labelled as an estimate from a dated price table, not a quote — actual cost depends on the model, caching and the provider's current pricing.
 - **TTY Confirmation Gate:** If the estimated call count exceeds the default confirmation threshold (`100` calls, configurable via `--llm-call-confirm-threshold`), the pipeline prompts the user on an interactive terminal (TTY) or auto-aborts in non-TTY environments (CI/pipelines). You can override this using `--yes` / `-y` or `--non-interactive`.
 - **Hard Ceilings:** You can configure hard limits using `--max-llm-calls N` or `--max-tokens-total M`. A middleware wrapper checks these ceilings mid-run and aborts execution immediately if either threshold is reached, displaying the partial progress manifest.
 
@@ -146,7 +146,7 @@ codeograph eval report ./run1 ./run2 ./run3
 | `--check <id>` | Run only the named check IDs |
 | `--skip-check <id>` | Skip named check IDs |
 
-The graph scorecard runs 6 deterministic checks (node count, edge count, schema version, sha256 integrity, complexity metrics present, golden-graph agreement). The code-quality scorecard runs 3 checks (compilation, feature coverage, llm_judge — the latter two are `skip` in v1 pending ADR-020 calibration).
+The graph scorecard runs 6 deterministic checks (node count, edge count, schema version, sha256 integrity, complexity metrics present, golden-graph agreement). The code-quality scorecard runs 3 checks (compilation, feature coverage, llm_judge — the latter two are `skip` in v1: llm_judge pending ADR-020 calibration, feature coverage for the reason under [Known gaps](#known-gaps)).
 
 You can also run eval automatically as part of `codeograph run` using `--eval`:
 
@@ -197,6 +197,8 @@ The limitations above are deliberate v1 scope. These are different: places where
 - **The render security policy sees class-level annotations only.** A controller secured by method-level `@PreAuthorize`, `@Secured` or `@RolesAllowed` is rendered without a refusal and without a guard stub. Review rendered controllers whose source uses method-level security before relying on them.
 - **Refused classes leave no placeholder.** A class refused by a feature policy, or whose render call fails, is left out of the rendered output; a refusal is logged at debug level only.
 - **Render policies and domain grouping cannot yet be set.** `codeograph render` reads only its command-line flags; the `[render.typescript]` configuration section is not read yet, so the defaults always apply — security and WebFlux classes refused, other unsupported features rendered as stub + TODO, package-prefix domain grouping.
+- **The feature-coverage check does not run yet.** The code-quality scorecard's `coverage` check needs a record of which features rendering translated, and rendering does not yet write one, so the check is always reported as skipped.
+- **Telemetry records no per-call cost.** Each call's cost estimate is written as `0.0`, so the cost lines in `codeograph cache report` always read ~$0.00. The pre-flight estimate shown before a run is computed separately and is unaffected.
 
 ## Documentation
 
