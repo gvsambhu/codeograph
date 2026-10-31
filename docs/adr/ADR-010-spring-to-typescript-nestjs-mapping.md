@@ -1053,3 +1053,23 @@ run against any corpus pays full cost rather than hitting cache.
 **relocates** its permissive-mode warning from the preset to the behaviour. Fork 9's remaining
 decisions — the coverage matrix, `webflux_policy`, and `refuse` as the security default — are
 unchanged.
+
+**2026-10-31 — The encounter audit moves from the manifest to the render-audit file.**
+
+Fork 9 decided that each run emits the active policies and the refused and stubbed counts *"both in logs
+and in the manifest"*, through an extended `SelectionResult`. The manifest half moves to a render-owned
+file, `<run directory>/evals/render-audit.<target>.json` (ADR-029 Fork 6), indexed from the manifest
+(ADR-025, 2026-10-31). The log lines stay as Fork 9 shows them, with the stub line pointing at the audit
+file instead of `manifest.json`.
+
+**Contents** — one JSON document with its own `schema_version`, holding, per domain group, the selection
+audit ADR-009 defines and the encounter audit Fork 9 adds:
+- the classes selected, and the classes skipped with the rule that skipped each (FR-14 AC-3);
+- the classes refused, with the policy that refused each (FR-36 AC-2);
+- the stub-and-TODO sites, per class (FR-36 AC-1);
+- the active policies (`feature_policies_active`).
+
+The audit leaves the manifest because it grows with the corpus and is read by evaluation, not by every
+manifest consumer — the same reasoning that gave scorecards and compile-check records their own files.
+
+No reversal of Fork 9's audit content; its location changes.

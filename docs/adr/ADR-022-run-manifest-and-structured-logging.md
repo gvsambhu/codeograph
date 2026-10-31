@@ -786,3 +786,25 @@ Confirmation #5 is amended to drop the requirement that 1000 calls to `generate_
 - Two calls in rapid succession differ (same-second collision is negligible at 24 bits).
 - Calls generated at distinct timestamps are unique.
 
+**2026-10-31 — Fork 5 superseded by ADR-029; Fork 3 extended by ADR-030; the log file's location.**
+
+*Fork 5 (per-run directory layout) is superseded by ADR-029 (Output Layout and Ownership).* The layout
+Fork 5 formalised — one `<out>` holding the manifest, logs, graph, annotations, telemetry, the rendered
+tree and the evaluations — had already diverged in code in three places, and the requirements ask for more
+than one root can give: the rendered source goes where the user chooses (FR-3 AC-3), and an earlier
+result is preserved rather than overwritten (FR-42). ADR-029 replaces it with a namespaced run directory
+and a per-target source location; Fork 5's *"per-run history via user discipline"* and *"no `--runs-dir`
+flag"* are replaced by ADR-028's archive, ADR-030's history and ADR-029's `runs_dir` setting. This is a
+material change, so it is a supersession, recorded here; ADR-022's `status` stays `accepted`, and its
+index entry notes the superseded fork.
+
+*Fork 3 (run id generation) is extended, additively.* Every invocation that writes to a run directory
+generates its own identifier at start, in Fork 3's format, and records the identifier of the run it
+built on (ADR-030 Fork 1). The format, and the 2026-06-25 uniqueness relaxation, are unchanged.
+
+*Fork 4's format is unchanged; its file moves.* `<out>/logs.jsonl` becomes one file per invocation,
+`<run directory>/logs/<invocation id>.jsonl` (ADR-030 Fork 3). With `render` and `eval` writing a log
+file too, Fork 6's decision — the same verbosity flags on every subcommand — takes effect for the file
+channel as well as the console.
+
+Fork 5 superseded; Fork 3 extended; Forks 4 and 6 unchanged in substance.

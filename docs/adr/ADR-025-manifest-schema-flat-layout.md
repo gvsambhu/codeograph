@@ -471,3 +471,136 @@ manifest and the version bump.
 
 No reversal of any prior decision; a deferral is discharged on the trigger Fork 5 named, and the `2.x`
 line evolves additively as designed.
+
+### 2026-10-31 — Layout cluster: new entries, absence records, producers and supersession (`2.2.0`)
+
+**Surfaced by** the output-layout decisions — ADR-029 (where outputs live and who writes them), ADR-028
+(what a command may overwrite, delete or refuse), ADR-030 (invocation identity and history) and ADR-031
+(command outcomes and consent). Each creates something the manifest must index, or a rule about who may
+change it. This ADR owns the manifest's shape; those ADRs own the behaviour.
+
+**Schema `2.1.0` → `2.2.0`, additive**, per this ADR's strict-additive rule for the `2.x` line: new
+optional top-level sections, new optional pointer fields, and new `artefacts` keys. No field is removed,
+renamed or retyped. Pointer `path` values change with the layout (`analysis/graph.json`, not
+`graph.json`); that is a change of value, not of shape.
+
+**1 · Every entry names the invocation that produced it.** `ArtefactPointer`, `ScorecardPointer`,
+`CompileChecksPointer` and the new rendered-source entry gain `invocation_id` — optional in the schema
+for additivity, always written by the current tool. With the log files and telemetry records named by the
+same identifier, any manifest entry leads to its log and its telemetry (FR-20 AC-3; ADR-030). The
+top-level `run_id` keeps its meaning: the `run` invocation that produced the analysis.
+
+**2 · Corpus synthesis is an artefact.** `artefacts["corpus_synthesis"]` points at
+`analysis/corpus-synthesis.json` (ADR-029 Fork 7), with its own `schema_version`; the file validates
+against a published schema (FR-7b AC-1). **Invariant:** it is present iff `llm_skipped` is `false` and
+the synthesis did not fail — a failure is recorded under item 4.
+
+**3 · A new top-level section, `rendered_sources`, keyed by target.** It indexes each rendered project
+through its file list (FR-33 AC-1, AC-5):
+
+```python
+class RenderedSource(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    file_list: ArtefactPointer        # <target>-source.files.json, beside the manifest
+    audit: ArtefactPointer | None = None  # evals/render-audit.<target>.json (ADR-010, ADR-029 Fork 6)
+    location: str                     # the project folder: POSIX-relative if inside the run directory,
+                                      # absolute if outside (ADR-029 Fork 1)
+    invocation_id: str | None = None  # item 1
+    stale: bool = False               # item 6
+```
+
+**Why a top-level section, not a key under `artefacts`.** Fork 2 placed evaluation outputs at the top
+level because they are not produced by `run`. The rendered source is not produced by `run` either, so the
+same reasoning places it there — and it gives the rule in item 5 a clean statement: **every top-level
+section has exactly one producer.**
+
+**The file list** (`<target>-source.files.json`) has its own `schema_version` and holds the target, the
+**input fingerprints** the project was rendered from — the SHA-256 of the graph and of the annotations
+— and one entry `{path, sha256}` per file render produced. Paths are POSIX and relative to the project
+root on every OS; entries are sorted by path; the file uses the graph's canonical serialisation (sorted
+keys, compact separators, UTF-8, LF), so its own SHA-256 is stable (NFR-6 AC-1). Only regular files are
+listed — symbolic links are not followed and empty folders are not listed. The rendered source itself has
+no schema version: its format is the target stack's, not the tool's (NFR-7 AC-1).
+
+**4 · A new top-level section, `absent`, records an output that should exist but does not.**
+
+```python
+class AbsentOutput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    reason: str = Field(pattern=r"^(skipped|failed)$")
+    invocation_id: str
+    detail: str                       # human-readable: why it was skipped, or what failed
+```
+
+`absent` is keyed by the entry the output would have had — `"artefacts.corpus_synthesis"`,
+`"scorecards.ts"`. **Only skipped and failed outputs are recorded**; an output never requested, or one
+archived because it was superseded, is not. An `--ast-only` run records its skipped LLM outputs here as
+well; `llm_skipped` is kept unchanged, for consumers that read it. This keeps Fork 3's contract intact —
+**a pointer present ⇒ the file exists ⇒ its `sha256` is non-null** — while every missing output carries
+its reason in the manifest alone (FR-33 AC-4; FR-35 AC-1).
+
+**5 · Producers, and what another invocation may change.** This replaces the 2026-06-08 amendment's
+statement that `render` and `eval` add "only a top-level optional pointer":
+
+| Section | Producer | What other invocations may change |
+|---|---|---|
+| `artefacts`, `llm_skipped`, `cache_stats`, `pricing` | `run` | nothing |
+| `rendered_sources`, `compile_checks` | `render` | a superseding invocation sets `stale` (item 6) |
+| `scorecards` | `eval` | a superseding invocation removes an entry it archived |
+| `absent` | each invocation, for its own outputs only | an entry is removed when the output is produced |
+
+**A re-run keeps every section it does not produce**, except the entries it supersedes (FR-33 AC-2).
+The shipped behaviour — a re-run resetting `scorecards` and `compile_checks` to empty — ends.
+
+**6 · A superseded output is never indexed as current** (FR-33 AC-6; ADR-028 Fork 1).
+- An output the superseding invocation archives (a scorecard built from an older graph) has its entry
+  removed; the previous manifest, with the entry, is copied into the same archive folder first.
+- **A rendered project is never moved by archiving**, so its entry stays and is marked **`stale: true`**
+  when the graph or the annotations it was rendered from change — detected by comparing the file list's
+  input fingerprints with the current artefacts' hashes. **The file list stays current for the files on
+  disk**, so the next `render` classifies them normally (ADR-028 Fork 2) and clears `stale`.
+
+**7 · Writing the manifest** (extends the 2026-06-08 write protocol). Still **one terminal write per
+command**, with three additions:
+1. under ADR-028's brief lock, re-reading the manifest just before changing it;
+2. after the superseded outputs and the previous manifest are in the archive (ADR-028);
+3. to a temporary name, renamed into place — so a crash leaves the previous valid manifest, never a
+   partial one, and the presence-implies-valid invariant holds.
+
+**Alternatives considered and rejected.**
+- *The rendered-source pointer under `artefacts`.* Rejected: `artefacts` is `run`'s section, and the
+  2026-06-08 protocol forbids `render` to modify it; widening that permission would leave `artefacts`
+  with two producers.
+- *A pointer with no hash, plus a reason, for a missing output.* Rejected: it breaks Fork 3's
+  "pointer ⇒ file ⇒ hash" contract, which consumers rely on to trust any present entry.
+- *`llm_skipped` widened to a per-pass map.* Rejected: it covers LLM passes only; `absent` also covers
+  render and evaluation outputs.
+- *Remove a superseded project's entry and archive its file list.* Rejected: the next `render` would find
+  a folder with content and no file list, and refuse (ADR-028 Fork 2) — a re-run would make re-rendering
+  harder.
+- *Input fingerprints on every manifest pointer.* Rejected: an artefact carries its own fingerprints —
+  a scorecard in the scorecard (ADR-017), a project in its file list — so the record travels with the
+  artefact and is checked against the artefact, not against an index that can be edited separately.
+
+**New Confirmation items.**
+* A manifest written by `run`, `render` and `eval` validates at `2.2.0`; every pointer carries the
+  `invocation_id` of the invocation that produced it.
+* An LLM-enabled run whose synthesis call fails writes the annotations pointer and an
+  `absent["artefacts.corpus_synthesis"]` entry with `reason: "failed"`, and no `corpus_synthesis`
+  pointer.
+* After `render --target ts`, `rendered_sources["ts"]` points at `ts-source.files.json`, whose SHA-256
+  matches; the file list is sorted, POSIX-pathed, in canonical form, and carries the graph's and the
+  annotations' SHA-256.
+* A re-run that changes the graph removes the scorecard entries it archived, keeps `compile_checks`, and
+  sets `rendered_sources["ts"].stale` to `true`; a later `render` sets it back to `false`.
+* A re-run that leaves the graph unchanged keeps every `scorecards` entry.
+* After `render --target ts`, `rendered_sources["ts"].audit` points at `evals/render-audit.ts.json` with
+  a matching SHA-256.
+* A `--source-out` outside the run directory is recorded as an absolute `location`; one inside, as a
+  POSIX-relative path.
+* Killing a command during its manifest write leaves the previous manifest intact and valid.
+* The committed JSON Schema regenerates cleanly at `2.2.0` and the CI freshness gate passes.
+
+No reversal of any Fork 1–5 decision: new sections and fields are added under the `2.x` additive rule, and
+the 2026-06-08 write protocol is extended — its single terminal write and presence-implies-valid
+invariant stand.
