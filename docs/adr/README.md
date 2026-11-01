@@ -57,6 +57,10 @@ For someone new to the project who wants to understand the design end-to-end, re
 - [`ADR-023 — Secret scanning with gitleaks`](ADR-023-secret-scanning-with-gitleaks.md)
 - [`ADR-026 — Release & version management`](ADR-026-release-version-management.md) — SemVer scheme, `0.x`→`1.0.0` at the stability gate, version sourced from package metadata
 - [`ADR-027 — Temporary v1 cost-safety floor`](ADR-027-temporary-cost-safety-floor.md) — pre-flight estimate + confirmation gate + optional hard call/token ceiling; *temporary, superseded by ADR-016 at `1.1.0`*
+- [`ADR-029 — Output layout and ownership`](ADR-029-output-layout-and-ownership.md) — *proposed* — where each output lives and which command writes it; on acceptance, supersedes ADR-022 Fork 5
+- [`ADR-028 — What a command may overwrite, delete or refuse`](ADR-028-overwrite-delete-and-refuse.md) — *proposed* — archive, re-render modes, earlier-version folders, concurrency
+- [`ADR-030 — Invocation identity and history`](ADR-030-invocation-identity-and-history.md) — *proposed* — per-invocation identifier, `runs.jsonl`, per-invocation logs
+- [`ADR-031 — Command outcomes and consent`](ADR-031-command-outcomes-and-consent.md) — *proposed* — exit statuses and when a command asks
 
 ### 8. Deferred to v1.1 / post-v1 ⏸️
 - `ADR-011 — Spring → Go mapping`
@@ -100,7 +104,10 @@ For someone new to the project who wants to understand the design end-to-end, re
 | 025 | Manifest schema 2.0.0 (flat layout) | ✅ | Cross-cutting |
 | 026 | Release & version management | ✅ | Cross-cutting |
 | 027 | Temporary v1 cost-safety floor | ✅ | Cross-cutting |
-| 028 | Output-path safety | ⬜ | gvsambhu |
+| 028 | What a command may overwrite, delete or refuse | 📝 | Cross-cutting |
+| 029 | Output layout and ownership | 📝 | Cross-cutting |
+| 030 | Invocation identity and history | 📝 | Cross-cutting |
+| 031 | Command outcomes and consent | 📝 | Cross-cutting |
 
 ---
 
@@ -167,9 +174,20 @@ accepted → deprecated
         → superseded by ADR-NNN
 ```
 
+**A proposed ADR may be merged and implemented against.** It stays `proposed` while the code that
+implements it is built and reviewed, and is **accepted only once that code has passed its development
+review and reconciliation** — so a design problem the implementation exposes is fixed while the decision
+is still open, not by a later amendment or supersession. Until then, a design change is edited into the
+ADR directly and listed, with its date and reason, in a `## Revision history` section at the end.
+Accepting it is its own change: the `status:` field moves to `accepted`. **The amendments it needs in
+accepted ADRs are written when it is accepted, not before** — an accepted ADR's amendments are
+immutable, so they wait until the proposal is final; meanwhile each one is listed in the proposed ADR's
+*Constraint flagged* subsections.
+
 An accepted ADR is immutable, with exactly two exceptions: its `status:` field, and append-only
 `## Amendments` sections. Never edit the original decision text to reflect a later change — that
-destroys the record of what was decided when, which is the entire point of an ADR.
+destroys the record of what was decided when, which is the entire point of an ADR. Its revision history,
+if it has one, stays as the record of how the proposal evolved.
 
 ### When to write a new ADR
 
@@ -211,6 +229,8 @@ Each ADR follows MADR with these sections:
 7. **Confirmation** — checklist of how to verify the decision is implemented correctly
 8. **Pros and Cons of the Considered Options** — per-fork tradeoff breakdown
 9. **More Information** — relationships to other ADRs, deferred items, references
+10. **Revision history** — only for a merged ADR changed while `proposed`: one dated line per change
+11. **Amendments** — only after acceptance, append-only
 
 ---
 
