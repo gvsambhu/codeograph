@@ -198,7 +198,7 @@ References:
 
 A git source may need credentials. The requirements read secrets only from the environment and the local
 environment file (FR-38 AC-3), and nothing the tool writes — the history, the manifest, the logs — may hold
-one. Three rules follow.
+one (FR-38 AC-5). Three rules follow.
 
 1. **A source location carrying a secret is refused** — a URL with a password or token in it
    (`https://user:token@host/…`) — before anything is written, with a message naming the alternatives
