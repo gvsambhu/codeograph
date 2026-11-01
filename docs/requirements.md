@@ -34,15 +34,15 @@ do.
 **In scope.** Reading a Java/Spring Boot codebase supplied as a local directory, a git URL, or a zip
 archive; extracting structure, framework semantics, and complexity deterministically; enriching that with
 LLM-derived semantics kept separable from the deterministic output; rendering a selected subset into a target stack;
-measuring the quality of both the graph and the rendered output; and the operational surface that
+measuring the quality of both the graph and the rendered source; and the operational surface that
 makes a run reproducible, inspectable, and bounded in cost.
 
 **Out of scope.** Building, running, testing, or deploying the source project. Running, testing, or
-deploying the rendered output — it is compile-checked (FR-7) and nothing further. Runtime or dynamic
+deploying the rendered source — it is compile-checked (FR-7) and nothing further. Runtime or dynamic
 analysis. Source languages other than Java — including other JVM languages
 such as Kotlin. Security scanning, architecture governance, and same-language refactoring — mature
 tools already cover those. Migrating data, infrastructure, or build pipelines. Any claim that rendered
-output is production-ready without review.
+source is production-ready without review.
 
 ## 3. Definitions
 
@@ -79,8 +79,8 @@ output is production-ready without review.
 4. The target project's own build tooling is **not** invoked and need not be installed.
 5. LLM access requires the user's own provider credentials, supplied through the environment; any
    run may be performed with the LLM layer switched off entirely.
-6. Rendered output is a reviewable starting point, not a finished port.
-7. The target stack's own toolchain is available when rendered output is compile-checked. (What the
+6. Rendered source is a reviewable starting point, not a finished port.
+7. The target stack's own toolchain is available when rendered source is compile-checked. (What the
    tool does when it is absent is an obligation, not an assumption — see FR-7 AC-4.)
 
 ---
@@ -259,21 +259,21 @@ Same graph, different target — the proof that the graph is target-independent.
 - **Interface** `--target <name>`
 
 #### FR-13 · Rendering output is capped per domain
-Bounds token spend and keeps runs reproducible.
+Bounds token spend and keeps rendering reproducible.
 - **AC-1** A default cap applies when none is given, and its value is documented.
 - **AC-2** A value of `0` disables the cap entirely.
 - **AC-3** Selection at the cap is deterministic and documented (FR-14).
-- **AC-4** The cap binding is reported to the user at the end of the run, naming the affected domains,
-  so a capped output is never mistaken for a full run.
+- **AC-4** The cap binding is reported to the user at the end of the invocation, naming the affected
+  domains, so a capped rendering is never mistaken for a complete one.
 - **Interface** `--max-classes-per-domain N` — default 3
 
 #### FR-14 · Selection under the cap is deterministic and documented
-- **AC-1** The same corpus and cap select the same classes on every run, within the execution envelope.
+- **AC-1** The same corpus and cap select the same classes every time, within the execution envelope.
 - **AC-2** The ordering rule is documented. Where it uses thresholds, each cites a published source.
 - **AC-3** The selection is auditable — what was selected, what was skipped, and by which rule.
 - **AC-4** The partition of the corpus into domains is computed deterministically from the graph.
 
-#### FR-36 · No source feature is ever silently dropped from rendered output
+#### FR-36 · No source feature is ever silently dropped from rendered source
 **Negative guarantee.** Anything the renderer cannot translate faithfully is visible in the output.
 - **AC-1** An untranslatable feature surfaces as a reviewable placeholder carrying the original
   intent.
@@ -290,7 +290,7 @@ Bounds token spend and keeps runs reproducible.
 ### 5.6 Evaluation
 
 #### FR-7 · Run code-quality evaluations per target and produce target-specific scorecards
-- **AC-1** The rendered output is compile-checked with the target stack's own toolchain.
+- **AC-1** The rendered source is compile-checked with the target stack's own toolchain.
 - **AC-2** Feature-translation coverage is measured against the documented feature matrix (FR-36 AC-4).
 - **AC-3** An LLM judge scores output quality.
 - **AC-4** A check that cannot run records an explicit skip with a reason; a skip is never reported
@@ -416,6 +416,8 @@ This is the falsifiable form of "the tool is configurable".
 - **AC-3** Secrets are read only from the environment and the local environment file, never from the
   committed config file.
 - **AC-4** A committed example environment file documents every credential a contributor must set.
+- **AC-5** No credential is written to any artefact or diagnostic record, including one embedded in a
+  git URL given as the source (FR-29 AC-2).
 
 #### FR-27 · Output-path safety
 - **AC-1** All artefacts are written inside the output directory, except the rendered source, which is
@@ -474,7 +476,7 @@ an instruction does not change what the model is asked to do.
 - **AC-5** Each refresh records its diff category: update-golden, fix-bug, or intentional-change.
 - **Interface** `pytest --update-goldens`
 
-#### FR-23 · Rendered output is byte-stable for a fixed input
+#### FR-23 · Rendered source is byte-stable for a fixed input
 With cached LLM responses held constant, re-rendering the same graph produces identical bytes.
 Unexplained drift fails CI.
 
@@ -591,7 +593,7 @@ rework. Every other `shipped` or `partial` row has been traced to the code again
 | FR-35 | partial | v1 | AC-2 to AC-7 hold — per-node annotation failures are logged and the node marked un-enriched (the annotation record's `degraded` flag), oversized inputs fall back to signatures with the reduction recorded, a failure ratio above the configured maximum aborts loudly, and the pipeline runs with LLM passes off. **AC-1 not met for corpus synthesis** — it is a single call, and its failure aborts the whole run, discarding the per-node annotations already produced |
 | FR-36 | partial | v1 | AC-4 holds as documentation — ADR-010 Fork 9 is the matrix — but the code enforces only two of its refuse rows (Security, WebFlux); classes in the other refuse rows are rendered. **AC-1 not met** — a class refused by policy, or whose render call fails, is absent from the output with no placeholder, and a refusal is logged at debug level only. Placeholders inside a rendered class are asked for in the prompt, not enforced. **AC-2 not met for method-level security** — the policy checks class-level annotations only, so a controller secured by `@PreAuthorize` on its methods is rendered with no refusal and no guard stub. **AC-3 not met** — no user-reachable setting changes any policy: `render` builds the renderer's configuration from three CLI flags and reads no configuration section, and the permissive values carry no warning |
 | FR-37 | shipped | v1 | **Re-verify.** `cache stats`, `cache purge` (dry-run by default), `cache report` |
-| FR-38 | shipped | v1 | **Re-verify.** Precedence documented in the committed config file and enforced by the settings layer |
+| FR-38 | partial | v1 | **Re-verify.** Precedence documented in the committed config file and enforced by the settings layer. **AC-5 not yet verified** — whether a credential embedded in a git URL can reach the run log is untraced |
 | FR-39 | shipped | v1 | **Re-verify.** Pre-flight estimate from a dated local price table, TTY-aware confirmation gate, and mid-run call/token ceilings |
 | NFR-1 | retired | — | Number retained so existing references resolve |
 | NFR-2 | partial | v1 | **Re-verify.** Prefix caching ships. AC-2 token and cost scorecard not shipped, and blocked behind FR-16's uncomputed cost |
