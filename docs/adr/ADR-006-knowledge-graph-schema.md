@@ -542,18 +542,3 @@ obligation — a non-conforming graph cannot be written — is unchanged.
 
 No reversal of any prior decision; the authority for one detail moves, and one stale cross-reference
 is retired.
-
-**2026-10-31 — `projectOverview` leaves the graph (reconciliation with Fork 5).**
-
-Fork 5 decided that *"`graph.json` carries no LLM-derived fields."* The shipped graph schema nonetheless
-has a `projectOverview` field, written by Pass 2 after the graph has been written and hashed — so on every
-LLM-enabled run the graph is no longer a function of the corpus alone (FR-34 AC-1, AC-3), and the
-manifest's hash describes a file that is no longer on disk.
-
-**`projectOverview` is removed from the graph schema.** Corpus synthesis becomes its own artefact,
-`analysis/corpus-synthesis.json` (ADR-029 Fork 7). Removing a field is a breaking change to a published
-schema, so the graph schema takes a **major** version (NFR-7 AC-4); the number follows ADR-026's rules.
-Fork 5's file names move with the layout: `analysis/graph.json` and `analysis/llm-annotations.json`
-(ADR-029 Fork 4).
-
-Fork 5 is reaffirmed, not reversed: the code is brought back to the decision.

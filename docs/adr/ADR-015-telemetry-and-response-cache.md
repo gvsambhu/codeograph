@@ -746,27 +746,3 @@ removed. That precondition no longer holds; ADR-025 takes a companion note.
 
 No reversal of any prior decision. Fork 2's field gains a computation and a null state; the manifest
 regains fields the 2026-06-07 amendment deferred, on the trigger that amendment specified.
-
-**2026-10-31 — Telemetry's location, per-invocation identity, and `cache purge` consent.**
-
-*Fork 1's location clause is superseded by ADR-029 Fork 5; the backend decision stands.* Fork 1 placed
-telemetry in `<output_dir>/telemetry/`; it shipped under `<cache_dir>/telemetry/`, a location derived
-from the cache directory rather than decided. ADR-029 classes telemetry as shared state — the cache report
-aggregates it across runs — and places it at `<home_dir>/telemetry/`, a sibling of the cache, through a
-`telemetry_dir` setting. JSONL, one file per invocation and one record per call, is unchanged. Fork 1's
-driver that *"the entire run is reproducible from the directory"* is overtaken: a run directory is joined
-to its telemetry by invocation identifier.
-
-*Each invocation's telemetry carries its own identifier* (ADR-030 Fork 1): every record holds it, and the
-file is named `<invocation id>.jsonl` — for `render` as for `run`.
-
-*Fork 5's cache CLI follows ADR-031 Fork 2's consent rule.* `cache purge` lists what it would remove, then
-asks; with nothing able to prompt it refuses (status 3) unless `--yes` is given. The dry-run default and
-`--force` are removed, with no alias. Its filters align with `purge`'s: **`--before <date>`** (ISO 8601)
-replaces `--older-than`, and `--model` and `--prompt-version` stay; with no filter it means everything,
-always behind the question, so `--all` is removed. A command line it cannot act on exits with 1 (ADR-031).
-The advisory message names `cache purge --before <date>`. FR-37 AC-2 — selective removal by age, model,
-prompt version, or entirely — is met unchanged.
-
-No reversal of the backend, schema, key, invalidation or reporting decisions; Fork 1's location clause is
-superseded by ADR-029.

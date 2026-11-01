@@ -193,35 +193,3 @@ References:
 * A no-build-file corpus and a no-`.java`-files corpus each exit non-zero with a user-readable error (#6, #7).
 * A zip wrapping a single top-level project dir extracts with that dir stripped (#8).
 * A malformed `.gitignore` logs a warning and the run proceeds on the C1 skiplist (#10).
-
-**2026-11-01 — Credentials never travel in a source location; acquisition never prompts.**
-
-A git source may need credentials. The requirements read secrets only from the environment and the local
-environment file (FR-38 AC-3), and nothing the tool writes — the history, the manifest, the logs — may hold
-one. Three rules follow.
-
-1. **A source location carrying a secret is refused** — a URL with a password or token in it
-   (`https://user:token@host/…`) — before anything is written, with a message naming the alternatives
-   below. A bare user name, as in SSH's `git@host:…`, is not a secret and is accepted.
-2. **Credentials reach git through git's own mechanisms**, which work unchanged because the clone runs as
-   a child process that inherits the environment: an SSH key or agent; a credential helper (Git
-   Credential Manager, the macOS keychain, `git credential-store`); or, in CI, git's environment-based
-   configuration (`GIT_CONFIG_COUNT` with `GIT_CONFIG_KEY_n` / `GIT_CONFIG_VALUE_n` setting an HTTP header)
-   or `GIT_ASKPASS`. **As a convenience, the setting `CODEOGRAPH_GIT_TOKEN`** — read from the environment or
-   the local environment file, under ADR-001's naming rule — is passed to the clone through that
-   environment-based configuration: never on the command line, never written. Its default form suits
-   GitHub; other hosts' forms are documented.
-3. **Acquisition never prompts.** The clone runs with git's terminal prompt disabled, so a source that
-   needs credentials it does not have fails at once with an actionable error naming the cause (FR-24
-   AC-4) — in CI, an error rather than a hang. Error text passes through credential stripping before it is
-   shown or logged.
-
-**New Confirmation items.**
-* `run https://user:token@host/repo.git` is refused before anything is written; `run git@host:org/repo.git`
-  is accepted.
-* With `CODEOGRAPH_GIT_TOKEN` set, a private HTTPS repository clones without the token appearing in the
-  process's arguments, the history, the manifest or the logs.
-* A private repository with no credentials available fails at once with an actionable error, without
-  waiting for input.
-
-No reversal of any prior decision; acquisition gains three rules.

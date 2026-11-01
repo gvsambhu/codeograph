@@ -799,32 +799,3 @@ check reads the golden from `tests/golden/<corpus>/graph.json`. The scorecard en
 chronologically-sortable, timestamp-derived identifier); `run_id` is the canonical correlation field
 and `run_timestamp` is redundant. No reversal of any prior decision; these are consistency
 corrections against later-locked ADRs (ADR-007, ADR-022, ADR-025).
-
-**2026-10-31 — Targets from the manifest, merged scorecards, input fingerprints, the render audit, exit
-statuses.**
-
-1. **Targets come from the manifest.** `eval run` scores the targets recorded in the manifest's
-   `rendered_sources` (ADR-025, 2026-10-31); the directory exclusion list is retired. **A target marked
-   `stale`** — its project was rendered from an earlier graph or earlier annotations — **is skipped with
-   that reason** and recorded as skipped in the manifest's `absent` section (FR-7 AC-4: a skip is explicit,
-   never a pass). Re-rendering clears it.
-2. **The compile check finds the project from its recorded location** (`rendered_sources.<target>.location`),
-   not `<output_dir>/<target>/`, and reads its commands from `<run directory>/evals/compile-checks.<target>.json`
-   — written there by `render` (ADR-029 Fork 6), not under the project.
-3. **Scorecards record their input fingerprints.** The graph scorecard holds the graph's SHA-256, and the
-   annotations' when a check reads them; a target scorecard holds the graph's, the annotations' and the
-   target file list's. That is how ADR-028 decides a scorecard is superseded. An additive field, so the
-   scorecard schema takes a minor version.
-4. **Writing.** `eval` writes only the `scorecards` entries it produced, and `absent` entries for its own
-   outputs — **merging, never replacing**: `eval run --scorecard go` leaves the `ts` entry. A re-evaluation
-   archives the scorecard it replaces before writing (ADR-028), which replaces Fork 5's *"re-eval overwrites
-   `evals/*-scorecard.json`"*.
-5. **The render audit** is `<run directory>/evals/render-audit.<target>.json` (ADR-029 Fork 6), with the
-   contents ADR-010's 2026-10-31 amendment fixes. **Whether the feature-coverage check reads it** is decided
-   with the open evaluation-semantics findings, not here.
-6. **Exit statuses** follow ADR-031: a failing check → 4; a missing or unreadable manifest, or a missing
-   input output → 1 (2 in the shipped code); a refusal → 3; every requested scorecard skipped as stale
-   → 3, since nothing was produced.
-
-No reversal of Forks 1–8: target identification, writing and exit statuses are aligned with the layout
-cluster; the scorecard gains an additive field.

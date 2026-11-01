@@ -342,18 +342,3 @@ hosts at different prices, or free**. Fork 4's pricing is amended to match; the 
 No locked decision reversed; Fork 4's pricing is aligned to the provider expansion (the protection
 remains price-independent — only the advisory figure gains endpoint awareness). Clarification +
 additive only.
-
-**2026-10-31 — Exit statuses, the held graph, and the scope of `--non-interactive` (ADR-031).**
-
-1. **A declined prompt, or a stop with no terminal and no waiver, is a refusal: status 3** — not Click's
-   `Abort` or error status 1. Nothing changes, and the run is safe to retry with consent (ADR-031 Fork 1).
-2. **Pass 0's output is held back until the gate passes.** The gate runs after Pass 0, because its estimate
-   needs the class count; the graph is published only once the gate passes, so a refusal leaves the run
-   directory as it was (FR-45 AC-2).
-3. **A hard ceiling reached mid-run (Fork 1) is a failure: status 1**, reporting what was completed
-   (FR-39 AC-4). The run did not finish what it was asked to do.
-4. **`--non-interactive` keeps Fork 3's meaning for the gate only** — proceed without asking. It never
-   authorises an irreversible removal; `--yes` is the consent flag for those (ADR-031 Fork 2).
-
-No reversal of Forks 1–4; outcomes are aligned with ADR-031, and Fork 3's flag is scoped. This ADR remains
-superseded by ADR-016 at `1.1.0`.
