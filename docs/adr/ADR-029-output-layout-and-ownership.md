@@ -24,8 +24,8 @@ multi-run history use distinct `--out` paths per run"*.
 | # | ADR-022 Fork 5 specified | Shipped | Evidence |
 |---|---|---|---|
 | 1 | `<out>/telemetry/` | `~/.codeograph/cache/telemetry/` | `telemetry/session_manager.py:22` derives it as `cache_dir / "telemetry"` |
-| 2 | rendered output under `<out>/` | its own mandatory `--out` root | `cli/render.py:59,70,172` |
-| 3 | rendered output under `<out>/<target>/` | the root of render's `--out`, no target segment | `renderers/typescript_nestjs/scaffold_emitter.py:65,71` (root-relative keys such as `package.json`, `src/main.ts`) |
+| 2 | rendered source under `<out>/` | its own mandatory `--out` root | `cli/render.py:59,70,172` |
+| 3 | rendered source under `<out>/<target>/` | the root of render's `--out`, no target segment | `renderers/typescript_nestjs/scaffold_emitter.py:65,71` (root-relative keys such as `package.json`, `src/main.ts`) |
 
 **What the divergence breaks:**
 
