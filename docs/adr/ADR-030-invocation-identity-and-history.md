@@ -120,8 +120,9 @@ own `schema_version`. **Two entries per invocation:**
   crashed, killed, or still running. A refused invocation still writes both: refusing changes no artefact
   and no superseded output (FR-45 AC-2), and the history is a diagnostic record, not an artefact.
 - **No secret is ever recorded.** A source location carrying credentials is refused before anything is
-  written (ADR-002 amendment); credentials otherwise come only from the environment (FR-38 AC-3); and
-  every recorded value passes through credential stripping as a defence in depth.
+  written (ADR-002 amendment); credentials otherwise come only from the environment (FR-38 AC-3) and
+  never reach any record (FR-38 AC-5); and every recorded value passes through credential stripping
+  as a defence in depth.
 - **Entries are appended under ADR-028's brief lock**, so concurrent invocations never interleave a line.
 - **The history is never archived or rewritten.** `purge` appends its own entry naming the archive
   folders it removed; `history` shows them as purged.
@@ -315,7 +316,7 @@ The outcome recorded in the history uses the same five classes as the exit statu
 * **FR-43 AC-1, AC-2, AC-3** — every invocation recorded; unfinished ones visible; viewable locally
   (Fork 2).
 * **FR-45 AC-2** — a refused invocation changes no artefact; its history entries are diagnostic records.
-* **FR-38 AC-3** — no secret enters the history.
+* **FR-38 AC-3, AC-5** — secrets come only from the environment, and none enters the history.
 
 ### References
 
