@@ -108,6 +108,9 @@ For someone new to the project who wants to understand the design end-to-end, re
 | 029 | Output layout and ownership | 📝 | Cross-cutting |
 | 030 | Invocation identity and history | 📝 | Cross-cutting |
 | 031 | Command outcomes and consent | 📝 | Cross-cutting |
+| 032 | Evaluation check semantics | ⬜ | Quality & testing |
+| 033 | Extraction environment and parser failures | ⬜ | Input & parsing |
+| 034 | Placeholders for unrendered classes | ⬜ | Rendering |
 
 ---
 
