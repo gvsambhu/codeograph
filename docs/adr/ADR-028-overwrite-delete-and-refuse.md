@@ -96,6 +96,13 @@ and the per-file ownership that **ADR-029** defines. It is one of four coupled d
   a check of the inputs before publishing. ✅**
 * (d) Document "one command at a time" only.
 
+### Fork 5 — An invocation that did not finish
+
+* **(a) Roll back: a journal of planned moves, written before the first move, lets a failing invocation
+  undo its own moves and the next invocation undo a crashed one. ✅**
+* (b) Roll forward when possible: as (a), but complete the publish if every new output was fully written.
+* (c) Refuse until repaired: the next invocation refuses until an explicit `repair` command rolls back.
+
 ## Decision Outcome
 
 ### Fork 1 — Archive superseded output: (c)
@@ -114,11 +121,22 @@ carries both — so a change of model alone, with the graph unchanged, supersede
   └── …                                              ← each superseded output, at its original relative path
 ```
 
-- **The move comes first and the manifest is written last**, so a crash leaves either the old state or
-  the new one, never a mix. A move is a rename within the run directory.
+- **One sequence, every time** — each step only once the one before has succeeded:
+  1. refusal checks and claims (Fork 4);
+  2. outputs produced under temporary names — held, not yet published;
+  3. the input check (Fork 4);
+  4. the recovery journal written (Fork 5), then the superseded outputs moved to the archive — a rename
+     within the run directory;
+  5. the new outputs published — renamed into place;
+  6. the manifest written (ADR-025);
+  7. the history's `finished` entry (ADR-030).
+
+  **Every refusal happens before anything moves**, so a refusal changes nothing (FR-45 AC-2). A crash or
+  failure after step 4 is rolled back (Fork 5).
 - **The archive location is a setting**, `archive_dir` (`CODEOGRAPH_ARCHIVE_DIR`; default
   `<run directory>/archive/`); a path given there is used as given. **On another drive a rename is not atomic**, so the move becomes copy, verify each file's
-  hash, delete the originals — and only then are new outputs written.
+  hash, delete the originals — and only then are new outputs written. If the copy fails — a full
+  disk, a lost drive — its partial archive folder is removed and the originals stay untouched.
 - **A file another process holds open** (Windows) stops the move with a message naming the file; nothing
   is written.
 
@@ -160,10 +178,15 @@ amendment). Comparing it with the folder classifies every file:
 | **`keep`** (default) | kept, reported | stay deleted | kept | keeps the user's changes |
 | `keep-regenerate-deleted` | kept, reported | regenerated | kept | restores what the user removed by accident |
 | `overwrite-edited` | archived, then overwritten | regenerated | kept | takes the generator's version |
-| `clean` | archived | regenerated | archived | starts over, losing nothing |
+| `clean` | archived | regenerated | archived, except what the project's ignore rules cover | starts over, losing nothing |
 
 **Files a new render no longer produces:** unchanged ones are archived; edited ones stay and are reported
 as orphans.
+
+**Files the project's own ignore rules cover** — its `.gitignore`: dependency folders such as
+`node_modules/`, build output — are never archived or deleted by any mode; `clean` leaves them in place
+and reports them. They are regenerable, and archiving them would make the archive large and a cross-drive
+move slow.
 
 **A first render into a folder that has content but no file list** — the tool cannot tell its files from
 the user's — **is refused**, changing nothing, unless the user names `overwrite-edited` (each existing
@@ -216,6 +239,22 @@ are also documented as unsupported: claims live in each run directory, and nothi
 placed inside a project. One after the other is safe — the second render finds a folder with content and
 no file list of its own, and is refused (Fork 2).
 
+### Fork 5 — Roll back an unfinished invocation: (a)
+
+**Before the first archive move, the invocation writes a journal** to `.locks/` (placed by ADR-029): the
+moves it is about to make and the outputs it is about to publish. The journal is deleted once the
+manifest and the history's `finished` entry are written.
+
+- **A failing invocation** — a hard ceiling reached, a write error — **rolls itself back before exiting**:
+  the outputs it published are removed, the outputs it archived are moved back, the journal is deleted.
+- **After a crash** the journal remains. **The next invocation of any command finds it first and rolls
+  back the same way**, records the recovery in the history (ADR-030), then continues with its own work.
+- The archived copy of the previous manifest makes the roll-back checkable: afterwards, the root manifest
+  is byte-identical to that copy.
+
+The previous state is restored and nothing is lost; the failed invocation's new outputs are discarded, and
+a re-run reproduces them — the graph is deterministic and LLM results are cached.
+
 ### Constraints flagged for other ADRs
 
 #### Constraint flagged for ADR-025
@@ -223,9 +262,13 @@ Every artefact records the fingerprints of what it was built from — for a rend
 and the annotations — so *superseded* can be decided (Fork 1); each rendered target's file list holds
 every file render produced with its hash (Fork 2).
 
+#### Constraint flagged for ADR-029
+The recovery journal lives in `.locks/` (Fork 5).
+
 #### Constraint flagged for ADR-030
 The history records, per invocation, what it archived and what was purged; archive folders are named
-by invocation id (Fork 1).
+by invocation id (Fork 1); a recovery appends an entry naming the unfinished invocation and what was
+undone (Fork 5).
 
 #### Constraint flagged for ADR-031
 Every refusal here — a first render into a folder with no file list, an earlier-version folder, a held
@@ -245,11 +288,13 @@ ancestor of it, the run directory itself, its namespaces — are placement rules
    archive.
 3. An earlier result stays inspectable until purged, so comparing two runs needs no planning.
 4. Renders of different targets can run in parallel from one run.
-5. CI gets a refusal it can retry instead of a corrupted directory, and a crash leaves a consistent one.
+5. CI gets a refusal it can retry instead of a corrupted directory, and a crash or failure is rolled back
+   to a consistent one.
 
 **Negative.**
 1. The archive grows until the user purges it; its size is reported, not bounded.
-2. Claims, a brief lock and an input check add moving parts, and a stale-lock path, to build and test.
+2. Claims, a brief lock, an input check and a recovery journal add moving parts, and a stale-lock path,
+   to build and test.
 3. `--force` is removed, so scripts that use it break.
 4. Folders from the earlier layout must be re-run, not migrated.
 5. Using one run directory from several machines, and rendering into one `--source-out` folder from two run
@@ -263,8 +308,8 @@ ancestor of it, the run directory itself, its namespaces — are placement rules
    (integration test).
 2. A re-run that only adds outputs (a `run --ast-only` followed by a full `run`) archives only what it
    rewrites — the graph — and nothing else (integration test).
-3. Killing a run between the archive move and the manifest write leaves a directory whose manifest still
-   describes a consistent earlier state (fault-injection test).
+3. Every refusal in Fork 4 happens before any archive move: after a refusal, the run directory is
+   byte-identical to before (integration test).
 4. With the archive on another drive, each archived file's hash is verified before its original is
    removed (unit test).
 5. `codeograph purge --keep 1` removes all but the newest archive folder; without `--yes` in a
@@ -284,6 +329,15 @@ ancestor of it, the run directory itself, its namespaces — are placement rules
 12. Re-writing the graph while a render runs causes the render to publish nothing (concurrency test).
 13. A claim left by a killed process on the same host is taken over with a warning; one held by a live
     process is not (unit test).
+14. Killing a run after the archive move and before the manifest write, then running any command,
+    restores the previous manifest byte-identically and moves the archived outputs back; the history
+    records the recovery (fault-injection test).
+15. A run that reaches a hard ceiling after archiving rolls itself back before exiting with status 1
+    (integration test).
+16. `render --on-existing clean` leaves files the project's `.gitignore` covers (e.g. `node_modules/`) in
+    place and reports them (integration test).
+17. A cross-drive archive copy that fails part-way leaves no partial archive folder and every original
+    untouched (fault-injection test).
 
 ## Pros and Cons of the Considered Options
 
@@ -292,7 +346,7 @@ ancestor of it, the run directory itself, its namespaces — are placement rules
 **(c) Archive, then write. ✅ Chosen.**
 * Good, because nothing is lost and an earlier result stays inspectable (FR-42).
 * Good, because the same directory serves re-runs and comparisons alike.
-* Good, because a crash leaves either state, never a mix.
+* Good, because with Fork 5's roll-back, a crash or failure returns the directory to its previous state.
 * Bad, because the archive grows until the user purges it.
 
 **(a) Overwrite in place.**
@@ -381,6 +435,24 @@ ancestor of it, the run directory itself, its namespaces — are placement rules
 * Good, because it costs nothing.
 * Good, because most users run one command at a time.
 * Bad, because CI matrices are a normal use, and they would corrupt silently.
+
+### Fork 5 — Unfinished invocation
+
+**(a) Roll back. ✅ Chosen.**
+* Good, because one rule covers a crash and a failure alike.
+* Good, because nothing is lost — the archive holds everything until the roll-back moves it back.
+* Good, because no manual step blocks CI.
+* Bad, because a failed run's completed new outputs are discarded and must be produced again.
+
+**(b) Roll forward when possible.**
+* Good, because a run that wrote everything before crashing keeps its work.
+* Good, because the user re-runs less.
+* Bad, because it adds a second recovery path to build and test, for a rare case.
+
+**(c) Refuse until repaired.**
+* Good, because the user sees and controls every recovery.
+* Good, because no command changes the directory on another's behalf.
+* Bad, because a crash becomes a blocked pipeline until someone runs a manual command.
 
 ## More Information
 

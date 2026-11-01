@@ -83,13 +83,16 @@ every command, not only the layout's. It is one of four coupled decisions:
 | Status | Meaning | Examples |
 |---|---|---|
 | **0** | Success | Everything requested was produced |
-| **1** | Failed — no usable result, or a precondition was not met | A usage error; an unreadable manifest; misconfigured settings (FR-38 AC-2); an empty corpus (FR-24 AC-5); enrichment past its failure bound (FR-35 AC-6) |
-| **2** | Completed, with outputs recorded as failed | Corpus synthesis failed but the annotations were written; the manifest records the missing output (ADR-025) |
-| **3** | **Refused — nothing changed; safe to retry** | A claim held by another invocation; an input superseded mid-run; an earlier-version folder; a folder with content and no file list; consent required and not given; the cost gate declined |
+| **1** | Failed — no usable result, or a precondition was not met | A usage error; a source location carrying credentials; a source that cannot be fetched (FR-24 AC-4); an unreadable manifest; misconfigured settings (FR-38 AC-2); an empty corpus (FR-24 AC-5); enrichment past its failure bound (FR-35 AC-6); a hard ceiling reached; any failure after which ADR-028 rolled the directory back |
+| **2** | Completed, with outputs recorded as failed | Corpus synthesis failed but the annotations were written; some classes failed to render and were skipped and recorded; the manifest records each missing output (ADR-025) |
+| **3** | **Refused — nothing changed; safe to retry** | A claim held by another invocation; an input superseded mid-run; an earlier-version folder; a run directory holding unrelated content; a project folder with content and no file list; every requested scorecard skipped as stale; consent required and not given; the cost gate declined |
 | **4** | Completed; a quality gate failed | An evaluation check returned *fail* |
 
 **Precedence.** A refusal is exclusive — nothing was done. Otherwise the most severe applies:
 1 over 2 over 4 over 0.
+
+**An interrupted invocation** (Ctrl-C) exits with 130, the shell convention; its history shows it
+unfinished, and ADR-028's recovery rolls it back.
 
 **Usage errors become 1.** Click exits with 2 for a wrong option, which here means *completed with
 recorded failures*; the command line maps usage errors to 1. Every path that exits with 2 for a missing
@@ -142,7 +145,8 @@ passes; `--non-interactive` applies to the gate only.
 and the dry-run default, and exits 1 on a usage error (0 in the snapshot); its filters align with `purge`'s.
 
 #### Constraint flagged for ADR-017
-A failing check exits with 4; a missing or unreadable manifest exits with 1, not 2.
+A failing check exits with 4; a missing or unreadable manifest exits with 1, not 2; every requested
+scorecard skipped as stale exits with 3.
 
 #### Constraint flagged for ADR-028 and ADR-029
 Every refusal they name exits with 3 and changes nothing.
@@ -183,6 +187,10 @@ The history's outcome field uses these classes.
 8. `render --on-existing clean` asks nothing and reports what it archived (integration test).
 9. `--non-interactive` passes the cost gate but does not let `purge` or `cache purge` proceed (CLI test).
 10. `cache purge --force` is rejected as an unknown option (CLI test).
+11. A render in which one class's call fails and the others succeed exits with 2 (integration test).
+12. Ctrl-C during a run exits with 130 (CLI test).
+13. `eval run` where every requested scorecard is skipped as stale exits with 3 (integration test).
+14. A source URL carrying a token exits with 1 before anything is written (integration test).
 
 ## Pros and Cons of the Considered Options
 

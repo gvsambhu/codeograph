@@ -84,8 +84,8 @@ invocation logs.** It is one of four coupled decisions:
 
 ### Fork 1 — Own identifier, recorded parent: (b)
 
-**Every invocation that writes to a run directory — `run`, `render`, `eval`, `purge` — generates its
-own identifier at start**, in ADR-022 Fork 3's format; `history` writes nothing and needs none. It is a glossary *Invocation*, and
+**Every invocation generates its own identifier at start** — `run`, `render`, `eval`, `eval report`,
+`purge` and `history` alike — in ADR-022 Fork 3's format. It is a glossary *Invocation*, and
 its records are its own.
 
 **It records the identifier of the run it built on (its *parent*):** the `run` invocation whose analysis
@@ -114,16 +114,28 @@ own `schema_version`. **Two entries per invocation:**
 | `started` | when the invocation begins | identifier · parent · command · the options given on the command line · start time (UTC) · codeograph version |
 | `finished` | when it ends, whatever the result | identifier · end time · outcome · what it produced · what it superseded and archived · for `purge`, what it removed |
 
-- **Outcome** is one of the four classes FR-45 AC-1 names — success, failure, completed with recorded
-  failures, refused — matching ADR-031's exit statuses.
+- **Outcome** is one of ADR-031's five classes — success, failure, completed with recorded failures,
+  refused, quality gate failed — the same class as the exit status.
 - **A `started` entry with no `finished` entry is an invocation that did not finish** (FR-43 AC-2) —
   crashed, killed, or still running. A refused invocation still writes both: refusing changes no artefact
   and no superseded output (FR-45 AC-2), and the history is a diagnostic record, not an artefact.
-- **No secret is ever recorded.** Credentials come only from the environment (FR-38 AC-3); only options
-  given on the command line are written.
+- **No secret is ever recorded.** A source location carrying credentials is refused before anything is
+  written (ADR-002 amendment); credentials otherwise come only from the environment (FR-38 AC-3); and
+  every recorded value passes through credential stripping as a defence in depth.
 - **Entries are appended under ADR-028's brief lock**, so concurrent invocations never interleave a line.
 - **The history is never archived or rewritten.** `purge` appends its own entry naming the archive
   folders it removed; `history` shows them as purged.
+- **Every invocation is recorded** (FR-43 AC-1), read-only ones included:
+  - `eval report` appends its entries **to each run directory it reads**, naming where its report went;
+  - `history` records itself; when the run directory cannot be written (a committed example, a read-only
+    mount), its entries go to a fallback history under `<home_dir>/history/`, keyed by the run
+    directory's identity, and `history` says so;
+  - **`history` hides its own entries by default** (`--all` shows them), so viewing does not drown the
+    record.
+- **A recovery is recorded** (ADR-028 Fork 5): the invocation that rolls back an unfinished one appends an
+  entry naming it and what was undone.
+- **A truncated last line** — from a crash mid-append — is skipped and reported by readers; writers write
+  each line and its newline in one call.
 
 **The manifest stays about the present.** A history inside it (b) would grow with every invocation, and
 every writer would rewrite the whole list to append one line — the lost-update hazard ADR-028 guards
@@ -131,6 +143,7 @@ against, made routine.
 
 ```
 codeograph history <run directory>          ← one line per invocation, newest first
+codeograph history <run directory> --all    ← including history's own entries
 codeograph history <run directory> --json   ← the raw entries
 ```
 
@@ -154,6 +167,9 @@ archives them; retention is deferred with log rotation (ADR-022).
 
 ### Constraints flagged for other ADRs
 
+#### Constraint flagged for ADR-002
+A source location carrying credentials is refused at acquisition, so the history never receives one.
+
 #### Constraint flagged for ADR-022
 **Fork 3 is amended:** every invocation generates its own identifier at start, in the existing format,
 and records its parent. **Forks 4–6 are unchanged**; the log file's location becomes
@@ -167,7 +183,7 @@ Each invocation's telemetry records carry that invocation's identifier, and its 
 it — for `render` as for `run`.
 
 #### Constraint flagged for ADR-031
-The outcome recorded in the history uses the same four classes as the exit statuses.
+The outcome recorded in the history uses the same five classes as the exit statuses.
 
 ## Consequences
 
@@ -205,6 +221,13 @@ The outcome recorded in the history uses the same four classes as the exit statu
 9. `render -v` and `eval -v` each write `logs/<their identifier>.jsonl` (integration test).
 10. `codeograph history <run directory>` works with no network access and lists every invocation, newest
     first (integration test).
+11. `history` appends its own entries and hides them unless `--all`; on a read-only run directory its
+    entries go to `<home_dir>/history/` and it says so (integration test).
+12. `eval report` over two run directories appends its entries to both (integration test).
+13. A history file whose last line is truncated is read without error, and the truncation is reported
+    (unit test).
+14. The outcome field takes each of the five classes, always matching the exit status (unit test).
+15. A source URL carrying a token is refused before any history entry is written (integration test).
 
 ## Pros and Cons of the Considered Options
 
@@ -282,6 +305,8 @@ The outcome recorded in the history uses the same four classes as the exit statu
 * **ADR-031** (command outcomes and consent) — the outcome classes recorded here.
 * **ADR-025** (manifest schema) — amended so every entry records its producing invocation.
 * **ADR-015** (telemetry and response cache) — telemetry carries each invocation's identifier.
+* **ADR-002** (input-agnostic design) — amended: credentials never travel in a source location; acquisition
+  never prompts.
 
 ### Requirements touched
 

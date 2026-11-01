@@ -165,12 +165,13 @@ portable). How each kind is recorded in the manifest is ADR-025's.
 | Location | Refused for | Why |
 |---|---|---|
 | The current working directory, or an ancestor of it | the run directory | FR-27 AC-2 |
+| A folder with content that is not a run directory — no manifest, no history | the run directory | It holds someone else's files (FR-27 AC-5; the plan's output-path intent). *Empty means empty* — a folder holding only `.git` is not empty |
 | The run directory itself | a rendered project | Project files would sit beside the manifest — the original defect |
 | An ancestor of the run directory | a rendered project | The project would contain the run's metadata |
 | Anything inside `analysis/`, `evals/`, `logs/`, `.locks/`, or the archive location (ADR-028) | a rendered project | Those namespaces belong to other writers (Fork 4) |
 
 **A re-render without `--source-out` reuses the recorded location.** Moving a project is always an
-explicit act.
+explicit act. A relative `--source-out` resolves against the current directory, like every path argument.
 
 **Targets coexist.** Rendering a second target leaves every other target's project untouched — the
 source folders are disjoint, and every per-target record is named for its target. **One target per
@@ -190,8 +191,9 @@ codeograph eval run <run directory>
 ```
 
 `history <run directory>` and `purge <run directory>` follow the same rule (ADR-030, ADR-028), and
-`eval report` takes one or more run directories. **The previous flags are removed outright, with no
-alias** — `run --out`, `render --from` and `render --out`.
+`eval report` takes one or more run directories and writes its report to standard output, or to
+`--output <file>` — never inside a run directory it reads. **The previous flags are removed outright,
+with no alias** — `run --out`, `render --from` and `render --out`.
 
 **Resolution when `run` is given no directory:**
 1. Given explicitly → used as given (a relative path resolves against the current directory).
@@ -205,6 +207,13 @@ alias** — `run --out`, `render --from` and `render --out`.
    | Local folder | the folder's name | its resolved absolute path |
    | Git URL | the repository's name | the URL, with any credentials removed |
    | Zip archive | the file name without its extension | its resolved absolute path |
+
+   `<id>` is the first 8 hex characters of the identity's SHA-256. **`<name>` is made safe for every file
+   system:** characters outside `A–Z a–z 0–9 . _ -` become `-`, repeats collapse, it is cut to 40
+   characters, a Windows reserved name (`CON`, `NUL`, …) gains a `_` prefix, and an empty result becomes
+   `source`. **Identity follows the location:** moving or renaming a project folder starts a new run
+   directory, and its history does not follow; a git URL's identity ignores the branch, so to compare two
+   branches, name a run directory for each.
 
 The chosen path is always printed. **Run output is the deliverable, so it lives in view**, beside the
 user's work — not in a hidden folder, which is where tool state belongs (Fork 5).
@@ -220,6 +229,11 @@ user's work — not in a hidden folder, which is where tool state belongs (Fork 
 
 **Known limits** (documented, not engineered around): a Docker build context with `COPY .` picks the
 folder up; editors may index it; version-control systems other than git are not covered.
+
+**Path length on Windows.** The default nesting (`codeograph-out/<name>-<id>/ts-source/…`) and the
+archive's (`archive/<time>-<invocation id>/…`) lengthen every path. Where a path would exceed Windows'
+260-character limit and long-path support is not enabled, the command fails before writing, naming
+`runs_dir` and `--source-out` as the remedy — never a partial write.
 
 ### Fork 3 — `<target>-source/` as the default, composed by the CLI: (c)
 
@@ -257,7 +271,7 @@ has to follow.
 │   └── render-audit.ts.json      ← render (Fork 6)
 ├── logs/                         ← one file per invocation (ADR-030)
 ├── archive/                      ← superseded output (ADR-028)
-├── .locks/                       ← claims and the brief lock while invocations run (ADR-028)
+├── .locks/                       ← claims, the brief lock and the recovery journal (ADR-028)
 └── ts-source/                    ← default project location (Fork 3)
 ```
 
@@ -363,6 +377,7 @@ command owns every directory it writes to would let one delete the other's recor
 | `<run directory>/archive/` (everything under it) | the invocation that supersedes the output (ADR-028) |
 | `.locks/**` | each running invocation, its own claims; the brief lock while held (ADR-028) |
 | `.gitignore` | `run`, only when it chose the location |
+| `eval report`'s report | `eval report` — standard output, or `--output <file>`; never inside a run directory it reads |
 
 ADR-028 applies its overwrite and deletion rules to this table.
 
@@ -396,8 +411,12 @@ Every refusal named here — a refused location, a misconfigured `home_dir` or `
 status ADR-031 assigns.
 
 #### Constraint flagged for ADR-026
-The path changes, the command-line change and the graph-schema change carry the version consequences
-ADR-026's rules assign.
+The cluster's version consequences, applied when the code ships (ADR-026: the bump is decided at
+release): **the tool goes to `0.6.0`** — in `0.x` a MINOR carries the command-line break, and `1.0.0`
+stays the stability gate; **the graph schema takes its next MAJOR** (`projectOverview` removed, ADR-006);
+**the manifest schema becomes `2.2.0`** (additive, ADR-025); **the scorecard schema takes its next MINOR**
+(input fingerprints added, ADR-017); **the new formats start at `1.0.0`** — the file list, corpus
+synthesis, the history and the render audit.
 
 ## Consequences
 
@@ -412,8 +431,8 @@ ADR-026's rules assign.
 6. Every location follows a stated rule, so the next output needs no new layout decision.
 
 **Negative.**
-1. Every artefact path changes; the committed example runs, the goldens and the docs no longer match the
-   layout.
+1. Every artefact path changes; the committed example runs are regenerated in the new layout, and the
+   goldens and docs updated.
 2. The command-line shape changes — the run directory becomes positional, and `--out` and `--from` are
    removed with no alias — so existing scripts break.
 3. The graph schema loses `projectOverview`, a breaking change to a published schema.
@@ -460,6 +479,14 @@ ADR-026's rules assign.
     `analysis/corpus-synthesis.json` (integration test — FR-34 AC-3).
 14. Pass 2 writes only `analysis/corpus-synthesis.json`; `analysis/llm-annotations.json` is
     byte-identical before and after Pass 2 (unit test).
+15. `codeograph run <source> <dir>` where `<dir>` holds files but no manifest or history — including a
+    folder holding only `.git` — is refused with status 3 and nothing is written (integration test).
+16. `<name>` derivation: a folder named `CON` gives `_CON`; spaces and non-ASCII characters become `-`;
+    a name longer than 40 characters is cut (unit test).
+17. On Windows without long-path support, a render whose paths would exceed 260 characters fails before
+    writing, naming `runs_dir` and `--source-out` (unit test).
+18. `eval report` writes nothing inside the run directories it reads; with `--output <file>` it writes
+    that file (integration test).
 
 ## Pros and Cons of the Considered Options
 

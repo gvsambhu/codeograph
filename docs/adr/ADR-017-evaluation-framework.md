@@ -823,7 +823,8 @@ statuses.**
    contents ADR-010's 2026-10-31 amendment fixes. **Whether the feature-coverage check reads it** is decided
    with the open evaluation-semantics findings, not here.
 6. **Exit statuses** follow ADR-031: a failing check → 4; a missing or unreadable manifest, or a missing
-   input output → 1 (2 in the shipped code); a refusal → 3.
+   input output → 1 (2 in the shipped code); a refusal → 3; every requested scorecard skipped as stale
+   → 3, since nothing was produced.
 
 No reversal of Forks 1–8: target identification, writing and exit statuses are aligned with the layout
 cluster; the scorecard gains an additive field.

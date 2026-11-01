@@ -561,11 +561,17 @@ The shipped behaviour — a re-run resetting `scorecards` and `compile_checks` t
   disk**, so the next `render` classifies them normally (ADR-028 Fork 2) and clears `stale`.
 
 **7 · Writing the manifest** (extends the 2026-06-08 write protocol). Still **one terminal write per
-command**, with three additions:
+command**, with four additions:
 1. under ADR-028's brief lock, re-reading the manifest just before changing it;
 2. after the superseded outputs and the previous manifest are in the archive (ADR-028);
 3. to a temporary name, renamed into place — so a crash leaves the previous valid manifest, never a
    partial one, and the presence-implies-valid invariant holds.
+4. an invocation that does not finish is rolled back (ADR-028 Fork 5), so the manifest at the root always
+   describes files that are on disk.
+
+**8 · `source_path` records the source as given** — the local path, the URL (a URL carrying credentials
+is refused at acquisition — ADR-002, 2026-11-01), or the archive's path — **never the temporary folder**
+an acquired source is cloned or extracted into, which is machine-specific and gone when the run ends.
 
 **Alternatives considered and rejected.**
 - *The rendered-source pointer under `artefacts`.* Rejected: `artefacts` is `run`'s section, and the
@@ -599,6 +605,9 @@ command**, with three additions:
 * A `--source-out` outside the run directory is recorded as an absolute `location`; one inside, as a
   POSIX-relative path.
 * Killing a command during its manifest write leaves the previous manifest intact and valid.
+* After a crash between the archive move and the manifest write, the next invocation restores the
+  previous manifest and the files it indexes.
+* A run from a git URL records the URL in `source_path`, never the temporary clone folder.
 * The committed JSON Schema regenerates cleanly at `2.2.0` and the CI freshness gate passes.
 
 No reversal of any Fork 1–5 decision: new sections and fields are added under the `2.x` additive rule, and
