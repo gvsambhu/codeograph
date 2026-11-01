@@ -174,9 +174,17 @@ accepted → deprecated
         → superseded by ADR-NNN
 ```
 
+**A proposed ADR may be merged and implemented against.** It stays `proposed` while the code that
+implements it is built and reviewed, and is **accepted only once that code has passed its development
+review and reconciliation** — so a design problem the implementation exposes is fixed while the decision
+is still open, not by a later amendment or supersession. Until then, a design change is edited into the
+ADR directly and listed, with its date and reason, in a `## Revision history` section at the end.
+Accepting it is its own change: the `status:` field moves to `accepted`.
+
 An accepted ADR is immutable, with exactly two exceptions: its `status:` field, and append-only
 `## Amendments` sections. Never edit the original decision text to reflect a later change — that
-destroys the record of what was decided when, which is the entire point of an ADR.
+destroys the record of what was decided when, which is the entire point of an ADR. Its revision history,
+if it has one, stays as the record of how the proposal evolved.
 
 ### When to write a new ADR
 
@@ -218,6 +226,8 @@ Each ADR follows MADR with these sections:
 7. **Confirmation** — checklist of how to verify the decision is implemented correctly
 8. **Pros and Cons of the Considered Options** — per-fork tradeoff breakdown
 9. **More Information** — relationships to other ADRs, deferred items, references
+10. **Revision history** — only for a merged ADR changed while `proposed`: one dated line per change
+11. **Amendments** — only after acceptance, append-only
 
 ---
 
