@@ -1,7 +1,7 @@
 # Codeograph
 
 Reads a Java/Spring Boot codebase and emits a deterministic knowledge graph — nodes, edges, complexity metrics, Spring-aware annotations — reproducible byte-for-byte across runs.
-*(Not yet on runs with LLM enrichment enabled — see [Known gaps](#known-gaps).)*
+*(Not yet on runs with LLM enrichment enabled, nor when the Java parser fails on a file — see [Known gaps](#known-gaps).)*
 
 **Status:** v1 complete (DC1–DC6) — deterministic graph, LLM enrichment, eval framework, TypeScript/NestJS renderer, run manifest + structured logging, cost-safety floor + multi-provider LLM support. See [`docs/architecture.md`](docs/architecture.md) for the full pipeline.
 
@@ -146,7 +146,7 @@ codeograph eval report ./run1 ./run2 ./run3
 | `--check <id>` | Run only the named check IDs |
 | `--skip-check <id>` | Skip named check IDs |
 
-The graph scorecard runs 6 deterministic checks (node count, edge count, schema version, sha256 integrity, complexity metrics present, golden-graph agreement). The code-quality scorecard runs 3 checks (compilation, feature coverage, llm_judge — the latter two are `skip` in v1: llm_judge pending ADR-020 calibration, feature coverage for the reason under [Known gaps](#known-gaps)).
+The graph scorecard runs 6 deterministic checks (`structural_completeness`, `relationship_correctness`, `internal_consistency`, `schema_validity`, `reproducibility`, `golden_graph_agreement`); some of them measure less than their names say — see [Known gaps](#known-gaps). The code-quality scorecard runs 3 checks (compilation, feature coverage, llm_judge — the latter two are `skip` in v1: llm_judge pending ADR-020 calibration, feature coverage for the reason under [Known gaps](#known-gaps)).
 
 You can also run eval automatically as part of `codeograph run` using `--eval`:
 
@@ -193,12 +193,16 @@ The run manifest (`manifest.json`) is written once at the terminal checkpoint, a
 The limitations above are deliberate v1 scope. These are different: places where the code does not yet do what this README, the requirements, or an accepted ADR says it does. Each is tracked for a fix.
 
 - **The graph is not byte-reproducible on runs with LLM enrichment enabled.** Corpus synthesis writes its project overview (`projectOverview`) into `graph.json` and rewrites the file outside the canonical form, so the graph differs from an enrichment-free run and the manifest's recorded hash no longer matches the file on disk. Runs with `--ast-only` are unaffected.
+- **A parser failure can change the graph.** When the Java parser times out on a file (30 s), crashes, or cannot start because Java is not available, that file is extracted by the regex fallback, with no retry. The same source can therefore produce a different graph on a slow or misconfigured machine. Each fallback is logged as a warning.
 - **No classpath resolution yet, for Maven or Gradle.** Method calls are resolved by a source-only heuristic (self-calls, static imports, field and parameter types); a call through a local variable stays unresolved and is emitted as `calls_unresolved`, never dropped. Symbol-solver resolution against the local Maven repository (ADR-003) is not yet implemented.
+- **Some graph-scorecard checks measure less than their names say.** `structural_completeness` reports the share of declarations extracted by the full parser rather than comparing the graph against the source; `relationship_correctness` checks only that resolved calls point at nodes that exist; `internal_consistency` runs four of its five invariants; `reproducibility` re-runs extraction without enrichment and compares those runs with each other, not with the scored graph, so it does not detect the difference on LLM-enabled runs described above, and it skips for git and archive sources. The rationale text in the committed example scorecards overstates the first three.
+- **The annotations are not checked against the graph.** Every entry in `llm-annotations.json` should belong to a class in the graph, checked by the internal-consistency evaluation (ADR-006). No check reads the annotations yet, so an annotation for a class that is not in the graph goes unnoticed.
 - **The render security policy sees class-level annotations only.** A controller secured by method-level `@PreAuthorize`, `@Secured` or `@RolesAllowed` is rendered without a refusal and without a guard stub. Review rendered controllers whose source uses method-level security before relying on them.
 - **Refused classes leave no placeholder.** A class refused by a feature policy, or whose render call fails, is left out of the rendered output; a refusal is logged at debug level only.
-- **Render policies and domain grouping cannot yet be set.** `codeograph render` reads only its command-line flags; the `[render.typescript]` configuration section is not read yet, so the defaults always apply — security and WebFlux classes refused, other unsupported features rendered as stub + TODO, package-prefix domain grouping.
+- **Render policies and domain grouping cannot yet be set.** `codeograph render` reads only its command-line flags; the `[render.typescript]` configuration section is not read yet, so the defaults always apply — security and WebFlux classes refused, other unsupported features rendered as stub + TODO, package-prefix domain grouping. WebFlux classes are detected from the LLM's annotations rather than from the graph, so on a run with `--ast-only` none is detected and each is rendered instead of refused.
 - **The feature-coverage check does not run yet.** The code-quality scorecard's `coverage` check needs a record of which features rendering translated, and rendering does not yet write one, so the check is always reported as skipped.
 - **Telemetry records no per-call cost.** Each call's cost estimate is written as `0.0`, so the cost lines in `codeograph cache report` always read ~$0.00. The pre-flight estimate shown before a run is computed separately and is unaffected.
+- **Cloning a git URL that needs credentials can wait for input.** `git clone` runs with prompting enabled, so for a private repository without stored credentials git may ask for a username and wait — in CI, a hang — instead of failing with an error that names the cause.
 
 ## Documentation
 
