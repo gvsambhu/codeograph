@@ -421,3 +421,36 @@ References:
 * **Interpret-vs-capture criterion behind the "38".** The v1 interpreted set (pinned at 38 by the 2026-05-03 amendment) is the closure of a single criterion: an annotation is *interpreted* when it lifts to a structured graph field or edge in the ADR-006 schema; every other annotation is *captured* in `annotations[]` but not interpreted. The count is a consequence of that criterion over the v1 schema, not an arbitrary target.
 
 No reversal of any prior decision; clarification only.
+
+**2026-11-01 — Classpath fork superseded by ADR-033; degradation records move to the extraction report.**
+
+*The classpath fork (CP2) is superseded by ADR-033 (Extraction Environment and Parser Failures).* CP2
+resolved third-party references through the local Maven repository, which makes the graph depend on what
+that repository holds — contents that vary by machine with version ranges, SNAPSHOT builds and earlier
+downloads — and approximates Maven's resolution, so an edge can resolve against a version the build does not
+use. The requirements make the graph a function of the corpus and the tool alone (FR-34). ADR-033 resolves
+against the corpus and the JDK by default, and against the classpath the project's own build resolved when
+the user supplies one; nothing reads a local repository. The supersession covers the 2026-06-14
+amendment's item 3 (the remediation hint for an empty `~/.m2`) and the deferred item *Gradle dep
+resolution*, which ADR-033 discharges. This is a material change, so it is a supersession; ADR-003's
+`status` stays `accepted`, and its index entry notes the superseded fork.
+
+*The failure model is extended by ADR-033 Fork 4.* A parser-*process* failure — a crash, an out-of-memory
+error, a desync, a timeout — restarts the parser and retries each affected file once, singly; only a file
+whose retry also fails degrades, and the run is flagged. This replaces the 2026-06-14 amendment's item 1,
+which sent the remaining files to the regex extractor. A file the parser rejects still degrades at once, as
+§3 decides.
+
+*Where degradation is recorded.* §3's *"recorded in the run manifest (ADR-022) with the parser's error
+message"* and the 2026-06-14 amendment's *"a manifest record"* for a name-only stub both become an entry in
+the run's extraction report, `analysis/extraction-report.json` (ADR-033 Fork 5); the manifest carries the
+counts. The name-only stub's node records its own extraction value, which the published graph schema lists
+and ADR-006's 2026-11-01 amendment defines.
+
+*Confirmations superseded.* The integration test with a populated fake `~/.m2` (classpath fork) and the
+2026-06-14 Confirmation for item 3 are replaced by ADR-033's Confirmations 1, 2 and 4; the item-1
+Confirmation (*"routes remaining files to regex fallback"*) by ADR-033's Confirmations 7 and 8; the
+manifest-record halves of the fallback Confirmation and the item-4 Confirmation by ADR-033's
+Confirmation 10.
+
+Classpath fork superseded; failure model extended; the parser choice and extraction approach unchanged.

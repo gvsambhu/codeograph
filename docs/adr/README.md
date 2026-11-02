@@ -29,7 +29,7 @@ For someone new to the project who wants to understand the design end-to-end, re
 
 ### 2. Input & parsing
 - [`ADR-002 — Input-agnostic design`](ADR-002-input-agnostic-design.md) — module discovery, multi-module Maven, gitignore-driven exclusion
-- [`ADR-003 — Parsing strategy`](ADR-003-parsing-strategy.md) — JavaParser, Lombok synthesis, annotation scope
+- [`ADR-003 — Parsing strategy`](ADR-003-parsing-strategy.md) — JavaParser, Lombok synthesis, annotation scope; *classpath fork superseded by ADR-033*
 
 ### 3. Graph extraction (deterministic half of the pipeline)
 - [`ADR-004 — Complexity model`](ADR-004-complexity-model.md) — six metrics, cited thresholds
@@ -43,12 +43,12 @@ For someone new to the project who wants to understand the design end-to-end, re
 - [`ADR-015 — Telemetry + response cache`](ADR-015-telemetry-and-response-cache.md) — JSONL records, SQLite content-addressed cache, cross-run reporting
 
 ### 5. Rendering
-- [`ADR-008 — Pluggable renderer interface`](ADR-008-pluggable-renderer-interface.md)
+- [`ADR-008 — Pluggable renderer interface`](ADR-008-pluggable-renderer-interface.md) — *D-008-2 (omit a failed class) superseded by ADR-034*
 - [`ADR-009 — Rendering budget cap`](ADR-009-rendering-budget-cap.md)
-- [`ADR-010 — Spring Boot to NestJS/TypeScript idiom mapping`](ADR-010-spring-to-typescript-nestjs-mapping.md)
+- [`ADR-010 — Spring Boot to NestJS/TypeScript idiom mapping`](ADR-010-spring-to-typescript-nestjs-mapping.md) — *Fork 9's refuse-skips-the-file behaviour superseded by ADR-034*
 
 ### 6. Quality & testing
-- [`ADR-017 — Evaluation framework`](ADR-017-evaluation-framework.md)
+- [`ADR-017 — Evaluation framework`](ADR-017-evaluation-framework.md) — *four check definitions and the coverage inputs superseded by ADR-032*
 - [`ADR-018 — Test strategy with pytest`](ADR-018-test-strategy-with-pytest.md)
 
 ### 7. Cross-cutting
@@ -79,21 +79,21 @@ For someone new to the project who wants to understand the design end-to-end, re
 |---|---|---|---|
 | 001 | Project skeleton | ✅ | Foundation |
 | 002 | Input-agnostic design | ✅ | Input & parsing |
-| 003 | Parsing strategy | ✅ | Input & parsing |
+| 003 | Parsing strategy | ✅ (classpath fork superseded by 033) | Input & parsing |
 | 004 | Complexity model | ✅ | Graph extraction |
 | 005 | Token utilization | ✅ | LLM infrastructure |
 | 006 | Knowledge graph schema | ✅ | Graph extraction |
 | 007 | Golden-graph pattern | ✅ | Graph extraction |
-| 008 | Pluggable renderer interface | ✅ | Rendering |
+| 008 | Pluggable renderer interface | ✅ (D-008-2 superseded by 034) | Rendering |
 | 009 | Rendering budget cap | ✅ | Rendering |
-| 010 | Spring Boot → NestJS/TypeScript idiom mapping | ✅ | Rendering |
+| 010 | Spring Boot → NestJS/TypeScript idiom mapping | ✅ (Fork 9 refuse behaviour superseded by 034) | Rendering |
 | 011 | Spring → Go mapping | ⏸️ | Deferred (v1.1) |
 | 012 | Error-handling translation | ⏸️ | Deferred (v1.1) |
 | 013 | LLM provider abstraction | ✅ | LLM infrastructure |
 | 014 | Prompt versioning | ✅ | LLM infrastructure |
 | 015 | Telemetry + response cache | ✅ | LLM infrastructure |
 | 016 | Cost-control CLI | ⏸️ | Deferred (v1.1) |
-| 017 | Evaluation framework | ✅ | Quality & testing |
+| 017 | Evaluation framework | ✅ (check definitions superseded by 032) | Quality & testing |
 | 018 | Test strategy with pytest | ✅ | Quality & testing |
 | 019 | Snapshot + negative tests | ⏸️ | Deferred (v1.1) |
 | 020 | LLM-judge calibration | ⏸️ | Deferred (v1.1) |

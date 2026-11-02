@@ -770,3 +770,22 @@ prompt version, or entirely — is met unchanged.
 
 No reversal of the backend, schema, key, invalidation or reporting decisions; Fork 1's location clause is
 superseded by ADR-029.
+
+**2026-11-01 — The price lookup key, and two assumptions the cost estimate rests on.**
+
+1. **The price lookup is by (provider label, model)**, as ADR-027's 2026-06-29 amendment decides — not by
+   model id alone, because one model id can be served by hosts with different prices (ADR-013, D-013-7).
+   The 2026-08-12 amendment's *"a model absent from the price table"* reads *"a (provider label, model) pair
+   absent from the price table"*.
+2. **A provider may not report cached tokens.** Not every OpenAI-compatible endpoint returns a cached-token
+   count. Where it is missing, the call's `cost_usd_est` is `null` with `cost_unavailable_reason:
+   "cached_tokens_not_reported"` — never a figure computed as if no tokens were cached. The tool cannot
+   tell an endpoint that omits the count because it never caches from one that does not report it, so on
+   such an endpoint every call's cost is `null`; the end-of-run cost summary states how many calls it
+   could not price, and why.
+3. **Cache writes are not priced.** The price table holds input, output and cache-read rates. Some providers
+   bill prompt-cache *writes* above the base input rate (Anthropic, *Prompt caching*); the estimate prices
+   them at the input rate, so it runs low on calls that write to the cache. This is stated wherever the
+   estimate is labelled (ADR-027 Fork 4), and no cache-write rate is added.
+
+No reversal of any prior decision; the lookup key and the estimate's limits are stated.

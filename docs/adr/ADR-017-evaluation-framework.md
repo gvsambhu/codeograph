@@ -828,3 +828,48 @@ statuses.**
 
 No reversal of Forks 1–8: target identification, writing and exit statuses are aligned with the layout
 cluster; the scorecard gains an additive field.
+
+**2026-11-01 — Four check definitions and the coverage definition superseded by ADR-032; provenance gains
+the provider; a sharp ratio below its bar fails; the scorecard names cite ADR-029.**
+
+*Fork 3's definitions of `structural_completeness`, `relationship_correctness`, `internal_consistency` and
+`reproducibility`, and Fork 4's definition of the `coverage` slot's inputs and arithmetic, are superseded by ADR-032
+(Evaluation Check Semantics).* Each was written as a formula without auditing its operands, and none could
+see the failure its check is named for: completeness drew its ground truth from the parser it polices;
+relationship correctness could not fall below 1.0; one consistency invariant asserted a rendering-stage
+property and another contradicted ADR-003; reproducibility compared fresh runs with each other and never
+read the scored graph; and coverage had no designed input. ADR-032 redefines them — two against FR-41's
+human-checked expectation, reproducibility against the scored graph's hash — and adds
+`annotations_schema_validity`. This is a material change, so it is a supersession; ADR-017's `status` stays
+`accepted`, and its index entry notes the superseded definitions. The scorecard schema, threshold model,
+invocation surface, compile-check policy, multi-corpus reporting, and the definitions of `schema_validity`,
+`semantic_accuracy` and `golden_graph_agreement` stand.
+
+*The skip-reason taxonomy gains* `no_expectation`, `graph_modified_since_run`, `tool_version_changed`,
+`envelope_changed`, `source_changed`, `resolution_environment_changed`,
+`transient_degradation_in_scored_run`, `render_audit_missing_or_corrupt` and `no_annotations` (ADR-032).
+
+*A sharp ratio below its bar fails.* Fork 2's derivation table lists, under `skip` for
+`MinRatioThreshold`, *"sharp + value below threshold"*; the compile slot's own rule (*"any fail → fail"*)
+and ADR-032's checks need the opposite. A `MinRatioThreshold` with no `fail_below` derives to `fail` when
+the value is below `pass_at_or_above`; `skip` arises only from the band gap.
+
+*Provenance gains the provider.* `CheckResult` records `provider` — the provider label — beside
+`model_version` and `prompt_id`, so a score attributed to a model is attributed to the endpoint that served
+it (FR-18; ADR-013, D-013-7). Additive.
+
+*Confirmations and Consequences superseded.* Confirmation 12 (*"source_path no longer resolves"*) stands
+and joins ADR-032's Confirmations 5–9. Confirmation 6's runtime bound (*"≤ 0.4× of a full eval"*) and
+Consequence 3's *"3× AST cost"* assumed three Pass-0 runs; with one, Confirmation 6 asserts the skip and
+its reason only, and Consequence 3 reads *"one extra Pass-0 run"*.
+
+*Versions.* The scorecard schema's additive changes — the output-layout amendment's input fingerprints,
+this amendment's provider, ADR-032's new check and skip reasons — take one minor version per release that
+ships any of them (ADR-032's constraint for ADR-026).
+
+*The scorecard file names.* The Context's *"plan §2 freezes the output paths"* cites a document that is no
+longer authoritative. The names and locations — `evals/graph-scorecard.json` and
+`evals/<target>-scorecard.json` in the run directory — are ADR-029 Fork 6's.
+
+Four definitions and the coverage definition superseded; provenance extended; the derivation table
+clarified; everything else unchanged.

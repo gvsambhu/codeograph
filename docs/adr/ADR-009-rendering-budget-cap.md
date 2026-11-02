@@ -462,3 +462,17 @@ amendment fixes; the manifest indexes the file. Confirmation 8 reads *"the rende
 section whose schema matches `SelectionResult`"*; Confirmation 7's log line names the audit file.
 
 No reversal of Fork 4's decision; the audit's location changes.
+
+**2026-11-01 — The selector takes no LLM input.**
+
+Fork 1's `ClassSelector.select()` takes an `annotations: LlmAnnotations` parameter, while Fork 3 decides
+that LLM output *"does NOT drive selection in v1"* (the determinism driver; FR-14 AC-4). An input with no
+stated use invites the coupling the decision forbids. The parameter is removed: selection reads the graph
+alone, and Fork 1's description (*"consumes the full graph plus LLM annotations"*) and Confirmation 1's call
+read `select(graph)`. The reported semantic-domain view, when it lands, reads the annotations itself.
+
+A manual domain mapping whose entry matches no class is rejected when `render` starts — after the graph is
+loaded, before any render work — with exit status 1 and a message naming the entry (ADR-032 Fork 3; FR-38
+AC-2; ADR-031).
+
+No reversal of any prior decision; the interface narrows to match Fork 3.

@@ -547,3 +547,23 @@ runtime — without naming a mechanism, so the CLI flag remains this ADR's choic
 * The registry can report its registered target names at runtime, and the CLI exposes that report.
 
 No reversal of any prior decision; an undesigned surface gains its design record.
+
+**2026-11-01 — D-008-2 superseded by ADR-034; the renderer interface gains a placeholder generator.**
+
+*D-008-2 (render-time partial failure — omit the class and record it) is superseded by ADR-034
+(Placeholders for Unrendered Classes).* FR-36 AC-1 requires that whatever cannot be translated surface as a
+reviewable placeholder, and FR-3 AC-2 that each source class map to a unit of the output; an omitted class
+satisfies neither, and its dependents fail to compile. D-008-2 rejected a placeholder because free text does
+not compile; ADR-034's placeholder is a typed skeleton generated from the graph, which does. A class whose
+render call fails leaves that skeleton, and its record moves from the manifest to the render audit
+(ADR-029 Fork 6). This is a material change, so it is a supersession; ADR-008's `status` stays `accepted`.
+
+*The interface gains a method, additively.* Every renderer implements a placeholder generator: given a
+class node and a reason, it returns the skeleton's path and content (ADR-034 Fork 2), under ADR-034 Fork 3's
+registration rule.
+
+*Confirmation superseded.* *"One class failing to render → its file is omitted, the manifest records it"*
+becomes ADR-034's Confirmations 1, 6 and 10: the class leaves a skeleton, the render audit records it, and
+the render exits with status 2.
+
+D-008-2 superseded; the interface extended; Forks 1–5 unchanged in substance.

@@ -557,3 +557,48 @@ Fork 5's file names move with the layout: `analysis/graph.json` and `analysis/ll
 (ADR-029 Fork 4).
 
 Fork 5 is reaffirmed, not reversed: the code is brought back to the decision.
+
+**2026-11-01 — One vocabulary per artefact, the schema files as its list, and the annotation record's
+shape.**
+
+*1 · The published schema files are the single list of allowed values.* `extraction_mode` grew across three
+ADRs, with no fork defining it and a value (`whole_class`) attributed to ADR-005, where it never appeared.
+From this amendment, every enumerated value in the graph and annotation artefacts is listed in the published
+schema files (FR-7b) and nowhere else; this ADR records each value's meaning, and other ADRs cite the schema
+rather than restating values.
+
+*2 · Parse state and annotation state are separate fields in separate artefacts.* `extraction_mode` carried
+two concerns with different determinism: how the source was parsed (a function of the file) and how the
+node was annotated (partly a function of an API's outcome). They are split:
+
+| Artefact | Field | Values | Meaning |
+|---|---|---|---|
+| graph — class node | `extraction_mode` | `ast` | full parse |
+| | | `regex_fallback` | the regex extractor (ADR-003 §3) |
+| | | `name_only` | no usable structure; class name only (ADR-003, 2026-06-14 #4). Such a node always carries `fqcn_resolved: false` (2026-06-17 item 3); a `regex_fallback` node may carry it too, so `extraction_mode`, not `fqcn_resolved`, tells the two apart |
+| annotations — record | `annotation_mode` | `whole_class` | the class's full source was sent |
+| | | `signatures_only` | an oversized input reduced to signatures (ADR-005 §3) |
+| annotations — record | `call_status` | `succeeded` / `failed` | the Pass-1 call's outcome (ADR-005 §5); a failure carries a reason |
+
+`signatures_only` leaves the graph schema's `extraction_mode` set, and `name_only` joins it — a removal from
+a closed set, so **the graph schema takes a major version** (ADR-032's constraint for ADR-026: one bump per
+release, merged with the output-layout cluster's if both ship together). The graph is otherwise unchanged.
+
+*3 · The annotations file keeps Fork 5's envelope.* The file is an object, `{ "graph_ref": …,
+"annotations": { <class node id>: <record> } }`, as Fork 5's example shows and the published schema
+requires. **The complete record:**
+* the semantic fields (domain label, summary, migration hazards);
+* `annotation_mode`; when it is `signatures_only`, the trigger reason and the token estimate (ADR-005 §3);
+* `call_status`; when it is `failed`, the reason (ADR-005 §5);
+* `model`, `provider` — the provider label, so two endpoints serving one model id are told apart (ADR-013's
+  2026-06-29 amendment) — and `prompt_version`.
+
+No other status field remains: `extraction_mode` leaves the record, and any record-level flag the schema
+carries for an un-enriched node (such as `degraded`) is replaced by `call_status`. A class whose call failed
+**has** a record, with `call_status: failed`: the 2026-06-17 amendment item 4's *"a class node may carry no
+annotation (the normal case under `--ast-only` or an `llm_failed` extraction)"* narrows to `--ast-only`.
+Item 4's join rule — every annotation key resolves to a class node — is enforced by ADR-032's
+`internal_consistency` (Fork 3, rule 5), which discharges its constraint for ADR-017. **The annotations
+schema takes a major version** for the new fields and the removed ones; it is one change.
+
+No reversal of Fork 5's placement or envelope; the vocabulary gains an owner, and the two concerns separate.

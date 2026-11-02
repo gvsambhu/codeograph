@@ -290,3 +290,32 @@ No prior locked decision is reversed; the oversized-input amendment realigns the
 No decision changed; documentation realigned to the shipped code (capability-vs-behavior split made explicit). Pure doc-sync.
 
 **2026-06-29 — D-005-3 narrowing (→ ADR-027).** D-005-3's "no cost cap in v1" is narrowed by **ADR-027** (temporary v1 cost-safety floor: pre-flight estimate + hard call/token ceiling). Full dollar-accurate budgeting remains **ADR-016 / v1.1**. ADR-027's *More Information* carries the reciprocal pointer back here, so the link is bidirectional. No decision changed; this records the relationship only.
+
+**2026-11-01 — LLM call state is recorded in the annotations, never the graph.**
+
+§3 tags an oversized class's graph node `extraction_mode: signatures_only`, and §5 tags a class whose Pass-1
+call failed `llm_failed` on the graph node; both, and the relationship note to ADR-022, say the outcome is
+*"recorded in the run manifest"*. **Both placements are withdrawn.** The graph is a function of the corpus
+and the tool alone (FR-34 AC-1, AC-2): a value that depends on an LLM call's outcome — or on the API's
+health — may not change a byte of it, and an enrichment-off run and an enrichment-on run must produce the
+same graph (FR-34 AC-3). ADR-006 Fork 5 drew that boundary after §3 and §5 were locked, and ADR-007's
+byte-equal golden builds on it.
+
+The decisions themselves stand — an oversized class is reduced to its signatures (O3), and a failed call is
+skipped, recorded, and the run continues. Only the record moves, to the class's annotation record, whose
+fields and values ADR-006's 2026-11-01 amendment defines:
+* a reduced input is recorded by the record's annotation mode, with the trigger reason and the token
+  estimate (FR-35 AC-4, AC-5);
+* a call that exhausted its retries is recorded by the record's call status, with the reason (FR-35 AC-2,
+  AC-3).
+
+Because these are two fields, a reduced input whose call then failed is expressible — which a single
+`extraction_mode` value could not say. A failed corpus-synthesis call is recorded as an `absent` entry in the
+manifest (ADR-025, 2026-10-31). The manifest carries only the counts of reduced inputs and failed calls
+(ADR-025's 2026-11-01 amendment).
+
+*Confirmations superseded.* §3's oversized-class integration test (*"the resulting node has
+`extraction_mode: signatures_only`"*) and the D-005-1 Confirmation (*"plus a manifest record"*) now assert
+the annotation record's mode, reason and estimate, and the manifest's count; the graph node is unchanged.
+
+No reversal of §3's or §5's decision; the location of their record changes.

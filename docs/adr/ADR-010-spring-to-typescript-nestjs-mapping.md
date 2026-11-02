@@ -1073,3 +1073,27 @@ The audit leaves the manifest because it grows with the corpus and is read by ev
 manifest consumer — the same reasoning that gave scorecards and compile-check records their own files.
 
 No reversal of Fork 9's audit content; its location changes.
+
+**2026-11-01 — Fork 9's refusal leaves a placeholder (ADR-034); the render audit gains failures and
+placeholders.**
+
+*Fork 9's refuse behaviour — a refused class moves from `selected` to `refused` and no file is written — is
+superseded by ADR-034.* A refused class leaves a typed skeleton: its fields and method signatures in the
+target's types — a type the mapping does not translate, such as `Mono`/`Flux` under
+`webflux_policy=refuse`, as `unknown` with a TODO —, bodies that throw a not-rendered error, a header
+naming the refusing policy and the feature it matched, and **no** route, handler or security decorator, so
+a refused controller exposes nothing (FR-36 AC-1, AC-2). Its injection registration is kept, so its
+dependents wire (ADR-034 Fork 3). The policies, their defaults and the presets are unchanged. A refused
+cross-cutting security class (a `SecurityFilterChain` configuration, a security filter) is left open by
+ADR-034 for this ADR to decide: the controllers it protected still render without that protection.
+
+*The render audit's contents* (this ADR's 2026-10-31 amendment) gain two lists: the classes whose render
+call failed, with the error detail, and every placeholder written, with its reason. The audit's schema
+takes a minor version.
+
+*Confirmations and Consequences superseded.* Confirmations 6 and 8 (*"the class does NOT appear in the
+output dict"*) now assert `SelectionResult.refused` as before and a skeleton in the output (ADR-034
+Confirmations 2 and 8); Consequence 6's *"skipping entire files for reactive projects"* reads *"leaving
+skeletons for reactive classes"*.
+
+Fork 9's refuse behaviour superseded; the matrix, policies, defaults and presets unchanged.

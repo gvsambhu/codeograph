@@ -613,3 +613,36 @@ an acquired source is cloned or extracted into, which is machine-specific and go
 No reversal of any Fork 1–5 decision: new sections and fields are added under the `2.x` additive rule, and
 the 2026-06-08 write protocol is extended — its single terminal write and presence-implies-valid
 invariant stand.
+
+### 2026-11-01 — Run-time records for evaluation, extraction and enrichment
+
+Additive, in the `2.x` line's strict-additive rule; all written by `run`:
+1. **`corpus_fingerprint`** — a SHA-256 over every file Pass 0 reads (source, build and ignore-rule files),
+   in the serialisation ADR-032 Fork 4 fixes; ADR-032's `reproducibility` check compares it before
+   re-running.
+2. **`envelope`** — `{ jdk_version: <str> | null, jdk_vendor: <str> | null, jdk_available: <bool>,
+   os_family: <str> }`, beside the existing `codeograph_version`; and **`pass0_settings`**, the settings
+   that change the graph, by name and value (ADR-032 Fork 4). No path, user name or other machine-specific
+   value (NFR-6 AC-3).
+3. **`resolution`** — `{ mode: "corpus_only" | "classpath", classpath: <artefact pointer> | null,
+   classpath_summary_sha256: <hex> | null }` (ADR-033 Fork 3). Corpus-only is stated, never implied by
+   absence (FR-33 AC-4).
+4. **`extraction`** — `{ report: <artefact pointer>, degraded: <count>, excluded: <count>, conditions:
+   <count>, transient_degradation: <bool> }` (ADR-033 Forks 4–5). The per-file lists live in the report.
+5. **`enrichment`** — `{ reduced_inputs: <count>, failed_calls: <count> }`, absent on an `--ast-only` run
+   (ADR-005's 2026-11-01 amendment). The per-class records live in the annotations.
+6. **Two artefacts join the index:** `analysis/extraction-report.json` (every run) and
+   `analysis/classpath.json` (when a classpath is used), each with its schema version and SHA-256, produced
+   by `run` (ADR-029's ownership table).
+
+A failed corpus synthesis is an `absent` entry (2026-10-31, item 4), not a field here. The manifest takes
+its next minor version — one per release, merged with the output-layout amendment's if both ship together
+(ADR-032's constraint for ADR-026).
+
+**New Confirmation items.**
+* A run's manifest records the corpus fingerprint, the envelope with no machine-specific value, the
+  resolution mode, the extraction counts and, on an LLM-enabled run, the enrichment counts; it validates at
+  its new minor version.
+* An `--ast-only` run records no `enrichment` section and its skipped LLM outputs under `absent`.
+
+No reversal of any prior decision; six additive records.
