@@ -450,3 +450,15 @@ The per-class render granularity locked in ADR-010 Fork 8 multiplies neatly with
 * A null-metric class (`signatures_only`/`regex_fallback`) lands in the MID bucket, sorted last, and remains selectable (D-009-3).
 
 No prior decision reversed; Fork 4 is amended (cost-ceiling framing + validated representativeness), not superseded. Clarification only.
+
+**2026-11-01 — The selection audit moves to the render audit.**
+
+Fork 4 decides that *"`SelectionResult` serializes into `manifest.json`"*, that the manifest is
+authoritative for machine consumers, and Confirmation 8 asserts a `selection` field there; the end-of-run
+log line points at `manifest.json`. The manifest has no such field and forbids extras (ADR-025), and the
+audit grows with the corpus. It moves to `<run directory>/evals/render-audit.<target>.json` (ADR-029 Fork
+6), whose contents — this ADR's selection audit beside ADR-010's encounter audit — ADR-010's 2026-10-31
+amendment fixes; the manifest indexes the file. Confirmation 8 reads *"the render audit contains a selection
+section whose schema matches `SelectionResult`"*; Confirmation 7's log line names the audit file.
+
+No reversal of Fork 4's decision; the audit's location changes.

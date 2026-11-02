@@ -443,3 +443,7 @@ No reversal of any prior decision; extends the D-001-1 env-var rule (clarificati
 * The generic provider's model setting accepts an arbitrary model-id string (no allowlist).
 
 Extends the D-001-1 env-var rule and D-013-2 alias resolution to the generic OpenAI-compatible provider; clarification + additive only.
+
+**2026-11-01 — `--force` is removed.** The 2026-06-19 reconciliation lists `--force` among `run`'s options.
+ADR-028 removes it: a re-run needs no overriding option, and what a command may overwrite or delete is
+ADR-028's. No reversal of any decision in this ADR; the listed option set is out of date.

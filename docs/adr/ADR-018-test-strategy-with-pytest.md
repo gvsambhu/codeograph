@@ -877,3 +877,9 @@ favour of `run_id`. (Shared with ADR-017's manifest reconciliation.)
 deferral, consistent with the v1-vs-v1.1 renderer scope. No reversal of any prior decision; these are
 consistency corrections against later-locked ADRs (ADR-007, ADR-022, ADR-025) and the v1 renderer
 scope.
+
+**2026-11-01 — Artefact paths follow ADR-029.** Fork 7's byte-stability table and the CI example name
+`out/<target>/`, `out/telemetry/run-*.jsonl` and `out/llm-annotations.json`. Under ADR-029 the rendered
+source is `<target>-source/` or the `--source-out` location, telemetry lives in `home_dir`, and the graph and
+annotations are under `analysis/`. The classifications themselves are unchanged. No reversal of any prior
+decision.
