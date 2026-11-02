@@ -261,6 +261,8 @@ has to follow.
 ├── .gitignore                    ← only when the tool chose the location (Fork 2)
 ├── analysis/
 │   ├── graph.json                ← Pass 0
+│   ├── extraction-report.json    ← Pass 0 (ADR-033)
+│   ├── classpath.json            ← Pass 0, when a classpath is used (ADR-033)
 │   ├── llm-annotations.json      ← Pass 1
 │   └── corpus-synthesis.json     ← Pass 2 (Fork 7)
 ├── evals/
@@ -332,7 +334,7 @@ Render writes two records of its own, both under `<run directory>/evals/`:
 | File | Holds |
 |---|---|
 | `compile-checks.<target>.json` | The compile commands evaluation runs against the rendered project |
-| `render-audit.<target>.json` | What render selected, skipped and refused, and by which rule (FR-14 AC-3; FR-36). **Its contents are decided with ADR-017 and ADR-010**; this ADR fixes only its location |
+| `render-audit.<target>.json` | What render selected, skipped and refused, and by which rule (FR-14 AC-3; FR-36), the classes whose render call failed, and the placeholders it wrote (ADR-034). **Its contents are decided with ADR-017, ADR-010, ADR-009 and ADR-034**; this ADR fixes only its location |
 
 **The rendered project contains nothing of the tool's.** Inside the project (b), the records would be
 committed with the user's application — the project's own `.gitignore` is a stock Node ignore. A
@@ -371,7 +373,7 @@ command owns every directory it writes to would let one delete the other's recor
 |---|---|
 | `manifest.json` | `run` creates it; `render` and `eval` each write only their own sections (ADR-025) |
 | `runs.jsonl`, `logs/<invocation>.jsonl` | every invocation, its own entries and its own log (ADR-030) |
-| `analysis/graph.json` · `llm-annotations.json` · `corpus-synthesis.json` | `run` — Pass 0, Pass 1, Pass 2 respectively |
+| `analysis/graph.json` · `extraction-report.json` · `classpath.json` · `llm-annotations.json` · `corpus-synthesis.json` | `run` — the first three in Pass 0 (the classpath record only when a classpath is used; ADR-033), then Pass 1 and Pass 2 |
 | `<target>-source/**` (or the `--source-out` location) · `<target>-source.files.json` · `evals/compile-checks.<target>.json` · `evals/render-audit.<target>.json` | `render` |
 | `evals/*-scorecard.json` · `evals/*-scorecard.compile.<name>.log` | `eval` |
 | `<run directory>/archive/` (everything under it) | the invocation that supersedes the output (ADR-028) |
@@ -652,9 +654,13 @@ synthesis, the history and the render audit.
 * **ADR-015** (telemetry and response cache) — placement corrected (Fork 5); its "self-contained run
   directory" driver is overtaken.
 * **ADR-017** (evaluation framework) — finds targets from the manifest; reads render's records from
-  `evals/`; decides the render-audit contents with ADR-010.
+  `evals/`; decides the render-audit contents with ADR-010, ADR-009 and ADR-034.
 * **ADR-010** (Spring to NestJS mapping) — its render audit moves from the manifest to
-  `evals/render-audit.<target>.json` (Fork 6); contents decided with ADR-017.
+  `evals/render-audit.<target>.json` (Fork 6); contents decided with ADR-017, ADR-009 and ADR-034.
+* **ADR-033** (extraction environment and parser failures) — owns the two further `run` artefacts in
+  `analysis/`: the extraction report and the classpath record.
+* **ADR-034** (placeholders for unrendered classes) — the render audit lists each placeholder and each
+  failed render call.
 * **ADR-001** (project skeleton) — `home_dir` and `runs_dir` follow its setting-name rule.
 * **ADR-026** (release versioning) — decides the version consequences of the path changes and the graph
   schema change.
@@ -685,8 +691,15 @@ synthesis, the history and the render audit.
 ### Deferred
 
 * **Log rotation** — still deferred (ADR-022); `logs/` already holds one file per invocation.
-* **The render-audit contents** — decided with ADR-017 and ADR-010.
+* **The render-audit contents** — decided with ADR-017, ADR-010, ADR-009 and ADR-034.
 
 ### Open questions
 
 * None recorded at stage 1. The cluster's design review adds any it raises.
+
+## Revision history
+
+* **2026-11-01** — Two `run` artefacts added to the layout and ownership table (the extraction report and
+  the classpath record, ADR-033), and ADR-009 and ADR-034 named among the render audit's content owners.
+  Exposed by the evaluation cluster's review, which found that five ADRs recorded degradation in the
+  manifest and that ADR-009's selection audit had not been redirected.
