@@ -30,6 +30,7 @@ For someone new to the project who wants to understand the design end-to-end, re
 ### 2. Input & parsing
 - [`ADR-002 — Input-agnostic design`](ADR-002-input-agnostic-design.md) — module discovery, multi-module Maven, gitignore-driven exclusion
 - [`ADR-003 — Parsing strategy`](ADR-003-parsing-strategy.md) — JavaParser, Lombok synthesis, annotation scope
+- [`ADR-033 — Extraction environment and parser failures`](ADR-033-extraction-environment-and-parser-failures.md) — *proposed* — third-party resolution from the build's own classpath, parser-process retry, the extraction report; on acceptance, supersedes ADR-003's classpath fork
 
 ### 3. Graph extraction (deterministic half of the pipeline)
 - [`ADR-004 — Complexity model`](ADR-004-complexity-model.md) — six metrics, cited thresholds
@@ -46,10 +47,12 @@ For someone new to the project who wants to understand the design end-to-end, re
 - [`ADR-008 — Pluggable renderer interface`](ADR-008-pluggable-renderer-interface.md)
 - [`ADR-009 — Rendering budget cap`](ADR-009-rendering-budget-cap.md)
 - [`ADR-010 — Spring Boot to NestJS/TypeScript idiom mapping`](ADR-010-spring-to-typescript-nestjs-mapping.md)
+- [`ADR-034 — Placeholders for unrendered classes`](ADR-034-placeholders-for-unrendered-classes.md) — *proposed* — a typed skeleton for every refused or failed class; on acceptance, supersedes ADR-008 D-008-2 and ADR-010 Fork 9's refuse behaviour
 
 ### 6. Quality & testing
 - [`ADR-017 — Evaluation framework`](ADR-017-evaluation-framework.md)
 - [`ADR-018 — Test strategy with pytest`](ADR-018-test-strategy-with-pytest.md)
+- [`ADR-032 — Evaluation check semantics`](ADR-032-evaluation-check-semantics.md) — *proposed* — what each graph check measures and reads; on acceptance, supersedes ADR-017's four check definitions and its coverage inputs
 
 ### 7. Cross-cutting
 - [`ADR-022 — Run manifest and structured logging`](ADR-022-run-manifest-and-structured-logging.md) — *manifest schema forks (1/2/7) superseded by ADR-025; logging forks remain in force*
@@ -108,9 +111,9 @@ For someone new to the project who wants to understand the design end-to-end, re
 | 029 | Output layout and ownership | 📝 | Cross-cutting |
 | 030 | Invocation identity and history | 📝 | Cross-cutting |
 | 031 | Command outcomes and consent | 📝 | Cross-cutting |
-| 032 | Evaluation check semantics | ⬜ | Quality & testing |
-| 033 | Extraction environment and parser failures | ⬜ | Input & parsing |
-| 034 | Placeholders for unrendered classes | ⬜ | Rendering |
+| 032 | Evaluation check semantics | 📝 | Quality & testing |
+| 033 | Extraction environment and parser failures | 📝 | Input & parsing |
+| 034 | Placeholders for unrendered classes | 📝 | Rendering |
 
 ---
 
