@@ -242,11 +242,20 @@ To extend CI testing to macOS or Windows:
 
 ## CI required checks setup (for repo admins)
 
-Repository administrators must configure branch protection rules on `main` to require the following CI jobs to pass before merging:
-- `Python (unit)`
-- `Python (integration-external)`
-- `Java (mvn test)`
-- `Cross-corpus Eval Report`
+The default branch is protected by the repository ruleset `protect-main`: a pull request is required,
+nobody can bypass the ruleset, force-pushes and deletion are blocked, and these checks must pass before
+merging:
+- `Lint`
+- `Unit (ubuntu-latest)`
+- `Integration (external)` — includes the Java parser's `mvn test`
+- `Eval (spring-rest-sample)`
+- `Eval (spring-blog-api)`
+- `Cross-corpus Report`
+- `gitleaks`
+
+A required check is matched by its name. Renaming a job, or adding an entry to a job's matrix (for
+example `Unit (windows-latest)`), changes the names the ruleset must list — update the ruleset in the
+same change, or every pull request waits for a check that never reports.
 
 ## Responding to a gitleaks finding
 
