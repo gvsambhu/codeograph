@@ -677,7 +677,7 @@ synthesis, the history and the render audit.
 * **FR-35 AC-1** — a failed synthesis costs one artefact, not the annotations (Fork 7).
 * **FR-38 AC-1, AC-2** — `runs_dir` and `home_dir` are settings; misconfiguration fails at startup
   (Forks 2, 5).
-* **FR-16 AC-2** — telemetry stays a separate record, under `home_dir` (Fork 5).
+* **FR-16 AC-2** — the LLM call records stay inspectable without an external service, under `home_dir` (Fork 5).
 * **NFR-5 AC-1** — renderers stay unaware of placement (Fork 3).
 
 ### References
@@ -703,4 +703,4 @@ synthesis, the history and the render audit.
   the classpath record, ADR-033), and ADR-009 and ADR-034 named among the render audit's content owners.
   Exposed by the evaluation cluster's review, which found that five ADRs recorded degradation in the
   manifest and that ADR-009's selection audit had not been redirected.
-* **2026-11-10** — NFR-7's breaking-change rule cited as AC-3, into which AC-4 was merged. Reference fix; no decision changed.
+* **2026-11-10** — NFR-7's breaking-change rule cited as AC-3, into which AC-4 was merged; FR-16 AC-2 cited for what it now says (inspectable without an external service), no longer *a separate record*. Reference fixes; no decision changed.

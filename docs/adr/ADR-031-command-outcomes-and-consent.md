@@ -35,8 +35,8 @@ otherwise a dry run (`cli/cache.py:38`). `run --force` and `render --force` dele
 
 **The layout cluster adds new outcomes and new irreversible commands.** ADR-028 refuses on held claims,
 superseded inputs, earlier-version folders and unadoptable folders; `purge` and `--break-lock` cannot be
-undone. **The requirements ask** that success, failure, completion with recorded failures and refusal be
-distinct exit statuses, and that a refusal change nothing (FR-45); that irreversible removal happen only
+undone. **The requirements ask** that success, failure, completion with recorded failures, completion with a
+failed quality check, refusal and interruption be distinct exit statuses, and that a refusal change nothing (FR-45); that irreversible removal happen only
 with explicit consent, and that a non-interactive invocation never wait for consent nor proceed without
 it (FR-45 AC-3, AC-4; FR-39 AC-2, AC-3).
 
@@ -271,4 +271,4 @@ The history's outcome field uses these classes.
 
 ## Revision history
 
-* **2026-11-10** — Consent citations moved from FR-42 AC-4/AC-5 to FR-45 AC-3/AC-4, where the requirements now state the consent rule once (it also covers `--break-lock`). Reference fix; no decision changed.
+* **2026-11-10** — Consent citations moved from FR-42 AC-4/AC-5 to FR-45 AC-3/AC-4, where the requirements now state the consent rule once (it also covers `--break-lock`). Reference fix; no decision changed. The same day the Context's summary of FR-45 was brought up to its six outcomes — this ADR already decides all six (statuses 0–4 and 130).
