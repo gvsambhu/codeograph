@@ -272,10 +272,11 @@ Published, machine-readable schema files are the language-neutral source of trut
 - **AC-2** Each source class maps to an identifiable unit of the output, so source and output can be
   compared side by side.
 - **AC-3** The rendered source is written to a location the user chooses, or to a documented default.
+- **AC-4** The rendered source is idiomatic for its target stack (§3).
 - **Interface** `--source-out`
 
 #### FR-4 · Render the knowledge graph into idiomatic Go source
-Same graph, different target — the proof that the graph is target-independent.
+A second target rendered from the same graph shows the graph is target-independent.
 - **AC-1** FR-3's acceptance criteria apply, read against Go and its ecosystem conventions.
 
 #### FR-5 · The render target is selectable at invocation, without a code change
@@ -284,13 +285,13 @@ Same graph, different target — the proof that the graph is target-independent.
 - **Interface** `--target <name>`
 
 #### FR-13 · Rendering output is capped per domain
-Bounds token spend and keeps rendering reproducible.
+Bounds LLM spend per render.
 - **AC-1** A default cap applies when none is given, and its value is documented.
-- **AC-2** A value of `0` disables the cap entirely.
+- **AC-2** The user can disable the cap, so every class in a domain is rendered.
 - **AC-3** Selection at the cap is deterministic and documented (FR-14).
 - **AC-4** The cap binding is reported to the user at the end of the invocation, naming the affected
   domains, so a capped rendering is never mistaken for a complete one.
-- **Interface** `--max-classes-per-domain N` — default 3
+- **Interface** `--max-classes-per-domain <n>`
 
 #### FR-14 · Selection under the cap is deterministic and documented
 - **AC-1** The same corpus and cap select the same classes every time, within the execution envelope.
@@ -305,12 +306,13 @@ Bounds token spend and keeps rendering reproducible.
 - **AC-2** Security-relevant features default to refusal, so a rendered endpoint is never silently
   less protected than its source.
 - **AC-3** The encounter behaviour is configurable, and the permissive setting warns loudly.
-- **AC-4** The set of features v1 translates, defers, and refuses is documented as a single matrix.
+- **AC-4** For each render target, the features it translates, defers, and refuses are documented in a
+  single matrix.
 
-#### NFR-5 · Adding a target language requires no change to the analyzer or the core pipeline
-- **AC-1** A new target is a new renderer package, a compile-check entry, and nothing else.
-- **AC-2** Renderer-authoring documentation exists for a contributor adding one: a short section in
-  the contributor guide, with the full guide landing alongside the second renderer.
+#### NFR-5 · Adding a render target changes no shared code
+- **AC-1** Adding a render target changes no code outside that target's own — not the analyzer, the core
+  pipeline, the evaluation framework, or the command line.
+- **AC-2** The documentation describes every step of adding a render target.
 
 ### 5.6 Evaluation
 
