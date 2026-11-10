@@ -119,7 +119,7 @@ flagged*).
 
 #### Constraint flagged for ADR-008
 The renderer interface gains a placeholder generator — given a class node and a reason, it returns the
-skeleton's path and content. Every renderer implements it (NFR-5: a new target is a new renderer package).
+skeleton's path and content. Every renderer implements it (NFR-5: adding a render target changes no shared code).
 On acceptance, D-008-2 carries a *superseded by ADR-034* note.
 
 #### Constraint flagged for ADR-010
@@ -258,3 +258,7 @@ FR-3 AC-1, AC-2 · FR-23 · FR-36 AC-1, AC-2 · FR-45 AC-1 · NFR-5 AC-1.
 ### Deferred
 
 * The Go renderer's generator — with the Go renderer (ADR-011, v1.1).
+
+## Revision history
+
+* **2026-11-10** — NFR-5 cited by its reworded AC-1 (adding a render target changes no shared code) instead of the removed wording. Reference fix; no decision changed.

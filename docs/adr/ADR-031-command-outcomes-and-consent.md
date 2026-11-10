@@ -35,10 +35,10 @@ otherwise a dry run (`cli/cache.py:38`). `run --force` and `render --force` dele
 
 **The layout cluster adds new outcomes and new irreversible commands.** ADR-028 refuses on held claims,
 superseded inputs, earlier-version folders and unadoptable folders; `purge` and `--break-lock` cannot be
-undone. **The requirements ask** that success, failure, completion with recorded failures and refusal be
-distinct exit statuses, and that a refusal change nothing (FR-45); that irreversible removal happen only
+undone. **The requirements ask** that success, failure, completion with recorded failures, completion with a
+failed quality check, refusal and interruption be distinct exit statuses, and that a refusal change nothing (FR-45); that irreversible removal happen only
 with explicit consent, and that a non-interactive invocation never wait for consent nor proceed without
-it (FR-42 AC-4, AC-5; FR-39 AC-2, AC-3).
+it (FR-45 AC-3, AC-4; FR-39 AC-2, AC-3).
 
 **This ADR decides how every command reports its outcome and when it asks for consent.** It applies to
 every command, not only the layout's. It is one of four coupled decisions:
@@ -56,7 +56,7 @@ every command, not only the layout's. It is one of four coupled decisions:
   without parsing text (FR-45 AC-1).
 * **A refusal is safe to retry** — distinguishable from a failure, and it changed nothing (FR-45 AC-2).
 * **Ask only when it cannot be undone** — a question is worth its cost only where a mistake is final
-  (FR-42 AC-4).
+  (FR-45 AC-3).
 * **No silent failures** — a command that did nothing never reports success.
 * **One rule for every command**, including commands added later.
 
@@ -123,7 +123,7 @@ pipeline decide without reading the scorecard.
 
 **When asking:** on a terminal, the command prompts and **shows what it is about to do** — what would be
 removed and how much. **With no terminal** (CI, a pipe), it never waits: it refuses with status 3 unless
-**`--yes`** (`-y`) is given (FR-42 AC-5; FR-39 AC-3). `--yes` is the one consent flag across the tool.
+**`--yes`** (`-y`) is given (FR-45 AC-4; FR-39 AC-3). `--yes` is the one consent flag across the tool.
 
 **`cache purge` follows the rule.** The dry-run-by-default and `--force` are dropped: it lists what it
 would remove, then asks. Its filters align with `purge`'s — `--before <date>` and `--keep <n>` — and keep
@@ -251,7 +251,7 @@ The history's outcome field uses these classes.
 ### Requirements touched
 
 * **FR-45 AC-1, AC-2** — distinct statuses; a refusal changes nothing (Fork 1).
-* **FR-42 AC-4, AC-5** — removal only with consent; a non-interactive invocation never waits or proceeds
+* **FR-45 AC-3, AC-4** — removal only with consent; a non-interactive invocation never waits or proceeds
   without it (Fork 2).
 * **FR-39 AC-2, AC-3** — the cost gate's prompt and its non-interactive behaviour (Forks 1, 2).
 * **FR-37 AC-2** — selective cache removal by age, model, prompt version, or entirely (Fork 2).
@@ -268,3 +268,7 @@ The history's outcome field uses these classes.
 ### Open questions
 
 * None recorded at stage 1. The cluster's design review adds any it raises.
+
+## Revision history
+
+* **2026-11-10** — Consent citations moved from FR-42 AC-4/AC-5 to FR-45 AC-3/AC-4, where the requirements now state the consent rule once (it also covers `--break-lock`). Reference fix; no decision changed. The same day the Context's summary of FR-45 was brought up to its six outcomes — this ADR already decides all six (statuses 0–4 and 130).
