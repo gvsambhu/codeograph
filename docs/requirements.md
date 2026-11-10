@@ -374,60 +374,68 @@ A past score can be re-derived by scoring the same artefact again.
 #### FR-8 · Provider and model are both selectable, and neither is allowlisted
 Two independent axes: which provider runs the call, and which model it runs.
 - **AC-1** The provider is selectable without a code change.
-- **AC-2** Any OpenAI-compatible endpoint is reachable by configuration alone, with no vendor
-  allowlist in code.
-- **AC-3** Any model id is accepted as free-form pass-through — no project-blessed allowlist.
-- **AC-4** Per-pipeline-stage model overrides are available, each falling back to the single
-  configured default.
-- **Interface** `CODEOGRAPH_LLM_PROVIDER` — `anthropic | openrouter | openai_compatible` in v1;
-  `ollama` and `bedrock` follow.
+- **AC-2** A provider endpoint the tool does not name is reachable by configuration alone, if it speaks
+  the OpenAI-compatible API.
+- **AC-3** Any model id the provider accepts can be used; the tool restricts none.
+- **AC-4** A different model can be configured for each stage that calls an LLM, each falling back to
+  one default model.
+- **Interface** `CODEOGRAPH_LLM_PROVIDER`
 
-#### FR-15 · Prompts are versioned artefacts, not inline strings
-- **AC-1** Each prompt version is a distinct, reviewable file; editing one in place is not how a new
-  version is made.
-- **AC-2** The production default for a prompt is declared explicitly, so promotion is a visible diff.
+#### FR-15 · Prompts are versioned, and a released version never changes
+A score or a cached response can be attributed only if the prompt behind it is identified exactly
+(FR-17, FR-18).
+- **AC-1** A released prompt version never changes; a change makes a new version with its own identity.
+- **AC-2** Which prompt version each stage uses by default is declared in one place, so changing a
+  default is a reviewable change.
 - **AC-3** A prompt declares the inputs it requires, and a missing or unknown input fails before the
   call is made.
 
-#### FR-16 · Every LLM call emits telemetry
-- **AC-1** Each call records: run id, provider, model, prompt identity, prompt version, input tokens,
-  output tokens, cost estimate, latency, and timestamp.
-- **AC-2** Per-call records are written to a machine-readable record, separate from the manifest, that
-  can be inspected without an external service.
-- **AC-3** Aggregate statistics roll into the run manifest.
+#### FR-16 · Every LLM call is recorded on the user's machine
+- **AC-1** Each LLM request — answered by the provider, answered from the cache, or failed — is recorded
+  with the run correlation identifier, provider, model, prompt version, input and output tokens, cost
+  estimate, latency, timestamp, and which of the three it was.
+- **AC-2** The records are machine-readable and can be inspected without an external service.
+- **AC-3** The run manifest records the run's total calls, tokens and cost.
 
-#### FR-17 · LLM responses are cached content-addressed
-- **AC-1** The cache key covers everything that would change the response — provider, model, prompt
-  version, rendered prompt, and input hash — and nothing that would not.
-- **AC-2** A stale entry is never served after any of those change.
-- **AC-3** Cache hits are recorded in telemetry.
+#### NFR-8 · The tool sends data only where the user directs it
+**Negative guarantee.** Source code and run data leave the user's machine only for the services the user
+chose.
+- **AC-1** The tool sends data only to the LLM provider the user configured and to the git host of a
+  supplied URL; it sends nothing to its maintainers.
+
+#### FR-17 · LLM responses are reused only for identical requests
+So a re-run neither pays twice nor gets a different LLM answer to the same question.
+- **AC-1** A cached response is served only for a request identical in everything that can change the
+  response.
+- **AC-2** A request that differs only in what cannot change the response — the run, the corpus, the
+  caller — is served from the cache.
 
 #### FR-37 · The response cache is inspectable and user-managed
-- **AC-1** The user can report cache size, entry count, and hit behaviour.
+- **AC-1** The user can see the cache's size, entry count, and hit rate.
 - **AC-2** The user can purge selectively — by age, by model, by prompt version, or entirely.
-- **AC-3** Nothing is evicted by surprise; growth is surfaced as an advisory, and reproducibility of
-  a past run is never broken without the user acting.
+- **AC-3** A cache entry is removed only when the user asks.
+- **AC-4** Cache growth is reported to the user.
+- **AC-5** Removing cache entries follows the consent rule of FR-45 AC-3 and AC-4.
 
-#### FR-39 · LLM spend is bounded before a run starts and while it runs
-No first run can launch an unbounded paid fan-out.
-- **AC-1** A pre-flight estimate of call count and cost is shown before any paid work begins, and is
-  labelled as an estimate from a dated table, not a quote.
-- **AC-2** Above a configurable call-count threshold, an interactive run asks for confirmation.
-- **AC-3** A non-interactive run never hangs on that prompt and never silently proceeds past it.
-- **AC-4** Optional hard ceilings on total calls and total tokens abort the run mid-flight, reporting
-  what was completed.
+#### FR-39 · LLM spend is bounded before and during every invocation that calls an LLM
+**Negative guarantee.** No invocation can start unbounded paid LLM work.
+- **AC-1** Before any paid work begins, an estimate of call count and cost is shown, stating the prices
+  it is based on and their date; it is labelled an estimate, not a quote.
+- **AC-2** Above a configurable call-count threshold, an interactive invocation asks for confirmation.
+- **AC-3** A non-interactive invocation handles that confirmation as FR-45 AC-4 requires: it never waits
+  for it and never proceeds without it.
+- **AC-4** Optional hard ceilings on total calls and total tokens abort the invocation mid-flight,
+  reporting what was completed.
+- **AC-5** A dry run estimates cost without making paid calls.
+- **AC-6** A ceiling on spend in money stops the invocation on projected or accumulated spend.
+- **AC-7** At the end of each invocation that calls an LLM, its token use and cost are reported to the
+  user.
 - **Interface** `--max-llm-calls`, `--max-tokens-total`, `--llm-call-confirm-threshold`, `--yes`,
-  `--non-interactive`
+  `--non-interactive`, `--dry-run`, `--max-cost-usd`
 
-#### FR-22 · Cost is estimated and capped in dollars
-The permanent budget surface, superseding the call-and-token floor of FR-39.
-- **AC-1** A dry run estimates cost without making paid calls.
-- **AC-2** A hard spend ceiling stops the run on projected or accumulated spend.
-- **Interface** `--dry-run`, `--max-cost-usd`
-
-#### NFR-2 · A defined token-utilization strategy governs LLM input construction
-- **AC-1** Repeated prompt prefixes are not re-billed per call.
-- **AC-2** Token use and cost per run are surfaced to the user.
+#### NFR-2 · Input shared by many LLM calls is not paid for in full on every call
+- **AC-1** Where the provider offers a reduced rate for repeated input, input shared by many calls is
+  sent so that it qualifies.
 
 ### 5.8 Configuration and run safety
 
