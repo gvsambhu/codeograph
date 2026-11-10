@@ -41,8 +41,8 @@ do.
 ## 2. Scope
 
 **In scope.** Reading a Java/Spring Boot codebase supplied as a local directory, a git URL, or a zip
-archive; extracting structure, framework semantics, and complexity deterministically; enriching that with
-LLM-derived semantics kept separable from the deterministic output; rendering a selected subset into a target stack;
+archive; extracting structure, framework semantics, and complexity deterministically; adding LLM-derived
+enrichment, kept separable from the knowledge graph; rendering a selected subset into a target stack;
 measuring the quality of both the graph and the rendered source; and the operational surface that
 makes a run reproducible, inspectable, and bounded in cost.
 
@@ -55,29 +55,33 @@ source is production-ready without review.
 
 ## 3. Definitions
 
+Terms are ordered so that each is defined before it is used, except *invocation*, *output directory*, *run* and
+*corpus*, which are defined in terms of one another.
+
 | Term | Meaning in this document |
 |---|---|
-| **Corpus** | The set of source files in scope for one run, after acquisition and discovery. Not the same as "the repository" — excluded and non-source files are not part of the corpus. |
-| **Module** | A build unit within the corpus — a directory with its own build file. A single-module project has one; a multi-module project has several, each with its own source roots. |
-| **Run** | One end-to-end invocation of the tool against one corpus, producing one output directory. |
 | **Invocation** | One execution of any of the tool's commands against an output directory. |
 | **Output directory** | The directory a run writes to, and that every later invocation against the run writes to. |
+| **Run** | One end-to-end invocation of the tool against one corpus, producing one output directory. |
+| **Corpus** | The set of source files in scope for one run, after acquisition and discovery. Not the same as "the repository" — excluded and non-source files are not part of the corpus. |
+| **Module** | A build unit within the corpus — a directory with its own build file. A single-module project has one; a multi-module project has several, each with its own source roots. |
 | **Superseded output** | Output that a later invocation has replaced, or whose inputs have changed since it was produced. |
-| **Artefact** | An output the tool produces for a consumer: the run manifest, the knowledge graph, the annotations, the rendered source, and the evaluation scorecards and sidecars. |
-| **Deterministic artefact** | The knowledge graph. FR-34 requires it to be a function of the corpus and the tool alone; NFR-6 states the byte-reproducibility guarantee that applies to it, and the environment envelope it holds within. |
-| **Diagnostic record** | A file the tool writes for later inspection rather than as an output — the structured run log, the per-call telemetry, and the invocation history (FR-43). Not an artefact. |
 | **Structural fact** | A fact readable from the source text without inference — what the code declares, and what it references. |
-| **Knowledge graph** | The deterministic property graph of a corpus — the elements it declares, the relationships between them, and named complexity metrics on those elements. The node and edge taxonomy is fixed by a published schema (FR-7b), not by this document. |
-| **Degraded** | A corpus file whose extraction fell short of full fidelity — reduced-extractor output, or no usable structure at all (FR-31). |
 | **Semantic fact** | A conclusion about what code means or is for. It requires inference rather than reading. |
-| **Enrichment** | LLM-derived semantic output about the graph — role, intent, summaries, migration hazards, corpus-level synthesis. Always advisory, and always separable from the deterministic output. |
-| **Domain** | A grouping of classes used to partition the corpus for rendering, derived from the graph rather than assigned by an LLM. |
-| **Render target** | A language/framework stack the graph can be rendered into, supplied by a renderer implementing the renderer interface (NFR-5). |
-| **Idiomatic** | Output a competent engineer in the target stack would recognise as written for that stack — using its own framework conventions — rather than transliterated Java. |
+| **Knowledge graph** | The property graph the tool extracts from a corpus — the elements it declares, the relationships between them, and named complexity metrics on those elements. The node and edge taxonomy is fixed by a published schema (FR-7b), not by this document. |
+| **Degraded** | A corpus file whose extraction fell short of full fidelity — reduced-extractor output, or no usable structure at all (FR-31). |
+| **Enrichment** | LLM-derived semantic output about the graph — role, intent, summaries, migration hazards, corpus-level synthesis. |
 | **Scorecard** | A machine-readable record of quality checks, each with an id, a result, a threshold, and the rationale for that threshold. |
-| **Golden** | A committed known-good artefact for a pinned input, compared on every run so that any difference is caught. |
-| **Execution envelope** | The declared, pinned environment within which byte-level reproducibility holds (NFR-6 AC-4). Determinism claims elsewhere in this document are made within it. |
+| **Artefact** | An output the tool produces for a consumer: the run manifest, the knowledge graph, the enrichment, the rendered source, the evaluation scorecards, and the compile-check record. |
+| **Deterministic artefact** | The class of artefacts FR-34 and NFR-6 constrain — in this version, the knowledge graph alone. |
 | **Canonical form** | The single byte-level serialisation rule for an artefact (key ordering, separators, encoding, line ending) that makes byte-comparison and hashing meaningful. |
+| **Execution envelope** | The declared, pinned environment within which byte-level reproducibility holds (NFR-6 AC-4). Determinism claims elsewhere in this document are made within it. |
+| **Golden** | A committed known-good artefact for a pinned input (FR-7c). |
+| **Diagnostic record** | A file the tool writes for later inspection rather than as an output — the structured run log, the per-call telemetry, and the invocation history (FR-43). Not an artefact. |
+| **Prompt** | The instruction text the tool sends to an LLM with each call. It ships with the tool; it is not an artefact. |
+| **Domain** | A grouping of classes used to partition the corpus for rendering (FR-14). |
+| **Render target** | A language/framework stack the graph can be rendered into (FR-3, FR-4, NFR-5). |
+| **Idiomatic** | Output a competent engineer in the target stack would recognise as written for that stack — using its own framework conventions — rather than transliterated from the source language. |
 
 ## 4. Assumptions
 
@@ -85,9 +89,9 @@ source is production-ready without review.
 2. A JDK is available for full-fidelity parsing. (What the tool does when one is absent is an
    obligation, not an assumption — see FR-31.)
 3. `git` is available when a git URL is supplied as input.
-4. The target project's own build tooling is **not** invoked and need not be installed.
+4. The source project's own build tooling is **not** invoked and need not be installed.
 5. LLM access requires the user's own provider credentials, supplied through the environment; any
-   run may be performed with the LLM layer switched off entirely.
+   run may be performed with no LLM calls at all.
 6. Rendered source is a reviewable starting point, not a finished port.
 7. The target stack's own toolchain is available when rendered source is compile-checked. (What the
    tool does when it is absent is an obligation, not an assumption — see FR-7 AC-4.)
