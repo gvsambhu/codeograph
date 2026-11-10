@@ -361,7 +361,7 @@ pattern rather than remove it.
 **A failed synthesis becomes representable** as one missing artefact beside intact annotations (FR-35
 AC-1); how the manifest records it is ADR-025's.
 
-**Removing `projectOverview` from the graph is a breaking change** to a published schema (NFR-7 AC-4).
+**Removing `projectOverview` from the graph is a breaking change** to a published schema (NFR-7 AC-3).
 Its version consequence is stated with this cluster's other version consequences.
 
 ### Ownership
@@ -703,3 +703,4 @@ synthesis, the history and the render audit.
   the classpath record, ADR-033), and ADR-009 and ADR-034 named among the render audit's content owners.
   Exposed by the evaluation cluster's review, which found that five ADRs recorded degradation in the
   manifest and that ADR-009's selection audit had not been redirected.
+* **2026-11-10** — NFR-7's breaking-change rule cited as AC-3, into which AC-4 was merged. Reference fix; no decision changed.

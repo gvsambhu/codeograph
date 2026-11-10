@@ -267,7 +267,7 @@ References:
 
 2. **Pass-1 prompt-cache TTL = 1 hour (D-005-2).** §1's 5-minute TTL is amended to a **1-hour TTL for the high-fan-out Pass 1**; low-fan-out callers keep the 5-minute default. A Pass-1 fan-out over 10³–10⁴ classes at concurrency 5 can outlive 5 minutes and re-bill the cached prefix; 1 hour keeps the prefix warm and protects Driver #1 (cost ceiling on Pass 1). Ratifies the shipped behaviour.
 
-3. **Cost visibility deferred to v1.1 (D-005-3).** FR-22 cost-control flags (`--max-cost-usd`, `--budget-warn`) and the NFR-2 token/cost scorecard are confirmed **v1.1 (ADR-016)**, not v1; plan §4 is annotated to mark them so they are not read as "unmet in v1". v1's only cost mechanism remains prefix caching (no estimate, no cap). The NFR-2 scorecard line is delegated to ADR-017's eval surface rather than owned here.
+3. **Cost visibility deferred to v1.1 (D-005-3).** FR-39 AC-5 and AC-6 (formerly FR-22) cost-control flags (`--max-cost-usd`, `--budget-warn`) and the token and cost report (FR-39 AC-7; formerly NFR-2 AC-2) are confirmed **v1.1 (ADR-016)**, not v1; plan §4 is annotated to mark them so they are not read as "unmet in v1". v1's only cost mechanism remains prefix caching (no estimate, no cap). The NFR-2 scorecard line is delegated to ADR-017's eval surface rather than owned here.
 
 4. **Sizing assumptions stated as heuristics (D-005-4).** The "~3 chars/token for Java" ratio and the "80,000-token quality-degradation cap" were presented without provenance. §3 is amended to (a) cite a measured chars/token ratio from a Java sample and (b) record the 80K cap as an **explicitly-accepted operational heuristic** (per ADR-004's citation discipline: accept a deliberate threshold rather than fabricate a source). Neither is presented as an external fact.
 
@@ -290,3 +290,7 @@ No prior locked decision is reversed; the oversized-input amendment realigns the
 No decision changed; documentation realigned to the shipped code (capability-vs-behavior split made explicit). Pure doc-sync.
 
 **2026-06-29 — D-005-3 narrowing (→ ADR-027).** D-005-3's "no cost cap in v1" is narrowed by **ADR-027** (temporary v1 cost-safety floor: pre-flight estimate + hard call/token ceiling). Full dollar-accurate budgeting remains **ADR-016 / v1.1**. ADR-027's *More Information* carries the reciprocal pointer back here, so the link is bidirectional. No decision changed; this records the relationship only.
+
+## Revision history
+
+* **2026-11-10** — Reference fix: FR-22 and NFR-2 AC-2 were folded into FR-39 (AC-5 to AC-7) by a requirements revision, and the citations now point there. No decision changed.
