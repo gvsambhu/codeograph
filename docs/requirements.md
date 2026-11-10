@@ -509,56 +509,61 @@ tool act.
 
 ### 5.9 Engineering assurance
 
-#### FR-19 · A test suite covers unit and integration behaviour, and CI blocks merge on failure
+#### FR-19 · A test suite covers unit and integration behaviour
 - **AC-1** Unit and integration layers are separated and independently runnable.
-- **AC-2** Unit-test coverage is at or above 80%, enforced as a hard gate.
+- **AC-2** Coverage below 80% fails the build.
 - **AC-3** No test requires a live LLM provider or network access.
+- **AC-4** Each failure class in FR-24 has a test asserting its error.
 
-#### FR-7c · The deterministic graph is regression-tested against committed goldens
+#### FR-7c · The knowledge graph is regression-tested against committed goldens
+Goldens catch drift — any change in the graph for a fixed input; whether the graph is right is FR-41's.
 - **AC-1** A golden is committed for a hand-built edge-case fixture corpus.
-- **AC-2** A golden is committed for a pinned real Spring project. *(v1.1 — the harness ships with the
-  fixture corpus alone; the real-project corpus follows.)*
-- **AC-3** CI diffs every run byte-equal in canonical form.
-- **AC-4** A golden refresh is deliberate, never incidental.
-- **AC-5** Each refresh records its diff category: update-golden, fix-bug, or intentional-change.
+- **AC-2** A golden is committed for a pinned real-world project.
+- **AC-3** On every CI run, the graph produced for each golden corpus equals its golden byte for byte in
+  canonical form.
+- **AC-4** A golden changes only through an explicit refresh step; an ordinary test run never writes
+  one, and a missing golden fails the test.
+- **AC-5** Each refresh records why the graph changed.
 - **Interface** `pytest --update-goldens`
 
 #### FR-23 · Rendered source is byte-stable for a fixed input
-With cached LLM responses held constant, re-rendering the same graph produces identical bytes.
-Unexplained drift fails CI.
+With the LLM responses held constant (FR-17), re-rendering the same graph produces identical bytes, and a
+change in rendered output for unchanged inputs fails CI.
 
-#### FR-21 · Secret scanning runs in CI on every push and pull request; merges are blocked on detection
+#### FR-21 · Secrets are caught before they reach the public repository
 - **AC-1** A secret scan runs on every push and every pull request.
 - **AC-2** A detection blocks the merge, with no maintainer bypass.
-- **AC-3** The scanner version is exactly pinned, and a check fails when the pin drifts.
+- **AC-3** Every place the scanner runs uses one exactly pinned version, and a check fails when they
+  differ.
 - **AC-4** A full-history scan runs on a schedule, independently of per-commit scanning.
 
-#### NFR-4 · CI runs lint, unit tests, and the evaluation path on every push
-- **AC-1** Lint and unit tests gate merge.
-- **AC-2** The evaluation path runs per committed example corpus and its scorecards are retained.
-- **AC-3** The evaluation path exercises each shipped render target's own toolchain.
+#### NFR-4 · CI checks every change before it merges
+- **AC-1** Lint, the test suite (FR-19), the evaluation of each committed example corpus, and the secret
+  scan (FR-21) must pass before a change merges, with no bypass.
+- **AC-2** Each committed example corpus is run and evaluated in CI, and its scorecards are kept as a
+  downloadable record of the run.
+- **AC-3** That evaluation exercises each shipped render target's own toolchain.
 
 #### NFR-6 · The deterministic artefacts are byte-reproducible
-Re-running the tool on the same corpus with the same version, within the declared execution
-environment (AC-4), produces byte-identical deterministic artefacts.
-- **AC-1** A single canonical serialisation rule governs those artefacts — key ordering, separators,
-  encoding, and line ending.
+Re-running the tool on the same corpus, with the same version and the same recorded extraction
+settings, within the declared execution envelope (AC-4), produces byte-identical deterministic
+artefacts.
+- **AC-1** A single canonical form (§3) governs those artefacts.
 - **AC-2** The canonical bytes are what is hashed for integrity (FR-33 AC-3), so one mechanism serves
   both comparison and integrity.
 - **AC-3** No machine-specific value — absolute path, timestamp, locale, or iteration order — reaches
   a deterministic artefact.
-- **AC-4** The execution environment under which byte-equality holds is declared and pinned. Drift
-  from it is detected and stops the comparison, rather than being reported as a difference in output.
+- **AC-4** The execution envelope under which byte-equality holds is declared and pinned. Drift from it
+  is detected and the comparison is skipped with a reason, never reported as a difference in output.
 
 #### NFR-7 · Artefact schema versions are governed independently of the application version
 Consumers pin the format, not the tool.
 - **AC-1** Every emitted artefact whose format the tool defines declares its schema version in the
-  manifest, independently per artefact.
+  artefact itself and in the manifest, independently per artefact.
 - **AC-2** Artefact schema versions and the application version are separate version lines; neither
   implies the other.
-- **AC-3** Within a major schema line, evolution is additive, so an existing consumer keeps working.
-- **AC-4** A breaking change to an artefact's shape requires a major bump of that artefact's schema
-  version.
+- **AC-3** Within a major schema line, evolution is additive, so an existing consumer keeps working; a
+  breaking change starts a new major line.
 
 ---
 
