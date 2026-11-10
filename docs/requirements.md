@@ -440,57 +440,72 @@ So a re-run neither pays twice nor gets a different LLM answer to the same quest
 ### 5.8 Configuration and run safety
 
 #### FR-38 · Configuration is layered, with an explicit and predictable precedence
-This is the falsifiable form of "the tool is configurable".
-- **AC-1** Settings resolve in a documented order: invocation flags, then environment, then local
-  environment file, then project config file, then built-in defaults.
-- **AC-2** Configuration is validated at startup; a misconfiguration fails before work begins, not
-  mid-run.
-- **AC-3** Secrets are read only from the environment and the local environment file, never from the
-  committed config file.
-- **AC-4** A committed example environment file documents every credential a contributor must set.
-- **AC-5** No credential is written to any artefact or diagnostic record, including one embedded in a
-  git URL given as the source (FR-29 AC-2).
+Settings come from several places; which one wins is fixed and documented, so the same setup always
+gives the same configuration.
+- **AC-1** Settings resolve in a documented order: invocation flags, then environment variables, then
+  the user's environment file, then the user's config file, then built-in defaults.
+- **AC-2** Configuration is validated before any work begins.
+- **AC-3** Secrets are read only from environment variables and the environment file — never from the
+  config file or the command line.
+- **AC-4** Every setting and credential the user can set is documented, with its default.
+- **AC-5** No credential is written to any artefact, diagnostic record or console output, including one
+  embedded in a git URL given as the source (FR-29 AC-2).
+- **AC-6** The environment file and the config file are read from documented locations; no file in the
+  source being analysed is read as configuration.
 
-#### FR-27 · Output-path safety
+#### FR-27 · Writing output never damages content the tool did not produce
+**Negative guarantee.** Content the tool did not produce is never lost to an invocation.
 - **AC-1** All artefacts are written inside the output directory, except the rendered source, which is
   written where FR-3 AC-3 places it.
 - **AC-2** An output directory that is the working directory, or an ancestor of it, is rejected.
-- **AC-3** Re-running against the output of a previous run succeeds without any overriding option,
-  except as AC-6 provides.
-- **AC-4** Content the tool did not produce is never deleted, except by a removal the user explicitly
-  requests.
-- **AC-5** Content the tool did not produce is overwritten only where its path matches a file the
-  invocation would write, and only with explicit consent given at invocation.
+- **AC-3** Re-running against a previous run's output directory needs no extra option, except as AC-6
+  provides.
+- **AC-4** Content the tool did not produce is removed only when the user asks.
+- **AC-5** Content the tool did not produce is replaced only where its path matches a file the
+  invocation would write, only when the invocation names that intent, and the replaced content is
+  preserved (FR-42).
 - **AC-6** An output directory written by an incompatible earlier version is never modified; the
   invocation is refused with a message stating how to proceed.
+- **AC-7** The location of the rendered source holds nothing the tool writes except the rendered source.
 - **Interface** `--on-existing`
 
 #### FR-42 · Superseded output is preserved, not overwritten
-**Negative guarantee.** Re-running never destroys an earlier result.
-- **AC-1** Output that a later invocation supersedes is preserved rather than overwritten.
-- **AC-2** Preserved output is never removed without the user acting.
+**Negative guarantee.** No invocation destroys an earlier result.
+- **AC-1** Output that a later invocation supersedes is preserved.
+- **AC-2** Preserved output is removed only when the user asks.
 - **AC-3** The user can remove preserved output selectively — by age, by count, or entirely.
-- **AC-4** Removal that cannot be undone happens only with explicit consent.
-- **AC-5** A non-interactive invocation never waits for that consent and never proceeds without it.
-- **AC-6** The growth of preserved output is surfaced to the user.
-- **Interface** `purge`, `--yes`
+- **AC-6** The growth of preserved output is reported to the user.
+- **AC-7** Removing preserved output follows the consent rule of FR-45 AC-3 and AC-4.
+- **Interface** `purge`
 
 #### FR-44 · Concurrent invocations never corrupt their outputs
-**Negative guarantee.**
+**Negative guarantee.** No two invocations can leave an output half one and half the other.
 - **AC-1** Invocations that write disjoint outputs can run at the same time.
 - **AC-2** An invocation that would write an output another running invocation is writing is refused.
 - **AC-3** An invocation whose inputs change while it runs does not publish outputs built from the
   superseded inputs.
 - **AC-4** An interrupted invocation never leaves a partially written output indexed as complete.
+- **AC-5** A claim left by an invocation that is no longer running never blocks later invocations
+  permanently; overriding one that may still be live needs consent (FR-45).
 
-#### FR-45 · Every invocation's outcome is distinguishable by the caller
-- **AC-1** Success, failure, completion with recorded failures, and refusal are reported to the caller
-  as distinct exit statuses.
-- **AC-2** A refused invocation leaves every artefact, and all superseded output, as it was.
+#### FR-45 · Every invocation's outcome is distinguishable, and risky operations need consent
+- **AC-1** Success, failure, completion with recorded failures, completion with a failed quality check,
+  refusal, and interruption are reported to the caller as distinct exit statuses.
+- **AC-2** A refused invocation changes nothing except the diagnostic record of the refusal.
+- **AC-3** An operation that cannot be undone, or that can disrupt another running invocation, happens
+  only with explicit consent.
+- **AC-4** A non-interactive invocation never waits for that consent and never proceeds without it.
+- **Interface** `--yes`
 
-#### FR-26 · Prompt-injection mitigation
-Source text reaching an LLM is treated as data, never as instruction — content crafted to look like
-an instruction does not change what the model is asked to do.
+#### FR-26 · Instructions planted in the analysed source are treated as data
+Source text, and LLM output derived from it, reaches each later LLM call as data. No defence makes a
+model immune, so injection is mitigated and the remaining risk is documented.
+
+#### FR-46 · LLM output never decides where the tool writes, what it runs, or where it sends data
+**Negative guarantee.** An instruction planted in the source can corrupt content, but cannot make the
+tool act.
+- **AC-1** File paths, executed commands and network destinations come from the graph, the configuration
+  and the user's input — never from LLM output.
 
 ### 5.9 Engineering assurance
 
