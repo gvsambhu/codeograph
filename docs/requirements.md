@@ -333,7 +333,8 @@ semantic accuracy, reproducibility, and golden-graph agreement.
 #### FR-41 · Graph correctness is measured against a human-validated expectation
 Well-formedness checks cannot detect a fact the extractor never produced. Measuring accuracy requires
 a statement of what the graph *should* contain, derived from reading the source rather than from the
-tool's own output.
+tool's own output. Unlike FR-7c, which detects drift against a baseline captured from the tool, this
+measures correctness: a tool can be stable and consistently wrong.
 - **AC-1** For at least one corpus, an expectation of the graph's contents is authored from the source
   and confirmed by a person, independently of what the tool emits.
 - **AC-2** The expectation is never regenerated from tool output — capture would record the tool's own
@@ -342,19 +343,14 @@ tool's own output.
   is reported only over the confirmed set.
 - **AC-4** Runs are compared against it, and every difference is classified as improvement, regression,
   or intentional change.
-- **AC-5** The expectation covers both what deterministic extraction should find and what the semantic
-  layer should conclude. The semantic comparison is tolerance-based, not exact.
-
-> This is distinct from FR-7c. FR-7c detects **drift** — whether output changed between runs — using a
-> baseline captured from the tool. FR-41 measures **correctness** — whether output is right — and
-> cannot use a captured baseline for that purpose. A system can be perfectly stable and consistently
-> wrong; only FR-41 detects it.
+- **AC-5** The expectation covers both what deterministic extraction should find and what enrichment
+  should conclude. The semantic comparison is tolerance-based, not exact.
 
 #### FR-18 · A scorecard over LLM-derived output records the exact model version that produced it
 Exact version strings, never family names — so a score that moves can be attributed to the tool or to
 the model.
 - **AC-1** Where the artefact being scored was produced by an LLM, the scorecard records the model
-  version and the prompt version that produced it.
+  version and the prompt version (FR-15) that produced it.
 - **AC-2** Where the artefact was produced deterministically, no model provenance is recorded, and its
   absence is not a gap.
 
@@ -367,10 +363,11 @@ the model.
 #### FR-25 · An LLM-judge calibration suite discriminates known-good from known-bad output at documented thresholds, committed as a calibration record
 
 #### NFR-3 · Evaluation results are reproducible
-A past score can be re-derived from what the scorecard records.
-- **AC-1** A scorecard records the seed used to produce it.
-- **AC-2** Where the scored artefact was LLM-derived, the provenance FR-18 records is available for
-  re-derivation.
+A past score can be re-derived by scoring the same artefact again.
+- **AC-1** A scorecard records every input that determines its scores — the scored artefact's identity,
+  the tool version, and for an LLM-judged score the judge's model and prompt versions.
+- **AC-2** A deterministic check re-derives exactly; an LLM-judged score re-derives within a documented
+  tolerance.
 
 ### 5.7 LLM platform control
 
