@@ -185,17 +185,15 @@ The graph carries the framework's meaning, not just its annotation text.
 
 ### 5.3 Semantic enrichment
 
-#### FR-11 · Semantic facts are extracted by an LLM operating on the deterministic output
-Service intent, domain boundaries, and migration hazards are inferred by the LLM layer. It works from
+#### FR-11 · Semantic facts are extracted by an LLM operating on the knowledge graph
+Service intent, domain boundaries, and migration hazards are inferred by an LLM. Enrichment works from
 what deterministic extraction produced — the nodes, and the source locations they record — rather than
 discovering code on its own.
-- **AC-1** The enrichment layer produces semantic facts about individual nodes and about the corpus
-  as a whole.
+- **AC-1** Enrichment produces semantic facts about individual nodes and about the corpus as a whole.
 - **AC-2** Which nodes are enriched, and where their source is read from, are determined by the
-  deterministic graph; the enrichment layer does not discover or parse code that extraction did not
-  produce.
-- **AC-3** Source loaded for enrichment is an input to that layer only; it never enters the
-  deterministic graph.
+  knowledge graph; enrichment does not discover or parse code that extraction did not produce.
+- **AC-3** Source loaded for enrichment is an input to enrichment only; it never enters the knowledge
+  graph.
 
 #### FR-35 · An enrichment failure costs quality, not the run
 **Negative guarantee.** A provider outage, rate limit, or oversized input costs quality rather than
@@ -207,7 +205,7 @@ the run — up to a defined bound (AC-6).
 - **AC-5** The reduction is recorded on the node.
 - **AC-6** There is a defined threshold of enrichment failure past which the run fails loudly rather
   than emitting a substantially unenriched result.
-- **AC-7** The full pipeline can be run with LLM passes disabled, producing the deterministic
+- **AC-7** The full pipeline can be run with enrichment disabled, producing the deterministic
   artefacts alone.
 
 ### 5.4 Output artefacts and their contracts
