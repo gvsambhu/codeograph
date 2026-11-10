@@ -73,14 +73,15 @@ Terms are ordered so that each is defined before it is used, except *invocation*
 | **Enrichment** | LLM-derived semantic output about the graph — role, intent, summaries, migration hazards, corpus-level synthesis. |
 | **Scorecard** | A machine-readable record of quality checks, each with an id, a result, a threshold, and the rationale for that threshold. |
 | **Artefact** | An output the tool produces for a consumer: the run manifest, the knowledge graph, the enrichment, the rendered source, the evaluation scorecards, and the compile-check record. |
-| **Deterministic artefact** | The class of artefacts FR-34 and NFR-6 constrain — in this version, the knowledge graph alone. |
+| **Deterministic artefact** | The class of artefacts FR-34 and NFR-6 constrain. The knowledge graph is the only one. |
 | **Canonical form** | The single byte-level serialisation rule for an artefact (key ordering, separators, encoding, line ending) that makes byte-comparison and hashing meaningful. |
 | **Execution envelope** | The declared, pinned environment within which byte-level reproducibility holds (NFR-6 AC-4). Determinism claims elsewhere in this document are made within it. |
 | **Golden** | A committed known-good artefact for a pinned input (FR-7c). |
-| **Diagnostic record** | A file the tool writes for later inspection rather than as an output — the structured run log, the per-call telemetry, and the invocation history (FR-43). Not an artefact. |
+| **Diagnostic record** | A file the tool writes for later inspection rather than as an output — the structured run log, the LLM call records (FR-16), and the invocation history (FR-43). Not an artefact. |
 | **Prompt** | The instruction text the tool sends to an LLM with each call. It ships with the tool; it is not an artefact. |
 | **Domain** | A grouping of classes used to partition the corpus for rendering (FR-14). |
 | **Render target** | A language/framework stack the graph can be rendered into (FR-3, FR-4, NFR-5). |
+| **Rendered project** | The rendered source together with the files that build and run it in its target stack. |
 | **Idiomatic** | Output a competent engineer in the target stack would recognise as written for that stack — using its own framework conventions — rather than transliterated from the source language. |
 
 ## 4. Assumptions
@@ -129,7 +130,7 @@ Turning "a project" into "a known set of files" is a defined, inspectable step.
   visible in the run's output.
 
 #### FR-24 · Unusable input fails with an error that names the cause
-Each class below fails with the failure outcome (FR-45) and an error naming the cause; at minimum:
+Each class below fails with the failure outcome (FR-45 AC-1) and an error naming the cause; at minimum:
 - **AC-1** *Zip bomb* — extracted size exceeds the configured cap; extraction stops before it completes.
 - **AC-2** *Zip path traversal* — an archive entry resolves outside the extraction root; the archive is
   rejected.
@@ -203,10 +204,10 @@ the run — up to a defined bound (AC-6).
 - **AC-3** The affected node is marked un-enriched.
 - **AC-4** An input too large for quality extraction is reduced rather than dropped.
 - **AC-5** The reduction is recorded on the node.
-- **AC-6** There is a defined threshold of enrichment failure past which the run fails loudly rather
-  than emitting a substantially unenriched result.
-- **AC-7** The full pipeline can be run with enrichment disabled, producing the deterministic
-  artefacts alone.
+- **AC-6** Past a defined threshold of enrichment failures, the run ends with the failure outcome
+  (FR-45 AC-1).
+- **AC-7** A run can be performed with enrichment disabled, producing the deterministic artefacts
+  alone.
 
 ### 5.4 Output artefacts and their contracts
 
@@ -233,14 +234,14 @@ semantic enrichment is layered on top of it (FR-11).
 Published, machine-readable schema files are the language-neutral source of truth for these artefacts.
 - **AC-1** Every emitted graph and enrichment file validates against its published schema at write time.
 - **AC-2** Validity is re-checked independently by the graph scorecard (FR-7a).
-- **AC-3** The schema is published as a committed artefact, so an external consumer can validate
-  output without importing the producing package.
+- **AC-3** Each schema is committed to the repository, so an external consumer can validate output
+  without importing the producing package.
 
 #### FR-20 · Every run writes a manifest and a structured run log
 - **AC-1** A run manifest is written into the output directory as the entry point to the run.
 - **AC-2** A structured, machine-readable run log is written into the output directory for the same run.
-- **AC-3** A run correlation identifier joins the manifest, the structured run log, and the LLM-call
-  telemetry (FR-16).
+- **AC-3** A run correlation identifier joins the manifest, the structured run log, and the LLM call
+  records (FR-16).
 - **AC-4** Human-readable console output and the structured run log are emitted together; verbosity
   is controllable at invocation.
 
@@ -250,7 +251,7 @@ Published, machine-readable schema files are the language-neutral source of trut
   manifest itself, which is the index.
 - **AC-2** Pointers to artefacts produced by an earlier invocation against the same directory are
   retained when a later invocation rewrites the manifest, unless the later invocation supersedes them.
-- **AC-3** Each indexed artefact carries a cryptographic hash of its committed bytes.
+- **AC-3** Each indexed artefact carries a cryptographic hash of its bytes as written.
 - **AC-4** A missing artefact is explicit — an absent hash never doubles as "this stage was skipped".
 - **AC-5** A consumer can detect any post-run modification of an artefact from the manifest alone.
 - **AC-6** An artefact whose inputs have changed since it was produced is never indexed as current.
@@ -281,16 +282,16 @@ A second target rendered from the same graph shows the graph is target-independe
 
 #### FR-5 · The render target is selectable at invocation, without a code change
 - **AC-1** The set of available targets is discoverable at runtime.
-- **AC-2** An unknown target fails before pipeline work begins.
+- **AC-2** An unknown target fails before any work begins.
 - **Interface** `--target <name>`
 
-#### FR-13 · Rendering output is capped per domain
+#### FR-13 · Rendering is capped per domain
 Bounds LLM spend per render.
 - **AC-1** A default cap applies when none is given, and its value is documented.
 - **AC-2** The user can disable the cap, so every class in a domain is rendered.
 - **AC-3** Selection at the cap is deterministic and documented (FR-14).
-- **AC-4** The cap binding is reported to the user at the end of the invocation, naming the affected
-  domains, so a capped rendering is never mistaken for a complete one.
+- **AC-4** When the cap leaves classes out, the user is told at the end of the invocation, with the
+  domains affected, so a capped rendering is never mistaken for a complete one.
 - **Interface** `--max-classes-per-domain <n>`
 
 #### FR-14 · Selection under the cap is deterministic and documented
@@ -305,9 +306,10 @@ Bounds LLM spend per render.
   intent.
 - **AC-2** Security-relevant features default to refusal, so a rendered endpoint is never silently
   less protected than its source.
-- **AC-3** The encounter behaviour is configurable, and the permissive setting warns loudly.
+- **AC-3** How an untranslatable feature is treated is configurable.
 - **AC-4** For each render target, the features it translates, defers, and refuses are documented in a
   single matrix.
+- **AC-5** An invocation using a setting that weakens AC-1 or AC-2 warns the user.
 
 #### NFR-5 · Adding a render target changes no shared code
 - **AC-1** Adding a render target changes no code outside that target's own — not the analyzer, the core
@@ -341,8 +343,8 @@ measures correctness: a tool can be stable and consistently wrong.
   errors as correct.
 - **AC-3** The expectation may be partial. Which entries have been confirmed is recorded, and accuracy
   is reported only over the confirmed set.
-- **AC-4** Runs are compared against it, and every difference is classified as improvement, regression,
-  or intentional change.
+- **AC-4** Runs are compared against it, and every difference is classified, into documented categories
+  that separate a regression from an intended change.
 - **AC-5** The expectation covers both what deterministic extraction should find and what enrichment
   should conclude. The semantic comparison is tolerance-based, not exact.
 
@@ -395,13 +397,12 @@ A score or a cached response can be attributed only if the prompt behind it is i
   with the run correlation identifier, provider, model, prompt version, input and output tokens, cost
   estimate, latency, timestamp, and which of the three it was.
 - **AC-2** The records are machine-readable and can be inspected without an external service.
-- **AC-3** The run manifest records the run's total calls, tokens and cost.
+- **AC-3** The manifest records the total calls, tokens and cost of each invocation that called an LLM.
 
 #### NFR-8 · The tool sends data only where the user directs it
-**Negative guarantee.** Source code and run data leave the user's machine only for the services the user
-chose.
-- **AC-1** The tool sends data only to the LLM provider the user configured and to the git host of a
-  supplied URL; it sends nothing to its maintainers.
+**Negative guarantee.** Source code leaves the user's machine only for the service the user chose.
+- **AC-1** Source code, and data derived from it, are sent only to the LLM provider the user configured;
+  nothing is sent to the tool's maintainers.
 
 #### FR-17 · LLM responses are reused only for identical requests
 So a re-run neither pays twice nor gets a different LLM answer to the same question.
@@ -454,7 +455,8 @@ gives the same configuration.
   source being analysed is read as configuration.
 
 #### FR-27 · Writing output never damages content the tool did not produce
-**Negative guarantee.** Content the tool did not produce is never lost to an invocation.
+**Negative guarantee.** Content the tool did not produce is never lost to an invocation, except by a
+removal the user asks for.
 - **AC-1** All artefacts are written inside the output directory, except the rendered source, which is
   written where FR-3 AC-3 places it.
 - **AC-2** An output directory that is the working directory, or an ancestor of it, is rejected.
@@ -466,11 +468,11 @@ gives the same configuration.
   preserved (FR-42).
 - **AC-6** An output directory written by an incompatible earlier version is never modified; the
   invocation is refused with a message stating how to proceed.
-- **AC-7** The location of the rendered source holds nothing the tool writes except the rendered source.
+- **AC-7** A rendered project contains no other artefact or diagnostic record of the tool.
 - **Interface** `--on-existing`
 
 #### FR-42 · Superseded output is preserved, not overwritten
-**Negative guarantee.** No invocation destroys an earlier result.
+**Negative guarantee.** No invocation destroys an earlier result unless the user asks it to.
 - **AC-1** Output that a later invocation supersedes is preserved.
 - **AC-2** Preserved output is removed only when the user asks.
 - **AC-3** The user can remove preserved output selectively — by age, by count, or entirely.
@@ -485,15 +487,15 @@ gives the same configuration.
 - **AC-3** An invocation whose inputs change while it runs does not publish outputs built from the
   superseded inputs.
 - **AC-4** An interrupted invocation never leaves a partially written output indexed as complete.
-- **AC-5** A claim left by an invocation that is no longer running never blocks later invocations
-  permanently; overriding one that may still be live needs consent (FR-45).
+- **AC-5** An invocation that stopped without finishing never blocks later invocations permanently;
+  taking over from one that may still be running needs consent (FR-45 AC-3).
 
 #### FR-45 · Every invocation's outcome is distinguishable, and risky operations need consent
 - **AC-1** Success, failure, completion with recorded failures, completion with a failed quality check,
   refusal, and interruption are reported to the caller as distinct exit statuses.
 - **AC-2** A refused invocation changes nothing except the diagnostic record of the refusal.
-- **AC-3** An operation that cannot be undone, or that can disrupt another running invocation, happens
-  only with explicit consent.
+- **AC-3** A removal that cannot be undone, or an operation that can disrupt another running
+  invocation, happens only with explicit consent.
 - **AC-4** A non-interactive invocation never waits for that consent and never proceeds without it.
 - **Interface** `--yes`
 
@@ -528,21 +530,22 @@ Goldens catch drift — any change in the graph for a fixed input; whether the g
 
 #### FR-23 · Rendered source is byte-stable for a fixed input
 With the LLM responses held constant (FR-17), re-rendering the same graph produces identical bytes, and a
-change in rendered output for unchanged inputs fails CI.
+change in the rendered source for unchanged inputs fails CI.
 
 #### FR-21 · Secrets are caught before they reach the public repository
 - **AC-1** A secret scan runs on every push and every pull request.
-- **AC-2** A detection blocks the merge, with no maintainer bypass.
+- **AC-2** A detection fails the scan, so the change cannot merge (NFR-4 AC-1).
 - **AC-3** Every place the scanner runs uses one exactly pinned version, and a check fails when they
   differ.
-- **AC-4** A full-history scan runs on a schedule, independently of per-commit scanning.
+- **AC-4** A scan of the full history of every branch on the public repository runs on a schedule,
+  independently of per-commit scanning.
 
 #### NFR-4 · CI checks every change before it merges
 - **AC-1** Lint, the test suite (FR-19), the evaluation of each committed example corpus, and the secret
   scan (FR-21) must pass before a change merges, with no bypass.
 - **AC-2** Each committed example corpus is run and evaluated in CI, and its scorecards are kept as a
   downloadable record of the run.
-- **AC-3** That evaluation exercises each shipped render target's own toolchain.
+- **AC-3** That evaluation exercises each render target's own toolchain.
 
 #### NFR-6 · The deterministic artefacts are byte-reproducible
 Re-running the tool on the same corpus, with the same version and the same recorded extraction
@@ -587,10 +590,9 @@ A requirement targeted at a future release may carry no acceptance criteria; its
 when the design that satisfies it is decided. A `shipped` or `partial` requirement must carry criteria —
 this table cites them by number, and a status of `partial` is not expressible without them.
 
-**Rows whose note begins *Re-verify*** carry the status recorded before the acceptance criteria were
-reworked in the 2026-08-23 re-specification. They have not yet been traced against the current
-criteria: a `shipped` there is an unconfirmed claim, and an AC number its note cites may predate the
-rework. Every other `shipped` or `partial` row has been traced to the code against the current criteria.
+**Rows whose note begins *Re-verify*** carry a status not yet traced against the current criteria —
+recorded before the 2026-08-23 re-specification, or assigned when a requirement was added since. A
+`shipped` there is an unconfirmed claim, and an AC number its note cites may predate the rework. Every other `shipped` or `partial` row has been traced to the code against the current criteria.
 
 | ID | Status | Target | Note |
 |---|---|---|---|
