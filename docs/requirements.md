@@ -159,7 +159,7 @@ while reading it.
 - **AC-4** Every degraded file is recorded in the run's output with the reason.
 
 #### FR-32 · Framework semantics are interpreted, not merely captured
-The graph carries Spring's meaning, not just its annotation text.
+The graph carries the framework's meaning, not just its annotation text.
 - **AC-1** Every annotation present in source is captured on the node it applies to.
 - **AC-2** A documented subset is additionally *interpreted* — lifted to a structured field, an edge,
   or a hazard tag.
@@ -172,8 +172,6 @@ The graph carries Spring's meaning, not just its annotation text.
 **Negative guarantee.** A consumer reading the graph can tell "there is no call here" apart from
 "there is a call we could not trace."
 - **AC-1** A reference the tool cannot resolve to a known target is still emitted, marked unresolved.
-- **AC-2** An absent edge therefore means the reference is absent from the source — never that
-  resolution failed.
 - **AC-3** Conditions that reduce how many references can be resolved are reported to the user at the end
   of the run.
 - **AC-4** Each condition reported under AC-3 states its remediation, or states that none is known.
@@ -182,8 +180,8 @@ The graph carries Spring's meaning, not just its annotation text.
 - **AC-1** Each metric is named, and its computation method cites a published source.
 - **AC-2** Every reference threshold value cites a published source — a paper or a published rule
   reference. No threshold is chosen from memory.
-- **AC-3** Values are numeric; no subjective high/medium/low bucketing is emitted in place of a value.
-- **AC-4** A metric that cannot be computed for a node is null, never guessed.
+- **AC-3** Each computed metric value is a number.
+- **AC-4** A metric that cannot be computed for a node is recorded as not computed, never guessed.
 
 ### 5.3 Semantic enrichment
 
