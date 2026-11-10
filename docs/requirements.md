@@ -2,20 +2,29 @@
 
 The functional and non-functional requirements codeograph is built against. Architecture decisions
 that implement them are recorded as ADRs under [`docs/adr/`](adr/README.md), and each ADR cites the
-requirements it satisfies — so traceability runs from a decision back to its requirement, not the
-other way round. Requirements here state *what* the system must do; they do not name the designs
-that chose *how*, beyond the interface a user invokes.
+requirements it satisfies. The link is recorded in the ADR only: a requirement statement never names an
+ADR, so a new or superseded design never reopens a requirement. The status and history tables may cite
+ADRs as evidence. Requirements here state *what* the system must do; they do not name the designs that
+chose *how*, beyond the interface a user invokes.
+
+Where a requirement has a user-facing surface, an `Interface` line names it; the criteria never do. A
+requirement labelled **Negative guarantee** states something the system must never do.
 
 **Requirement statements describe the target system.** They are not a changelog of what ships today.
-What ships today is recorded once, in the [status table](#status), which is also the numeric index
+What ships today is recorded once, in the [status table](#7-status), which is also the numeric index
 into this document.
 
-**Provenance.** These requirements have governed the project from its start; they were maintained
-as project-plan material and first published as this document on 2026-08-05, after v1 shipped.
-Publication date is not authorship date.
+**Provenance.** The first set — FR-1 to FR-28 and NFR-1 to NFR-5 — was written in the project plan,
+outside this repository, before implementation began, and governed the initial implementation. It was
+added to this repository as this document on 2026-08-06, after the first scope was built. Requirements
+added since record obligations the first set left unstated, or guarantees added later; this file's git
+history dates each one (§8).
 
-Identifiers are stable and are never reused. A retired requirement keeps its number so existing
-references continue to resolve.
+Identifiers are permanent and are never reused. A retired requirement keeps its number so existing
+references continue to resolve. Acceptance-criterion numbers are never reused or renumbered either: a
+removed criterion leaves its number unused. A new requirement takes the next free number; a letter
+suffix (FR-7a) marks a requirement split from an earlier one and kept beside it. The sections group
+requirements by topic, so numbers are not in order — the status table lists them in order.
 
 ---
 
@@ -613,7 +622,7 @@ rework. Every other `shipped` or `partial` row has been traced to the code again
 
 ## 8. Revision history
 
-These requirements were first drafted before implementation began, and were revised during design
+The first set of these requirements was drafted before implementation began, and revised during design
 review as decisions sharpened or rescoped them. **This section closes at this document's first
 commit** — from that point, the git history of this file is the record of change.
 
