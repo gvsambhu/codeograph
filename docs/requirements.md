@@ -212,34 +212,36 @@ the run — up to a defined bound (AC-6).
 
 #### FR-34 · LLM output must not affect the deterministic artefact
 **Negative guarantee — the central architectural property.** The knowledge graph is a function of the
-corpus and the tool alone. Nothing an LLM returns, and nothing about whether an LLM was reachable,
+corpus, the tool and its recorded extraction settings alone. Nothing an LLM returns, and nothing about whether an LLM was reachable,
 may change a single byte of it.
-- **AC-1** No LLM-derived value is written into the deterministic graph artefact.
-- **AC-2** No LLM *call outcome* (success, failure, cache hit, skip) is recorded in the deterministic
-  graph artefact.
+- **AC-1** No LLM-derived value is written into the knowledge graph.
+- **AC-2** No LLM *call outcome* (success, failure, cache hit, skip) is recorded in the knowledge
+  graph.
 - **AC-3** A run with enrichment disabled and a run with enrichment enabled produce byte-identical
-  deterministic graphs for the same corpus.
-- **AC-4** The deterministic output is separable: a consumer can obtain it on its own, byte-identically,
+  knowledge graphs for the same corpus.
+- **AC-4** The knowledge graph is separable: a consumer can obtain it on its own, byte-identically,
   with enrichment joined to it by node identity at consumption time.
 
 #### FR-2 · Emit a structured knowledge graph, independent of any render target
-The graph is the product, not an intermediate. Structure is extracted deterministically (FR-10);
+The graph is an output in its own right, for a consumer who never renders — not only a step on the way
+to rendered source. Structure is extracted deterministically (FR-10);
 semantic enrichment is layered on top of it (FR-11).
 - **AC-1** The graph carries no target-language concepts.
 - **AC-2** Every class in the corpus is present in the graph, whatever the rendering budget (FR-13).
 
-#### FR-7b · The graph and annotation schemas are published, machine-readable contracts
+#### FR-7b · The graph and enrichment schemas are published, machine-readable contracts
 Published, machine-readable schema files are the language-neutral source of truth for these artefacts.
-- **AC-1** Every emitted graph and annotation file validates against its published schema at write time.
+- **AC-1** Every emitted graph and enrichment file validates against its published schema at write time.
 - **AC-2** Validity is re-checked independently by the graph scorecard (FR-7a).
 - **AC-3** The schema is published as a committed artefact, so an external consumer can validate
   output without importing the producing package.
 
-#### FR-20 · Every run writes a manifest and structured logs
+#### FR-20 · Every run writes a manifest and a structured run log
 - **AC-1** A run manifest is written into the output directory as the entry point to the run.
-- **AC-2** Structured, machine-readable logs are written into the output directory for the same run.
-- **AC-3** A run correlation identifier joins manifest, logs, and telemetry.
-- **AC-4** Human-readable console output and the structured log file are emitted together; verbosity
+- **AC-2** A structured, machine-readable run log is written into the output directory for the same run.
+- **AC-3** A run correlation identifier joins the manifest, the structured run log, and the LLM-call
+  telemetry (FR-16).
+- **AC-4** Human-readable console output and the structured run log are emitted together; verbosity
   is controllable at invocation.
 
 #### FR-33 · The manifest is an integrity contract over the run's artefacts
@@ -248,19 +250,19 @@ Published, machine-readable schema files are the language-neutral source of trut
   manifest itself, which is the index.
 - **AC-2** Pointers to artefacts produced by an earlier invocation against the same directory are
   retained when a later invocation rewrites the manifest, unless the later invocation supersedes them.
-- **AC-3** Each indexed artefact carries a SHA-256 of its committed bytes.
+- **AC-3** Each indexed artefact carries a cryptographic hash of its committed bytes.
 - **AC-4** A missing artefact is explicit — an absent hash never doubles as "this stage was skipped".
 - **AC-5** A consumer can detect any post-run modification of an artefact from the manifest alone.
 - **AC-6** An artefact whose inputs have changed since it was produced is never indexed as current.
 
 #### FR-43 · The history of an output directory is visible
-- **AC-1** Every invocation against an output directory is recorded with its command, its outcome, the
-  invocation whose output it built on, the outputs it produced, and the outputs it superseded.
-- **AC-2** An invocation that did not finish is distinguishable from one that finished.
+- **AC-1** Every invocation against an output directory is recorded with its command, its outcome (FR-45 AC-1),
+  the invocation whose output it built on, the outputs it produced, and the outputs it superseded.
+- **AC-2** An interrupted invocation is distinguishable from one that finished and from one still running.
 - **AC-3** The user can view this history without an external service.
 - **Interface** `history`
 
-#### FR-28 · Each field in the graph schema is documented as deterministic or not
+#### FR-28 · Each field of every artefact schema is documented as deterministic or not
 
 ### 5.5 Rendering
 
