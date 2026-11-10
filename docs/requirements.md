@@ -102,12 +102,13 @@ Terms are ordered so that each is defined before it is used, except *invocation*
 
 ### 5.1 Source intake
 
-#### FR-1 · Accept a Java/Spring Boot project regardless of its build system
+#### FR-1 · Accept a Java/Spring Boot project whichever supported build system it uses
 The tool works without per-project configuration.
 - **AC-1** Maven projects are accepted.
 - **AC-2** Gradle projects are accepted.
 - **AC-3** The build system detected for each module is recorded in the graph, and is never left
   unspecified.
+- **AC-4** A supported project is processed without configuration specific to that project.
 
 #### FR-29 · Accept the source in the forms a codebase is handed over in
 Input handling covers the real handover paths, not just the local checkout.
@@ -124,8 +125,21 @@ Turning "a project" into "a known set of files" is a defined, inspectable step.
 - **AC-2** Files excluded by the project's own ignore rules are not in the corpus, so custom output
   and generated-source directories are skipped without per-project configuration.
 - **AC-3** Only source files reach the parser.
-- **AC-4** Source in a language other than Java is excluded from the corpus, and the exclusion is
+- **AC-4** Source in a language the tool does not read is excluded from the corpus, and the exclusion is
   visible in the run's output.
+
+#### FR-24 · Unusable input fails with an error that names the cause
+Each class below fails with the failure outcome (FR-45) and an error naming the cause; at minimum:
+- **AC-1** *Zip bomb* — extracted size exceeds the configured cap; extraction stops before it completes.
+- **AC-2** *Zip path traversal* — an archive entry resolves outside the extraction root; the archive is
+  rejected.
+- **AC-3** *Corrupt or malformed archive* — the input is not a readable archive.
+- **AC-4** *Acquisition failure* — the source cannot be fetched, or the URL is unreachable or
+  credential-gated.
+- **AC-5** *Empty corpus* — no source files remain in scope after discovery; never an empty-graph
+  pass-through.
+- **AC-6** *No recognised build file* — neither a Maven nor a Gradle build file is present; never
+  recorded as an unknown build system.
 
 ### 5.2 Deterministic extraction
 
@@ -492,20 +506,6 @@ an instruction does not change what the model is asked to do.
 #### FR-23 · Rendered source is byte-stable for a fixed input
 With cached LLM responses held constant, re-rendering the same graph produces identical bytes.
 Unexplained drift fails CI.
-
-#### FR-24 · Negative tests assert graceful failure with specific error messages
-These malformed-input classes at minimum, each failing loudly and actionably:
-- **AC-1** *Zip bomb* — extracted size exceeds the configured cap; abort with a size-limit error before
-  extraction completes.
-- **AC-2** *Zip path traversal* — an archive entry resolves outside the extraction root; reject the
-  archive.
-- **AC-3** *Corrupt or malformed archive* — input is not a readable archive; return a clear error.
-- **AC-4** *Acquisition failure* — the source cannot be fetched, or the URL is unreachable or
-  credential-gated; return an actionable error naming the cause.
-- **AC-5** *Empty corpus* — no `.java` files remain in scope after discovery; fail loudly with a
-  user-readable message and a non-zero exit, never an empty-graph pass-through.
-- **AC-6** *No recognised build file* — neither a Maven nor a Gradle build file is present; reject the
-  corpus with a clear error rather than recording an unknown build system.
 
 #### FR-21 · Secret scanning runs in CI on every push and pull request; merges are blocked on detection
 - **AC-1** A secret scan runs on every push and every pull request.
