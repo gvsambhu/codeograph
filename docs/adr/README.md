@@ -10,7 +10,7 @@ ADR numbers reflect **architectural layer** (input → graph → rendering → L
 
 | Symbol | `status:` | Meaning |
 |---|---|---|
-| ✅ | `accepted` | Decision committed; changes require a new ADR or a formal amendment |
+| ✅ | `accepted` | Decision committed; changes require a new ADR or a formal amendment (a reference fix excepted — see below) |
 | 📝 | `proposed` | File is in this directory, decision not yet accepted — open for review |
 | ⬜ | — | Number **reserved**; no file yet |
 | ⏸️ | — | Number reserved, deferred to v1.1 or later; design not started |
@@ -191,10 +191,16 @@ accepted ADRs are written when it is accepted, not before** — an accepted ADR'
 immutable, so they wait until the proposal is final; meanwhile each one is listed in the proposed ADR's
 *Constraint flagged* subsections.
 
-An accepted ADR is immutable, with exactly two exceptions: its `status:` field, and append-only
-`## Amendments` sections. Never edit the original decision text to reflect a later change — that
+An accepted ADR is immutable, with three exceptions: its `status:` field; append-only `## Amendments`
+sections; and **reference fixes**. Never edit the original decision text to reflect a later change — that
 destroys the record of what was decided when, which is the entire point of an ADR. Its revision history,
 if it has one, stays as the record of how the proposal evolved.
+
+**A reference fix** corrects a citation, link, path or label that names something outside the ADR, or
+replaces it with a plain description of what it named — when what was decided, why, and how it is worded
+otherwise stay exactly as they were. Each one gets a dated line in the ADR's `## Revision history` (added
+if the ADR has none). A change that rewords a rationale or alters a decision is not a reference fix; it is
+an amendment.
 
 ### When to write a new ADR
 

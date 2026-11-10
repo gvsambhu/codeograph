@@ -1,18 +1,18 @@
-# Architecture — current snapshot (v1 / DC1–DC5)
+# Architecture — current snapshot
 
-This page describes what is implemented **today**. It is updated as each delivery chunk (DC) lands. The decision flow that led here lives in [`docs/adr/`](adr/); this page is the snapshot.
+This page describes what is implemented **today** on `main`, and is updated as the code changes. The decision flow that led here lives in [`docs/adr/`](adr/); this page is the snapshot. Versions, scopes and the labels used in older documents are explained in [`ROADMAP.md`](../ROADMAP.md).
 
-## What each DC delivered
+## Components
 
-| DC | Deliverable |
+| Component | What it produces |
 |---|---|
-| DC1 | Deterministic AST pipeline → `graph.json` + initial `manifest.json` |
-| DC2 | LLM enrichment passes (Pass 1 annotator, Pass 2 synthesizer) → `llm-annotations.json`; response cache; telemetry JSONL |
-| DC3 | TypeScript/NestJS renderer; pluggable renderer registry (ADR-008/010) |
-| DC4 | Eval framework — scorecards, compile checks, golden-graph regression (ADR-017/018) |
-| DC5 | Run manifest v2.0.0 (ADR-025 flat layout); structured logging (JSONL + plaintext); gitleaks secret scanning (ADR-022/023) |
+| Deterministic graph pipeline | `graph.json` + the run's `manifest.json` |
+| LLM enrichment (Pass 1 annotator, Pass 2 synthesizer) | `llm-annotations.json`; a response cache; per-call telemetry |
+| TypeScript/NestJS renderer, behind a pluggable renderer registry (ADR-008/010) | A rendered project |
+| Evaluation framework (ADR-017/018) | Scorecards, compile checks, golden-graph regression |
+| Run manifest `2.0.0` (ADR-025), structured logging, secret scanning (ADR-022/023) | `manifest.json`, `logs.jsonl`; a CI gate |
 
-## DC1 — Deterministic graph pipeline
+## Deterministic graph pipeline
 
 ### Pipeline
 
@@ -68,7 +68,7 @@ CI pins `TZ=UTC`, `LC_ALL=C.UTF-8`, `PYTHONHASHSEED=0` (see `.github/workflows/c
 
 The manifest JSON Schema lives in `codeograph/_generated/manifest.schema.json` — regenerated from the Pydantic source of truth (`codeograph/manifest/schema.py`) via `python -m codeograph.manifest.schema_cli --generate`. CI freshness gate catches drift. Graph and LLM-annotation schemas live in `codeograph/schema/`.
 
-## DC2 — LLM enrichment pipeline
+## LLM enrichment pipeline
 
 Two passes turn the deterministic graph into `llm-annotations.json`. The whole layer is skipped under `--ast-only` (the manifest records `llm_skipped: true`). Orchestrated by `LlmCorpusEnricher` (`codeograph/analyzer/llm_corpus_enricher.py`).
 
@@ -87,9 +87,9 @@ graph.json  →  PASS 1 (per node)  →  PASS 2 (corpus-level)  →  llm-annotat
 | Response cache | `llm/cache/{sqlite_backend,key,cache_entry,cache_stats}.py` — local SQLite `cache.db`, 8-component cache key | [ADR-015](adr/ADR-015-telemetry-and-response-cache.md) |
 | Telemetry | `telemetry/{jsonl_emitter,session,session_manager,stats_aggregator,telemetry_record}.py` — one structured JSONL row per LLM call | [ADR-015](adr/ADR-015-telemetry-and-response-cache.md) |
 
-v1 supports `ANTHROPIC`, `OPENROUTER`, and `OPENAI_COMPATIBLE` (any OpenAI-compatible endpoint via a configurable `base_url`), defaulting to a single Anthropic Sonnet model across stages; per-stage model overrides (`llm_model_fast` / `deep` / `render`) are configurable, though no curated differential mapping ships in v1. `OLLAMA` and `BEDROCK` are wired in the resolver but raise `NotImplementedError` (v1.1). Calls are synchronous with prompt caching — no Batch API in v1 (ADR-005).
+Codeograph supports `ANTHROPIC`, `OPENROUTER`, and `OPENAI_COMPATIBLE` (any OpenAI-compatible endpoint via a configurable `base_url`), defaulting to a single Anthropic Sonnet model across stages; per-stage model overrides (`llm_model_fast` / `deep` / `render`) are configurable, though there is no curated differential mapping. `OLLAMA` and `BEDROCK` are wired in the resolver but raise `NotImplementedError`. Calls are synchronous with prompt caching, with no Batch API (ADR-005). None of the three is scheduled — see [`ROADMAP.md`](../ROADMAP.md).
 
-## DC3 — TypeScript/NestJS renderer
+## TypeScript/NestJS renderer
 
 `codeograph render` is decoupled from `run`: it reads a prior run output, selects a representative subset of classes within a budget, groups them into domains, and translates each class into idiomatic TypeScript/NestJS source — full method bodies, not skeletons — via one LLM call. The translated files are emitted together with a deterministic Jinja2 project scaffold (`package.json`, `tsconfig.json`, bootstrap `main.ts`); features that cannot be translated faithfully become reviewable TODO/stub or refuse-to-render entries (never silent drops), configurable per feature. Targets are pluggable through a registry.
 
@@ -111,9 +111,9 @@ run output  →  ClassSelector  →  DomainGrouping  →  per-class render promp
 | Class selection (budget cap) | `rendering/class_selector.py` (`ClassSelector`, stratified High/Medium/Low sampling) | [ADR-009](adr/ADR-009-rendering-budget-cap.md) |
 | Domain grouping | `rendering/base.py` (`DomainGrouping` ABC) + `package_prefix_grouping.py` / `manual_mapping_grouping.py` | [ADR-009](adr/ADR-009-rendering-budget-cap.md) |
 
-Rendering calls the LLM once per selected class; a second run against the same corpus hits the response cache (DC2), so there is no additional API cost.
+Rendering calls the LLM once per selected class; a second run against the same corpus hits the response cache (see *LLM enrichment pipeline*), so there is no additional API cost.
 
-## DC4 — Evaluation & test framework
+## Evaluation & test framework
 
 Eval runs scorecard checks against a run output and writes JSON sidecars to `<out>/evals/`. Two scorecards (graph + code), plus a cross-corpus report.
 
@@ -137,7 +137,7 @@ Test infrastructure (ADR-018):
 
 See [ADR-018](adr/ADR-018-test-strategy-with-pytest.md) for the full test strategy.
 
-## DC5 — Run manifest, structured logging, secret scanning
+## Run manifest, structured logging, secret scanning
 
 | Component | Location | ADR |
 |---|---|---|
@@ -150,6 +150,6 @@ See [ADR-018](adr/ADR-018-test-strategy-with-pytest.md) for the full test strate
 
 **Manifest write protocol (ADR-025 amendment):** the manifest is assembled in memory and written **once**, at a terminal checkpoint — after Pass 0 for `--ast-only`, after Pass 1+2 for a full run. A manifest present on disk always satisfies the schema invariants. `eval` and `render` add only top-level optional pointers (`scorecards`, `compile_checks`) to an already-terminal manifest.
 
-## What's next (v1.1)
+## What's next
 
-Go renderer (ADR-011 — learner's design work), error-handling translation (ADR-012), cost-control CLI (ADR-016), snapshot + negative tests (ADR-019), LLM-judge calibration (ADR-020). See the ADR index for the full deferred list.
+Planned, by scope in [`ROADMAP.md`](../ROADMAP.md): the Go renderer and error-handling translation (ADR-011, ADR-012) in SC-009; LLM-judge calibration (ADR-020) in SC-010; snapshot tests (ADR-019) and the determinism contract (ADR-021) in SC-011; spend in money (ADR-016) in SC-012; negative tests (ADR-019) and prompt-injection defence (ADR-024) in SC-013. See the ADR index for the full deferred list.

@@ -3,7 +3,7 @@
 Reads a Java/Spring Boot codebase and emits a deterministic knowledge graph — nodes, edges, complexity metrics, Spring-aware annotations — reproducible byte-for-byte across runs.
 *(Not yet on runs with LLM enrichment enabled, nor when the Java parser fails on a file — see [Known gaps](#known-gaps).)*
 
-**Status:** v1 complete (DC1–DC6) — deterministic graph, LLM enrichment, eval framework, TypeScript/NestJS renderer, run manifest + structured logging, cost-safety floor + multi-provider LLM support. See [`docs/architecture.md`](docs/architecture.md) for the full pipeline.
+**Status:** pre-1.0 — deterministic graph, LLM enrichment, eval framework, TypeScript/NestJS renderer, run manifest + structured logging, cost-safety floor + multi-provider LLM support. See [`ROADMAP.md`](ROADMAP.md) for versions and what is planned, and [`docs/architecture.md`](docs/architecture.md) for the full pipeline.
 
 ## Point of view
 
@@ -13,7 +13,7 @@ Existing property-graph and analysis tools stop at understanding, and transpiler
 
 Codeograph is built on the belief that codebases should be understood and structured deterministically, and that AI should sit on top of that as an augmentor — explaining, suggesting, and translating, but never quietly becoming the driver. Its stance is to see how far a deterministic knowledge graph can carry cross-stack work — understanding and rendering into new stacks — without handing control to AI.
 
-In v1, Codeograph ships TypeScript/NestJS rendering only and adds Go in v1.1; it does not replace tools that already do governance, SAST, same-language refactoring, or transpilation well.
+Codeograph renders to TypeScript/NestJS today, with Go planned (see the [Roadmap](ROADMAP.md)); it does not replace tools that already do governance, SAST, same-language refactoring, or transpilation well.
 
 ## Requirements
 
@@ -81,9 +81,9 @@ tests/
   ...                          unit tests mirror codeograph/ layout
 ```
 
-## LLM Features (DC2)
+## LLM Features
 
-Codeograph includes an LLM enrichment pipeline (Passes 1 and 2) that adds semantic understanding to the deterministic AST graph:
+Codeograph includes an LLM enrichment pipeline (Passes 1 and 2) that adds semantic understanding alongside the deterministic AST graph, kept in its own file:
 
 - **Annotated Graph Output:** Detailed per-node semantics (Pass 1) and corpus-level synthesis (Pass 2) stored in `llm-annotations.json`.
 - **Response Cache:** A local SQLite cache (`cache.db`) stores responses. You can manage the cache using the `codeograph cache` CLI (e.g., `codeograph cache stats` or `codeograph cache purge`).
@@ -91,7 +91,7 @@ Codeograph includes an LLM enrichment pipeline (Passes 1 and 2) that adds semant
 
 The graph tells Codeograph what is there — nodes, edges, framework semantics, and metrics from precise, reproducible deterministic analysis; LLM Pass 1 explains what it means at the per-node level. The LLM passes matter because they add the layer deterministic analysis cannot supply — per-node explanation, onboarding summaries, and role inference grounded in that verified structure, making the graph easier to read and more useful without changing what the system treats as truth. LLM Pass 2 reaches into riskier corpus-level synthesis, but all LLM output stays advisory in separate artefacts and is contained so the deterministic graph stays authoritative.
 
-### Cost-Safety Floor & Limits (DC6)
+### Cost-Safety Floor & Limits
 
 To prevent accidental runaway API bills during large runs, Codeograph implements a pre-flight cost safety floor and middleware ceiling limits:
 
@@ -102,9 +102,9 @@ To prevent accidental runaway API bills during large runs, Codeograph implements
 > [!NOTE]
 > The estimate and the confirmation gate are permanent. The call and token ceilings remain until a ceiling in money is designed, which decides whether they stay. Planned additions: a dry run that estimates cost without making paid calls, a ceiling in money (`--max-cost-usd`), and a report of token use and cost at the end of each run and render. `codeograph render` shows no estimate and asks no confirmation yet — see [Known gaps](#known-gaps).
 
-## Rendering (DC3)
+## Rendering
 
-`codeograph render` converts an existing run output into a TypeScript/NestJS project: each selected class is translated into **full idiomatic NestJS source — method bodies included, not skeletons** — via one LLM call, emitted alongside a deterministic Jinja2 project scaffold (`package.json`, `tsconfig.json`, bootstrap `main.ts`). Features v1 cannot translate faithfully surface as reviewable **TODO/stub** placeholders or explicit **refuse-to-render** entries — never silent drops — under a configurable per-feature policy. Rendering is decoupled from LLM execution so you can tune rendering parameters (ORM mode, class budget, domain grouping) without re-running the expensive annotation passes.
+`codeograph render` converts an existing run output into a TypeScript/NestJS project: each selected class is translated into **full idiomatic NestJS source — method bodies included, not skeletons** — via one LLM call, emitted alongside a deterministic Jinja2 project scaffold (`package.json`, `tsconfig.json`, bootstrap `main.ts`). Features the renderer cannot translate faithfully surface as reviewable **TODO/stub** placeholders or explicit **refuse-to-render** entries — never silent drops — under a configurable per-feature policy. Rendering is decoupled from LLM execution so you can tune rendering parameters (ORM mode, class budget, domain grouping) without re-running the expensive annotation passes.
 
 Two parts of this do not hold yet: a class refused by a feature policy is currently left out of the output without a placeholder, and the per-feature policies and domain grouping cannot yet be set — see [Known gaps](#known-gaps).
 
@@ -119,14 +119,14 @@ Key flags:
 | `--from DIR` | required | Output directory from a prior `codeograph run` |
 | `--out DIR` | required | Destination for the rendered TypeScript project |
 | `--target` | `typescript` | Renderer target (`--list-targets` prints registered targets) |
-| `--db-layer` | `typeorm` | ORM mode. `typeorm` is the only value in v1 |
+| `--db-layer` | `typeorm` | ORM mode. `typeorm` is the only value |
 | `--max-classes-per-domain N` | `3` | Per-domain class cap (stratified sampling, ADR-009) |
 | `--no-scaffold` | off | Skip NestJS scaffold files (package.json, tsconfig, etc.) |
 | `--force` | off | Overwrite `--out` if non-empty |
 
 Rendering calls the LLM once per selected class. The second run against the same corpus hits the response cache — no additional API cost.
 
-## Evaluation (DC4)
+## Evaluation
 
 `codeograph eval` runs scorecard checks against an existing run output. Scorecards are JSON sidecar files written to `<out>/evals/`.
 
@@ -146,7 +146,7 @@ codeograph eval report ./run1 ./run2 ./run3
 | `--check <id>` | Run only the named check IDs |
 | `--skip-check <id>` | Skip named check IDs |
 
-The graph scorecard runs 6 deterministic checks (`structural_completeness`, `relationship_correctness`, `internal_consistency`, `schema_validity`, `reproducibility`, `golden_graph_agreement`); some of them measure less than their names say — see [Known gaps](#known-gaps). The code-quality scorecard runs 3 checks (compilation, feature coverage, llm_judge — the latter two are `skip` in v1: llm_judge pending ADR-020 calibration, feature coverage for the reason under [Known gaps](#known-gaps)).
+The graph scorecard runs 6 deterministic checks (`structural_completeness`, `relationship_correctness`, `internal_consistency`, `schema_validity`, `reproducibility`, `golden_graph_agreement`); some of them measure less than their names say — see [Known gaps](#known-gaps). The code-quality scorecard runs 3 checks (compilation, feature coverage, llm_judge — the latter two are `skip`: llm_judge pending ADR-020 calibration, feature coverage for the reason under [Known gaps](#known-gaps)).
 
 You can also run eval automatically as part of `codeograph run` using `--eval`:
 
@@ -154,7 +154,7 @@ You can also run eval automatically as part of `codeograph run` using `--eval`:
 codeograph run /path/to/project --out ./out --eval
 ```
 
-## Logging (DC5)
+## Logging
 
 Codeograph emits logs via two channels simultaneously:
 
@@ -172,25 +172,25 @@ codeograph --log-level DEBUG run ...   # explicit level (wins over -v/-q)
 
 The run manifest (`manifest.json`) is written once at the terminal checkpoint, after all passes complete. It records the `run_id`, artefact SHA-256s, schema version (`2.0.0`), and optional pointers to scorecards and compile-checks. The committed JSON Schema at `codeograph/_generated/manifest.schema.json` is the external validator contract; a CI gate keeps it in sync with the Pydantic source.
 
-## Limitations (v1)
+## Limitations
 
-- **TypeScript/NestJS renderer only.** The Go renderer (ADR-011) is planned for v1.1.
-- **Providers: Anthropic, OpenRouter, and any OpenAI-compatible endpoint; Ollama and Bedrock deferred to v1.1.** All run through a LangChain-based provider abstraction (`AnthropicProvider`, `OpenRouterProvider`, `OpenAICompatibleProvider` with a configurable `base_url`). `Ollama` and `Bedrock` are wired in the resolver but raise `NotImplementedError`. A single model (default `claude-sonnet-4-6`) serves all stages by default; per-stage model overrides (`llm_model_fast` / `deep` / `render`, used by Pass 1 / Pass 2 / rendering) are configurable, but v1 ships no curated *differential* per-stage mapping — that is v1.1.
-- **Sync LLM calls; no Batch API.** All LLM calls are synchronous with prompt caching. The Anthropic Batch API (50% discount) is v1.1.
-- **CI runs on Linux only.** Local tests pass on Windows/macOS; the automated CI infrastructure runs on `ubuntu-latest`. Multi-OS CI is a v1.1 extension wired by contributor demand.
-- **No live-LLM tests.** The test suite uses a deterministic `MockLlmProvider`. No tests make live API calls in v1; the 80% line coverage gate applies to `codeograph/`.
+- **TypeScript/NestJS renderer only.** The Go renderer (ADR-011) is planned — scope SC-009 in the [Roadmap](ROADMAP.md).
+- **Providers: Anthropic, OpenRouter, and any OpenAI-compatible endpoint; Ollama and Bedrock not scheduled.** All run through a LangChain-based provider abstraction (`AnthropicProvider`, `OpenRouterProvider`, `OpenAICompatibleProvider` with a configurable `base_url`). `Ollama` and `Bedrock` are wired in the resolver but raise `NotImplementedError`. A single model (default `claude-sonnet-4-6`) serves all stages by default; per-stage model overrides (`llm_model_fast` / `deep` / `render`, used by Pass 1 / Pass 2 / rendering) are configurable, but there is no curated *differential* per-stage mapping, and none is scheduled.
+- **Sync LLM calls; no Batch API.** All LLM calls are synchronous with prompt caching. The Anthropic Batch API (50% discount) is not scheduled.
+- **CI runs on Linux only.** Local tests pass on Windows/macOS; the automated CI infrastructure runs on `ubuntu-latest`. Multi-OS CI is not scheduled; it would be added on contributor demand.
+- **No live-LLM tests.** The test suite uses a deterministic `MockLlmProvider`. No tests make live API calls; the 80% line coverage gate applies to `codeograph/`.
 - **Eval covers two committed corpora.** `spring-rest-sample` and `spring-blog-api` are the baseline corpora; `codeograph eval report` provides cross-corpus comparison. Additional corpora can be added to `examples/` per `CONTRIBUTING.md`.
-- **`semantic_accuracy` and `llm_judge` checks are skipped in v1.** The graph scorecard reserves these slots; calibration data and the LLM-judge harness land in v1.1 (ADR-020).
+- **`semantic_accuracy` and `llm_judge` checks are skipped.** The graph scorecard reserves these slots; calibration data and the LLM-judge harness are planned — scope SC-010 in the [Roadmap](ROADMAP.md) (ADR-020).
 - **Coverage check means feature coverage, not test coverage.** The code-quality scorecard `coverage` check measures which Spring annotation categories from the ADR-010 audit were translated into TypeScript — not pytest line coverage.
 - **Per-run output is `<out>` itself.** There is no `--runs-dir` flag. Each `codeograph run` invocation owns its `--out` directory. To keep multiple run histories, use distinct `--out` paths (e.g. `--out ./runs/$(date -u +%Y-%m-%dT%H-%M-%SZ)/`).
 - **Manifest schema is strict-additive within `2.x`.** Field removal, rename, type-change, or required/optional flips require a `3.0.0` major bump and a superseding ADR. New fields land as minor bumps. External consumers can pin a `2.x` validator and rely on forward compatibility.
-- **No log rotation or color output in v1.** `logs.jsonl` grows unboundedly per run; no log-level env-var override. These are v1.1 items.
+- **No log rotation or color output.** `logs.jsonl` grows unboundedly per run; no log-level env-var override. None of these is scheduled.
 - **Gitleaks secret scanning is enforced in CI; merges are blocked on detection; no admin bypass.** The `pre-commit` hook is opt-in (`pre-commit install` after setup); CI is the mandatory gate. The gitleaks version is exact-pinned in both `secrets-scan.yml` and `.pre-commit-config.yaml` with a CI parity check, and a scheduled full-history scan runs nightly (non-blocking). See `CONTRIBUTING.md` for the finding-response runbook.
-- **Output stability tracks `schema_version`, not the application version.** The app version (`codeograph --version`, currently `0.5.0`) and the artefact `schema_version` are independent version lines. Consumers scripting against `graph.json` / `manifest.json` should pin or check `schema_version`; the app version is not a format-stability guarantee. v1 ships in `0.x` — `1.0.0` is published only at the stability gate (ADR-026).
+- **Output stability tracks `schema_version`, not the application version.** The app version (`codeograph --version`, currently `0.5.0`) and the artefact `schema_version` are independent version lines. Consumers scripting against `graph.json` / `manifest.json` should pin or check `schema_version`; the app version is not a format-stability guarantee. The tool ships in `0.x` — `1.0.0` is published only at the stability gate (ADR-026).
 
 ### Known gaps
 
-The limitations above are deliberate v1 scope. These are different: places where the code does not yet do what this README, the requirements, or an accepted ADR says it does. Each is tracked for a fix.
+The limitations above are deliberate scope. These are different: places where the code does not yet do what this README, the requirements, or an accepted ADR says it does. Each is tracked for a fix.
 
 - **The graph is not byte-reproducible on runs with LLM enrichment enabled.** Corpus synthesis writes its project overview (`projectOverview`) into `graph.json` and rewrites the file outside the canonical form, so the graph differs from an enrichment-free run and the manifest's recorded hash no longer matches the file on disk. Runs with `--ast-only` are unaffected.
 - **A parser failure can change the graph.** When the Java parser times out on a file (30 s), crashes, or cannot start because Java is not available, that file is extracted by the regex fallback, with no retry. The same source can therefore produce a different graph on a slow or misconfigured machine. Each fallback is logged as a warning.
@@ -203,6 +203,8 @@ The limitations above are deliberate v1 scope. These are different: places where
 - **The feature-coverage check does not run yet.** The code-quality scorecard's `coverage` check needs a record of which features rendering translated, and rendering does not yet write one, so the check is always reported as skipped.
 - **Telemetry records no per-call cost.** Each call's cost estimate is written as `0.0`, so the cost lines in `codeograph cache report` always read ~$0.00. The pre-flight estimate shown before a run is computed separately and is unaffected.
 - **`codeograph render` runs without the cost estimate and confirmation gate.** It shows no estimate, asks no confirmation and takes no ceiling flags. A call or token ceiling set by environment variable or config file does apply to it; without one, its LLM calls are bounded only by the per-domain class cap.
+- **Source in a package named `build`, `out` or `target` is skipped without a word.** Built-in exclusions for build-output folders match at any depth, beside the project's own `.gitignore`, so a source package with one of those names never reaches the graph and nothing reports it. A `!` rule in the project's `.gitignore` brings it back.
+- **Zip archives are extracted without a size cap or a path check.** A `.zip` input is extracted in full, with no limit on the extracted size, so an archive that expands to an enormous size is not stopped; and an entry whose path points outside the extraction folder is written inside it under a rewritten name instead of the archive being rejected. Until this is fixed, do not run Codeograph on a `.zip` you do not trust.
 - **Cloning a git URL that needs credentials can wait for input.** `git clone` runs with prompting enabled, so for a private repository without stored credentials git may ask for a username and wait — in CI, a hang — instead of failing with an error that names the cause.
 
 ## Documentation
@@ -210,6 +212,7 @@ The limitations above are deliberate v1 scope. These are different: places where
 - [Running Codeograph](docs/running-codeograph.md) — pipeline stages, command order, and exact flag combinations for common scenarios
 - [Model selection & cost](docs/model-selection-and-cost.md) — which model/provider to pick and what it costs
 - [Architecture snapshot](docs/architecture.md) — what's wired today
-- [Requirements](docs/requirements.md) — what the tool is built to do, marked v1 or v1.1
+- [Roadmap](ROADMAP.md) — versions, scopes, and the labels used in older documents
+- [Requirements](docs/requirements.md) — what the tool is built to do, each marked with its scope
 - [ADRs](docs/adr/) — design decisions and their rationale
 - [Contributing](CONTRIBUTING.md) — commit conventions, branching, CI
