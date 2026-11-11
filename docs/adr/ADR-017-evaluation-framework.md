@@ -846,7 +846,7 @@ invocation surface, compile-check policy, multi-corpus reporting, and the defini
 `semantic_accuracy` and `golden_graph_agreement` stand.
 
 *The skip-reason taxonomy gains* `no_expectation`, `graph_modified_since_run`, `tool_version_changed`,
-`envelope_changed`, `source_changed`, `resolution_environment_changed`,
+`envelope_changed`, `source_changed`, `resolution_settings_changed`,
 `transient_degradation_in_scored_run`, `render_audit_missing_or_corrupt` and `no_annotations` (ADR-032).
 
 *A sharp ratio below its bar fails.* Fork 2's derivation table lists, under `skip` for

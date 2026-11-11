@@ -587,3 +587,28 @@ behaviour, not an unmet obligation.
 
 No reversal of any prior decision; the authority for one detail moves, and one stale cross-reference
 is retired.
+
+**2026-11-12 — Goldens are captured isolated, and their refresh log records the extraction settings (ADR-033
+acceptance).** ADR-033 makes the resolution mode, and in classpath mode the classpath record, recorded
+extraction settings: a graph is a function of the corpus, the tool and those settings. ADR-029 reads the
+configuration files from `home_dir` only, so a contributor's own `~/.codeograph/config.yaml` and `.env`
+reach every run they start. A golden captured with a contributor's classpath setting would differ from
+CI's, and the difference would show only as a byte diff.
+
+1. **The golden harness runs corpus-only, with `home_dir` pointed at a temporary folder** — whatever
+   classpath setting or configuration the contributor's environment carries. No user configuration
+   reaches a golden run.
+2. **Each refresh log entry records the extraction settings** the golden was captured with — the
+   resolution mode, always corpus-only — beside its date, category, reason and hash (2026-11-11
+   amendment). **The golden test asserts that a run's extraction settings equal the last entry's**, so a
+   settings drift fails with a named cause instead of a byte diff.
+3. These settings are not part of the envelope Fork 8 declares: the envelope is the pinned environment,
+   and the settings are inputs the run records.
+
+**New Confirmation items (from this amendment):**
+* A golden run with a classpath setting in the environment, and a `config.yaml` naming one in the
+  contributor's `home_dir`, runs corpus-only and reads neither (integration test).
+* A run whose extraction settings differ from its golden log's last entry fails the golden test, naming
+  the setting (unit test).
+
+No locked fork is reversed; the refresh log gains one field, and the harness one isolation rule.

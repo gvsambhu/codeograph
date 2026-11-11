@@ -585,9 +585,9 @@ node was annotated (partly a function of an API's outcome). They are split:
 a closed set, so **the graph schema takes a major version** (ADR-032's constraint for ADR-026: one bump per
 release, merged with the output-layout cluster's if both ship together). The graph is otherwise unchanged.
 
-*3 · The annotations file keeps Fork 5's envelope.* The file is an object, `{ "schema_version": …,
-"graph_ref": …, "annotations": { <class node id>: <record> } }`, as Fork 5's example shows and the
-published schema requires; `schema_version` is copied on the file's manifest pointer (NFR-7 AC-1). **The complete record:**
+*3 · The annotations file keeps Fork 5's envelope.* The file is an object, `{ "graph_ref": …,
+"annotations": { <class node id>: <record> } }`, as Fork 5's example shows; the published schema, which
+declares only `annotations`, gains `graph_ref`. **The complete record:**
 * the semantic fields (domain label, summary, migration hazards);
 * `annotation_mode`; when it is `signatures_only`, the trigger reason and the token estimate (ADR-005 §3);
 * `call_status`; when it is `failed`, the reason (ADR-005 §5);
