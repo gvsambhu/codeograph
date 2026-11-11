@@ -428,7 +428,8 @@ No reversal of any prior decision; clarification only.
 resolved third-party references through the local Maven repository, which makes the graph depend on what
 that repository holds — contents that vary by machine with version ranges, SNAPSHOT builds and earlier
 downloads — and approximates Maven's resolution, so an edge can resolve against a version the build does not
-use. The requirements make the graph a function of the corpus and the tool alone (FR-34). ADR-033 resolves
+use. The requirements make the graph a function of the corpus, the tool and its recorded extraction settings
+alone (FR-34). ADR-033 resolves
 against the corpus and the JDK by default, and against the classpath the project's own build resolved when
 the user supplies one; nothing reads a local repository. The supersession covers the 2026-06-14
 amendment's item 3 (the remediation hint for an empty `~/.m2`) and the deferred item *Gradle dep

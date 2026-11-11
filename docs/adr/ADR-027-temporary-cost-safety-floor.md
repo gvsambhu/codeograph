@@ -355,5 +355,4 @@ additive only.
 4. **`--non-interactive` keeps Fork 3's meaning for the gate only** — proceed without asking. It never
    authorises an irreversible removal; `--yes` is the consent flag for those (ADR-031 Fork 2).
 
-No reversal of Forks 1–4; outcomes are aligned with ADR-031, and Fork 3's flag is scoped. This ADR remains
-superseded by ADR-016 at `1.1.0`.
+No reversal of Forks 1–4; outcomes are aligned with ADR-031, and Fork 3's flag is scoped.

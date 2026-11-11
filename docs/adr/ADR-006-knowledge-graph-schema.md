@@ -547,12 +547,13 @@ is retired.
 
 Fork 5 decided that *"`graph.json` carries no LLM-derived fields."* The shipped graph schema nonetheless
 has a `projectOverview` field, written by Pass 2 after the graph has been written and hashed — so on every
-LLM-enabled run the graph is no longer a function of the corpus alone (FR-34 AC-1, AC-3), and the
+LLM-enabled run the graph is no longer a function of the corpus, the tool and its recorded extraction
+settings alone (FR-34 AC-1, AC-3), and the
 manifest's hash describes a file that is no longer on disk.
 
 **`projectOverview` is removed from the graph schema.** Corpus synthesis becomes its own artefact,
 `analysis/corpus-synthesis.json` (ADR-029 Fork 7). Removing a field is a breaking change to a published
-schema, so the graph schema takes a **major** version (NFR-7 AC-4); the number follows ADR-026's rules.
+schema, so the graph schema takes a **major** version (NFR-7 AC-3); the number follows ADR-026's rules.
 Fork 5's file names move with the layout: `analysis/graph.json` and `analysis/llm-annotations.json`
 (ADR-029 Fork 4).
 
@@ -584,9 +585,9 @@ node was annotated (partly a function of an API's outcome). They are split:
 a closed set, so **the graph schema takes a major version** (ADR-032's constraint for ADR-026: one bump per
 release, merged with the output-layout cluster's if both ship together). The graph is otherwise unchanged.
 
-*3 · The annotations file keeps Fork 5's envelope.* The file is an object, `{ "graph_ref": …,
-"annotations": { <class node id>: <record> } }`, as Fork 5's example shows and the published schema
-requires. **The complete record:**
+*3 · The annotations file keeps Fork 5's envelope.* The file is an object, `{ "schema_version": …,
+"graph_ref": …, "annotations": { <class node id>: <record> } }`, as Fork 5's example shows and the
+published schema requires; `schema_version` is copied on the file's manifest pointer (NFR-7 AC-1). **The complete record:**
 * the semantic fields (domain label, summary, migration hazards);
 * `annotation_mode`; when it is `signatures_only`, the trigger reason and the token estimate (ADR-005 §3);
 * `call_status`; when it is `failed`, the reason (ADR-005 §5);

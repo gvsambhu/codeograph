@@ -295,8 +295,9 @@ No decision changed; documentation realigned to the shipped code (capability-vs-
 
 §3 tags an oversized class's graph node `extraction_mode: signatures_only`, and §5 tags a class whose Pass-1
 call failed `llm_failed` on the graph node; both, and the relationship note to ADR-022, say the outcome is
-*"recorded in the run manifest"*. **Both placements are withdrawn.** The graph is a function of the corpus
-and the tool alone (FR-34 AC-1, AC-2): a value that depends on an LLM call's outcome — or on the API's
+*"recorded in the run manifest"*. **Both placements are withdrawn.** The graph is a function of the corpus,
+the tool and its recorded extraction settings alone (FR-34 AC-1, AC-2):
+a value that depends on an LLM call's outcome — or on the API's
 health — may not change a byte of it, and an enrichment-off run and an enrichment-on run must produce the
 same graph (FR-34 AC-3). ADR-006 Fork 5 drew that boundary after §3 and §5 were locked, and ADR-007's
 byte-equal golden builds on it.
