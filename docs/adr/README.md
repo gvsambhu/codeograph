@@ -114,6 +114,7 @@ For someone new to the project who wants to understand the design end-to-end, re
 | 032 | Evaluation check semantics | 📝 | Quality & testing |
 | 033 | Extraction environment and parser failures | 📝 | Input & parsing |
 | 034 | Placeholders for unrendered classes | 📝 | Rendering |
+| 035 | Artefact schema versions | ⬜ (gvsambhu) | Cross-cutting |
 
 ---
 
