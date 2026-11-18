@@ -75,6 +75,10 @@ jobs:
         shell: bash
         run: python scripts/check_no_workspace_refs.py
 
+      - name: Roadmap scopes agree with the requirements status table
+        shell: bash
+        run: python scripts/check_roadmap_scopes.py
+
   # ---------------------------------------------------------------------------
   # Unit — pytest fast suite (excludes slow/external/eval markers)
   # strategy.matrix.os: [ubuntu-latest] — extension hook for multi-OS (v1.1)
