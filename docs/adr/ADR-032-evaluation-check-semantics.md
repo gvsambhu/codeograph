@@ -256,8 +256,9 @@ The determinism contract absorbs or cites Fork 4's envelope record and its skip-
 
 #### Constraint flagged for ADR-026
 The version consequences of this ADR, ADR-033, ADR-034 and the amendments that accompany them, applied
-when the code ships (ADR-026: the bump is decided at release) — **one bump per artefact per release,
-merged with the output-layout cluster's where both ship in the same release**:
+when the code ships (ADR-026: the bump is decided at release) — **one bump per artefact per release**
+(the rule ADR-035 Fork 5 decides), **merged with the output-layout cluster's where both ship in the same
+release**:
 * **the graph schema** takes its next major (`signatures_only` leaves `extraction_mode`; `name_only`
   joins it — ADR-006);
 * **the annotations schema** takes its next major (`annotation_mode` and `call_status` replace
@@ -514,3 +515,6 @@ a hand-worked value.
   settings, not as part of the execution envelope, so the old name described a framing it no longer
   uses. The skip's condition is unchanged. Exposed by the design review of the change that made those
   settings recorded inputs.
+* **2026-11-18** — The *Constraint flagged for ADR-026* cites ADR-035 Fork 5 for its one-bump-per-release
+  rule, which it applies to this release's schemas. Exposed by ADR-035, which decides that rule for every
+  schema; this constraint had stated it for one release only.

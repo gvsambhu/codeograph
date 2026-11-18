@@ -347,6 +347,8 @@ Render writes two records of its own, both under `<run directory>/evals/`:
 | `compile-checks.<target>.json` | The compile commands evaluation runs against the rendered project |
 | `render-audit.<target>.json` | What render selected, skipped and refused, and by which rule (FR-14 AC-3; FR-36), the classes whose render call failed, and the placeholders it wrote (ADR-034). **Its contents are decided with ADR-017, ADR-010, ADR-009 and ADR-034**; this ADR fixes only its location |
 
+**Both records carry `schema_version` at their root, copied on their manifest pointers** (ADR-035 Fork 1).
+
 **The rendered project contains nothing of the tool's.** Inside the project (b), the records would be
 committed with the user's application — the project's own `.gitignore` is a stock Node ignore. A
 `render/` namespace (c) would split the evaluation inputs from the evaluation outputs, and `eval` reads
@@ -807,3 +809,6 @@ synthesis, the history and the render audit.
 * **2026-11-18** — Where the configuration files are read from becomes its own Fork 8, with its options
   listed; the constraint flagged for ADR-001 cites Bundle D's precedence order (FR-38 AC-1). Exposed by a
   verification of the 2026-11-12 change: one fork carried two decisions.
+* **2026-11-18** — Fork 6: render's two records carry `schema_version` at their root, copied on their
+  manifest pointers. Conforms with ADR-035, which places every indexed artefact's schema version in the
+  file as well as on its pointer (NFR-7 AC-1).
