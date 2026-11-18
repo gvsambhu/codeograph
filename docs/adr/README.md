@@ -10,7 +10,7 @@ ADR numbers reflect **architectural layer** (input → graph → rendering → L
 
 | Symbol | `status:` | Meaning |
 |---|---|---|
-| ✅ | `accepted` | Decision committed; changes require a new ADR or a formal amendment (a reference fix excepted — see below) |
+| ✅ | `accepted` | Decision committed; changes require a new ADR or a formal amendment, except a reference fix — see below |
 | 📝 | `proposed` | File is in this directory, decision not yet accepted — open for review |
 | ⬜ | — | Number **reserved**; no file yet |
 | ⏸️ | — | Number reserved, deferred to v1.1 or later; design not started |
