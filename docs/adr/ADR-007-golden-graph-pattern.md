@@ -601,7 +601,9 @@ CI's, and the difference would show only as a byte diff.
 2. **Each refresh log entry records the extraction settings** the golden was captured with — the
    resolution mode, always corpus-only — beside its date, category, reason and hash (2026-11-11
    amendment). **The golden test asserts that a run's extraction settings equal the last entry's**, so a
-   settings drift fails with a named cause instead of a byte diff.
+   settings drift fails with a named cause instead of a byte diff. An entry written without the field
+   reads as corpus-only — true of every golden captured before it, since the harness has always run
+   corpus-only.
 3. These settings are not part of the envelope Fork 8 declares: the envelope is the pinned environment,
    and the settings are inputs the run records.
 
