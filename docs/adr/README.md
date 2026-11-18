@@ -59,8 +59,8 @@ For someone new to the project who wants to understand the design end-to-end, re
 - [`ADR-025 — Manifest schema 2.0.0 (flat layout)`](ADR-025-manifest-schema-flat-layout.md) — supersedes ADR-022's manifest forks + ADR-015's `cache_stats` shape
 - [`ADR-023 — Secret scanning with gitleaks`](ADR-023-secret-scanning-with-gitleaks.md)
 - [`ADR-026 — Release & version management`](ADR-026-release-version-management.md) — SemVer scheme, `0.x`→`1.0.0` at the stability gate, version sourced from package metadata
-- [`ADR-027 — Temporary v1 cost-safety floor`](ADR-027-temporary-cost-safety-floor.md) — pre-flight estimate + confirmation gate + optional hard call/token ceiling; *temporary, superseded by ADR-016 at `1.1.0`*
-- [`ADR-029 — Output layout and ownership`](ADR-029-output-layout-and-ownership.md) — *proposed* — where each output lives and which command writes it; on acceptance, supersedes ADR-022 Fork 5
+- [`ADR-027 — Temporary v1 cost-safety floor`](ADR-027-temporary-cost-safety-floor.md) — pre-flight estimate + confirmation gate + optional hard call/token ceiling, for every command that calls an LLM; *the permanent base of the spend bounds, extended by ADR-016 (2026-11-11 amendment)*
+- [`ADR-029 — Output layout and ownership`](ADR-029-output-layout-and-ownership.md) — *proposed* — where each output lives and which command writes it; on acceptance, supersedes ADR-022 Fork 5 and ADR-001 Bundle D's configuration-file location
 - [`ADR-028 — What a command may overwrite, delete or refuse`](ADR-028-overwrite-delete-and-refuse.md) — *proposed* — archive, re-render modes, earlier-version folders, concurrency
 - [`ADR-030 — Invocation identity and history`](ADR-030-invocation-identity-and-history.md) — *proposed* — per-invocation identifier, `runs.jsonl`, per-invocation logs
 - [`ADR-031 — Command outcomes and consent`](ADR-031-command-outcomes-and-consent.md) — *proposed* — exit statuses and when a command asks

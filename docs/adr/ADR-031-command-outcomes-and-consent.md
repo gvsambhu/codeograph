@@ -92,7 +92,7 @@ every command, not only the layout's. It is one of four coupled decisions:
 1 over 2 over 4 over 0.
 
 **An interrupted invocation** (Ctrl-C) exits with 130, the shell convention; its history shows it
-unfinished, and ADR-028's recovery rolls it back.
+interrupted (ADR-030 Fork 4), and ADR-028's recovery rolls it back.
 
 **Usage errors become 1.** Click exits with 2 for a wrong option, which here means *completed with
 recorded failures*; the command line maps usage errors to 1. Every path that exits with 2 for a missing
@@ -263,7 +263,8 @@ The history's outcome field uses these classes.
 
 ### Deferred
 
-* **Budget-based consent** (dollar ceilings) — ADR-016, v1.1, supersedes the cost gate.
+* **Budget-based consent** (dollar ceilings) — ADR-016, v1.1, extends the cost gate with a ceiling in
+  money.
 
 ### Open questions
 
@@ -272,3 +273,6 @@ The history's outcome field uses these classes.
 ## Revision history
 
 * **2026-11-10** — Consent citations moved from FR-42 AC-4/AC-5 to FR-45 AC-3/AC-4, where the requirements now state the consent rule once (it also covers `--break-lock`). Reference fix; no decision changed. The same day the Context's summary of FR-45 was brought up to its six outcomes — this ADR already decides all six (statuses 0–4 and 130).
+* **2026-11-12** — Two references brought up to date: an interrupted invocation's history shows it
+  *interrupted*, the state ADR-030 Fork 4 derives, rather than *unfinished*; and ADR-016 extends the cost
+  gate rather than superseding it (ADR-027, 2026-11-11 amendment). No decision changed.

@@ -136,6 +136,14 @@ manifest forks already superseded by ADR-025.
 * **(b) Its own artefact, `analysis/corpus-synthesis.json`. ✅**
 * (c) Status quo — a `projectOverview` field in the graph. *Not available: FR-34 AC-1.*
 
+### Fork 8 — Where the configuration files are read from
+
+* **(a) `home_dir` only. ✅**
+* (b) The working directory (ADR-001 Bundle D).
+* (c) `home_dir`, plus a `--config` path.
+* (d) A platform configuration folder (`~/.config/codeograph`, `%APPDATA%`).
+* (e) The working directory, refused when inside the analysed source.
+
 ## Decision Outcome
 
 ### Fork 1 — Two outputs: (c)
@@ -299,8 +307,11 @@ term.
 
 ```
 ~/.codeograph/          ← home_dir: per user
+├── config.yaml         ← the user's config file — read from here only (Fork 8)
+├── .env                ← the user's environment file — read from here only (Fork 8)
 ├── cache/cache.db      ← the response cache
-└── telemetry/          ← per-call telemetry
+├── telemetry/          ← per-call telemetry
+└── history/            ← the history of run directories that cannot be written to (ADR-030)
 ```
 
 **The rule every output follows, now and later:**
@@ -364,6 +375,34 @@ AC-1); how the manifest records it is ADR-025's.
 **Removing `projectOverview` from the graph is a breaking change** to a published schema (NFR-7 AC-3).
 Its version consequence is stated with this cluster's other version consequences.
 
+### Fork 8 — `home_dir` only: (a)
+
+**The configuration files are read from `home_dir`, and only there.** Fork 5's rule places outputs; the
+config file and the environment file are the user's inputs, which this fork places. FR-38 AC-6
+requires both to be read from documented locations, and no file in the source being analysed to be read
+as configuration. ADR-001 Bundle D read both from the working directory, with a committed `config.yaml`
+as a project-level layer of defaults — so `codeograph run .` inside a project read that project's files
+as configuration, and one setup was configured differently depending on where the command ran.
+
+- **Both files are read from `home_dir` and from nowhere else.** The precedence is unchanged: command-line
+  flags > environment variables > `.env` > `config.yaml` > built-in defaults (FR-38 AC-1). A missing file
+  is skipped.
+- **`home_dir` is set only by its environment variable** (`CODEOGRAPH_HOME`, or `CODEOGRAPH_HOME_DIR`)
+  **or its default** — never by the files it holds. A `home_dir` setting found in either file stops startup
+  with ADR-001's user-readable configuration error, naming the setting and where to set it instead.
+- **A `config.yaml` or `.env` in the working directory is not read.** When either is present and the
+  working directory is not `home_dir` itself, the command warns once that it was not read and names the
+  location that is. The file is never opened.
+- **A `home_dir` inside the source being analysed is refused** at startup, before either file is read,
+  naming both paths — otherwise a file in the source would be read as configuration.
+- **The repository's committed files become examples.** The root `config.yaml` is renamed
+  `config.example.yaml`, beside `.env.example`, so the working-directory warning does not fire in a
+  checkout of the tool. Both document every setting with its default (FR-38 AC-4), and the documentation
+  tells the user to copy them into `home_dir`.
+- **A per-project or per-job value** — CI included — is given by a command-line flag or an environment
+  variable, which outrank both files. A setting whose value is structured names a file through them:
+  ADR-033's classpath setting names a classpath file or a mapping file.
+
 ### Ownership
 
 **Ownership is per file, not per directory.** `evals/` has two writers, so the assumption that a
@@ -404,6 +443,12 @@ Telemetry moves to `<home_dir>/telemetry/`, a sibling of the cache (Fork 5).
 
 #### Constraint flagged for ADR-006
 `projectOverview` is removed from the graph schema (Fork 7).
+
+#### Constraint flagged for ADR-001
+**Bundle D's configuration-file location is superseded** (Fork 8): `config.yaml` and `.env` are read from
+`home_dir` only, never from the working directory; `home_dir` is not settable from either file; and the
+committed `config.yaml` stops being a project-level layer of defaults and becomes `config.example.yaml`.
+The precedence order of Bundle D (FR-38 AC-1) is unchanged.
 
 #### Constraint flagged for ADR-030
 `runs.jsonl` and the per-invocation log files under `logs/` are its to define (Fork 4).
@@ -489,6 +534,15 @@ synthesis, the history and the render audit.
     writing, naming `runs_dir` and `--source-out` (unit test).
 18. `eval report` writes nothing inside the run directories it reads; with `--output <file>` it writes
     that file (integration test).
+19. With `config.yaml` and `.env` in `home_dir`, their values are read; the same files in the working
+    directory instead are not read, and the command warns that they were not (unit test).
+20. Running against a source folder that holds a `config.yaml` and a `.env`, from inside that folder,
+    reads neither (integration test — FR-38 AC-6).
+21. `CODEOGRAPH_HOME` pointing elsewhere moves where both files are read from; a `home_dir` setting
+    inside either file stops startup with a readable error; a `home_dir` inside the source being analysed
+    is refused before either file is read (unit tests).
+22. A command run from the root of the tool's own repository gives no working-directory warning; run
+    from `home_dir`, it gives none either (unit test).
 
 ## Pros and Cons of the Considered Options
 
@@ -637,6 +691,38 @@ synthesis, the history and the render audit.
 * Bad, because FR-34 AC-1 forbids it, and it breaks FR-34 AC-3, NFR-6 and the graph's integrity hash on
   every LLM-enabled run.
 
+### Fork 8 — Configuration files
+
+**(a) `home_dir` only. ✅ Chosen.**
+* Good, because configuration does not depend on where the command runs, and no file in the analysed
+  source is read as configuration (FR-38 AC-6).
+* Good, because the per-user files share one root with the cache and telemetry.
+* Bad, because a project cannot carry its own defaults file; per-project values move to flags and
+  environment variables.
+
+**(b) The working directory** (ADR-001 Bundle D).
+* Good, because a project carries its own defaults, committed beside its code.
+* Good, because there is nothing to copy into a home folder.
+* Bad, because a project's own `config.yaml` and `.env` are read as configuration, which FR-38 AC-6
+  forbids, and the result depends on where the command runs.
+
+**(c) `home_dir`, plus a `--config` path.**
+* Good, because a per-project or per-job file can be named.
+* Good, because CI can keep one configuration file per job.
+* Bad, because it is a second way to name the file, for a need flags and environment variables
+  meet; it can be added later without reworking this decision.
+
+**(d) A platform configuration folder** (`~/.config/codeograph`, `%APPDATA%`).
+* Good, because it follows each platform's convention.
+* Good, because configuration sits apart from the cache.
+* Bad, because per-user files are split across two roots, and resolving the folder adds a dependency.
+
+**(e) The working directory, refused when inside the analysed source.**
+* Good, because project-local files keep working outside the source.
+* Good, because a local source folder is protected.
+* Bad, because the configuration depends on where the command runs, and the check can run only once the
+  source is known.
+
 ## More Information
 
 ### Relationships
@@ -653,6 +739,8 @@ synthesis, the history and the render audit.
 * **ADR-008** (renderer interface) — unchanged; Fork 3 keeps renderers unaware of placement.
 * **ADR-015** (telemetry and response cache) — placement corrected (Fork 5); its "self-contained run
   directory" driver is overtaken.
+* **ADR-001** (project skeleton) — on acceptance, **Bundle D's configuration-file location is superseded**
+  (Fork 8); its precedence order stands.
 * **ADR-017** (evaluation framework) — finds targets from the manifest; reads render's records from
   `evals/`; decides the render-audit contents with ADR-010, ADR-009 and ADR-034.
 * **ADR-010** (Spring to NestJS mapping) — its render audit moves from the manifest to
@@ -677,6 +765,8 @@ synthesis, the history and the render audit.
 * **FR-35 AC-1** — a failed synthesis costs one artefact, not the annotations (Fork 7).
 * **FR-38 AC-1, AC-2** — `runs_dir` and `home_dir` are settings; misconfiguration fails at startup
   (Forks 2, 5).
+* **FR-38 AC-4, AC-6** — the configuration files are read from `home_dir` only, never from the source
+  being analysed; the example files document every setting (Fork 8).
 * **FR-16 AC-2** — the LLM call records stay inspectable without an external service, under `home_dir` (Fork 5).
 * **NFR-5 AC-1** — renderers stay unaware of placement (Fork 3).
 
@@ -704,3 +794,16 @@ synthesis, the history and the render audit.
   Exposed by the evaluation cluster's review, which found that five ADRs recorded degradation in the
   manifest and that ADR-009's selection audit had not been redirected.
 * **2026-11-10** — NFR-7's breaking-change rule cited as AC-3, into which AC-4 was merged; FR-16 AC-2 cited for what it now says (inspectable without an external service), no longer *a separate record*. Reference fixes; no decision changed.
+* **2026-11-11** — The config file and the environment file added to `home_dir`'s layout (Fork 5).
+  Exposed by a requirements revision: FR-38 AC-6 forbids reading configuration from the working
+  directory or the analysed source.
+* **2026-11-12** — Fork 8 decides where the configuration files are read from: `home_dir` only; the
+  working directory's copies are not read and draw a warning; `home_dir` is not settable from either file
+  and may not lie inside the analysed source; the repository's committed `config.yaml` becomes
+  `config.example.yaml`. On acceptance this supersedes ADR-001 Bundle D's configuration-file location — a
+  constraint flagged for ADR-001. The layout also shows the fallback history ADR-030 places under
+  `home_dir`. Exposed by the design review of the 2026-11-11 change: no proposed ADR decided the location,
+  and the change reversed Bundle D's committed `config.yaml` without saying so.
+* **2026-11-18** — Where the configuration files are read from becomes its own Fork 8, with its options
+  listed; the constraint flagged for ADR-001 cites Bundle D's precedence order (FR-38 AC-1). Exposed by a
+  verification of the 2026-11-12 change: one fork carried two decisions.

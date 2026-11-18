@@ -587,3 +587,75 @@ behaviour, not an unmet obligation.
 
 No reversal of any prior decision; the authority for one detail moves, and one stale cross-reference
 is retired.
+
+**2026-11-11 — Refresh categories defined; each refresh is logged beside its golden (2 decisions).**
+FR-7c AC-5 requires each refresh to record why the graph changed. The 2026-06-17 amendment named three
+categories — *update-golden / fix-bug / intentional-change* — without defining them, and *update-golden*
+describes every refresh. It also kept the reason as a convention on the refresh PR, which no code can
+check. This **supersedes four statements of that position**: the three category names in the 2026-06-17
+item 1; its *"as a tracked convention … (not a hard commit-message gate)"*, restated by the 2026-08-12
+entry; Fork 4's *"informal convention, not enforced"* for refresh PRs; and the 2026-06-17 Confirmation
+item *"Each golden-refresh PR records a diff category"*, which this amendment's Confirmation items
+replace. The golden location, the canonical-byte comparison and the explicit refresh step are unchanged.
+Fork 6's *"the only golden file per corpus"* reads: the only golden; its refresh log sits beside it.
+
+**1. Four categories, defined by what caused the change.**
+
+| Category | The graph changed because | A reviewer checks |
+|---|---|---|
+| `corpus` | The input changed — a fixture was edited or added, or a pinned project's tag was bumped (2026-06-17 amendment, item 4) | The input change itself |
+| `fix` | The graph was wrong and is now right | That the defect is gone, and nothing else moved |
+| `change` | An intended change to what the graph holds or how a value is computed — a schema field, a metric formula, a newly interpreted annotation | The ADR that decided the change |
+| `toolchain` | A pinned parser, JDK or Python version was upgraded, with no change intended (Fork 8) | That nothing meaningful moved |
+
+A refresh with more than one cause is split into one refresh per cause where it can be; otherwise it takes
+the category whose review is strictest — `change`, then `fix`, `toolchain`, `corpus` — and its reason
+names every cause.
+
+**2. A refresh log beside each golden, checked by the golden test.**
+
+```
+tests/golden/<corpus>/
+├── graph.json
+└── refreshes.jsonl     ← one entry per refresh, append-only
+```
+
+- **The refresh step requires a category, a reason, and the corpora it is expected to change:**
+  `pytest --update-goldens --golden-category <category> --golden-reason "<why>" --golden-corpus <corpus>`,
+  with `--golden-corpus` repeatable. Without all three, the refresh fails and writes nothing.
+- **A golden that changes outside the named corpora fails the refresh**, which then writes nothing — no
+  golden and no log entry. An unintended change is never logged under another corpus's reason.
+- **An entry is appended only for a named corpus whose golden bytes changed.** It holds the date, the
+  category, the reason, and the SHA-256 of the new golden's canonical bytes — the hash Fork 3 already
+  defines.
+- **The ordinary golden test also asserts that the last entry's hash equals the committed golden's
+  hash.** A golden edited by hand, or refreshed without an entry, fails the test — so a golden cannot
+  change without its reason (FR-7c AC-5), and the check runs inside the merge-gating golden test, with no
+  inspection of git history.
+- **A new corpus's first entry is written when its golden is generated** (checklist step 4), with
+  category `corpus`.
+- **A golden committed before the log existed** gets its first entry in the change that introduces the
+  log: category `corpus`, a reason naming the log's introduction, and the hash of the golden as
+  committed.
+
+**Rejected alternatives.**
+* *The PR description, by convention* (the 2026-06-17 position) — no code can check it, and the reason
+  lives outside the repository.
+* *A commit-message trailer checked in CI* — the check has to walk the PR's commit range, a rebase can
+  drop it, and reading it needs `git log`.
+* *Two categories (expected / fix)* — a toolchain upgrade and a design change would share one category,
+  though a reviewer checks them differently.
+
+**New Confirmation items (from this amendment):**
+* `--update-goldens` without `--golden-category`, `--golden-reason` and `--golden-corpus` fails and leaves
+  every golden and log unchanged (unit test).
+* A refresh that changes a golden outside the corpora it names fails, and leaves every golden and log
+  unchanged (integration test).
+* A refresh that changes one corpus's golden appends one entry to that corpus's log only; the entry's hash
+  equals the canonical SHA-256 of the new golden (integration test).
+* A golden whose bytes do not match its log's last entry fails the golden test, naming the corpus
+  (integration test).
+* The *Adding a new corpus* checklist's step 4 lists `refreshes.jsonl` beside `graph.json`.
+* Every committed golden has a log whose last entry's hash equals the golden's (integration test).
+
+Supersedes the convention clauses and the category names; no locked fork is reversed.

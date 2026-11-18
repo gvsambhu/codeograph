@@ -174,7 +174,7 @@ or fails, a comparison it was not given:
 6. Resolution follows the **run's record, never ambient configuration**. A corpus-only run is re-run
    corpus-only even when a classpath setting is present. A classpath run needs its classpath supplied
    again (ADR-033 Fork 1), and the record built from it must have the recorded summary hash. Missing or
-   different → `resolution_environment_changed`.
+   different → `resolution_settings_changed`.
 7. If the scored run recorded a transient extraction degradation (ADR-033) →
    `transient_degradation_in_scored_run`: the graph is already known not to be reproducible, for a
    recorded environmental reason.
@@ -247,7 +247,7 @@ evaluation — is discharged by Fork 3's rule 5.
 #### Constraint flagged for ADR-017
 On acceptance, Fork 3's four superseded definitions and Fork 4's coverage definition carry a *superseded
 by ADR-032* note; the skip-reason taxonomy gains `no_expectation`, `graph_modified_since_run`,
-`tool_version_changed`, `envelope_changed`, `source_changed`, `resolution_environment_changed`,
+`tool_version_changed`, `envelope_changed`, `source_changed`, `resolution_settings_changed`,
 `transient_degradation_in_scored_run`, `render_audit_missing_or_corrupt` and `no_annotations`; and Fork 2's
 derivation table states that a sharp `MinRatioThreshold` below its bar derives to `fail`.
 
@@ -318,7 +318,7 @@ merged with the output-layout cluster's where both ship in the same release**:
 7. A manifest whose recorded tool version, or JDK version, differs from the evaluating environment makes
    `reproducibility` skip with `tool_version_changed` or `envelope_changed` (unit tests).
 8. Evaluating a corpus-only run with a classpath setting present re-runs corpus-only and passes; a
-   classpath run evaluated without its classpath skips with `resolution_environment_changed` (integration
+   classpath run evaluated without its classpath skips with `resolution_settings_changed` (integration
    tests).
 9. A scored run whose manifest records a transient extraction degradation makes `reproducibility` skip
    with `transient_degradation_in_scored_run` (unit test).
@@ -506,3 +506,11 @@ a hand-worked value.
 
 * The FR-41 expectation artefact and its authoring process — its own ADR, when FR-41 is scheduled (v1.1).
 * `semantic_accuracy` and `llm_judge` — ADR-020 (v1.1).
+
+## Revision history
+
+* **2026-11-12** — The reproducibility skip reason `resolution_environment_changed` renamed
+  `resolution_settings_changed`. ADR-033 records the resolution mode and the classpath as extraction
+  settings, not as part of the execution envelope, so the old name described a framing it no longer
+  uses. The skip's condition is unchanged. Exposed by the design review of the change that made those
+  settings recorded inputs.

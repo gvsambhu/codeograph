@@ -225,12 +225,36 @@ one run — while overlapping writes are refused rather than interleaved (FR-44 
 **Outputs are written under temporary names and renamed into place**, so an interrupted invocation
 leaves nothing half-written indexed as complete (FR-44 AC-4).
 
-**Stale claims and locks** — a process that crashed:
-- same host, holding process no longer running → taken over, with a warning;
-- same host, holding process still running → a genuine conflict, handled as above (a claim is refused,
-  the brief lock is waited for);
-- another host → refused, offering `--break-lock`, which asks for consent under ADR-031 — the tool
-  cannot tell whether that holder is alive.
+**What a holder records.** A claim, the brief lock and the recovery journal (Fork 5) each record the
+identity of the process that holds them:
+
+- **the host**, as a one-way hash of its name — enough to compare, and no machine's name is written
+  into a run directory that may be committed;
+- **the process-id space** — the boot session and, where the operating system has one, the process
+  namespace — because two process-id spaces can share one host name: Windows and WSL on one machine, two
+  WSL distributions, two containers;
+- **the process id and the process's start time**, as the operating system reports it, compared to the
+  whole second — so an id the system has since given to another process is not taken for the holder;
+- **the invocation's identifier** (ADR-030), so a refusal names the invocation that holds it, which
+  `history` shows.
+
+**Stale claims and locks** — a process that crashed. The stale test compares the host, the process-id
+space, the process id and its start time:
+- same host and process-id space, holding process no longer running, or its id now naming a process with
+  another start time → taken over, with a warning;
+- same host and process-id space, holding process running with the recorded start time → a genuine
+  conflict, handled as above (a claim is refused, the brief lock is waited for);
+- another host, or another process-id space → refused, offering `--break-lock`, which asks for consent
+  under ADR-031 — the tool cannot tell whether that holder is alive.
+
+**A restart reads as another process-id space.** The boot session is part of the recorded space, so a
+claim, lock or journal left before the machine — or WSL — restarted is refused like one from another
+space: from what is recorded, the two cannot be told apart. The refusal message says that `--break-lock`
+is safe when the machine has restarted since the holder ran, or when the named invocation has ended in
+the shell that started it.
+
+**This is the project's one liveness rule.** ADR-030 records the same identity in each invocation's
+`started` entry and applies this test to tell an interrupted invocation from a running one.
 
 **Claims and locks live in the run directory** (ADR-029 places them), never in a relocated project.
 **One machine per run directory** is documented; network file systems with weak locking are not
@@ -241,14 +265,24 @@ no file list of its own, and is refused (Fork 2).
 
 ### Fork 5 — Roll back an unfinished invocation: (a)
 
-**Before the first archive move, the invocation writes a journal** to `.locks/` (placed by ADR-029): the
-moves it is about to make and the outputs it is about to publish. The journal is deleted once the
-manifest and the history's `finished` entry are written.
+**Before the first archive move, the invocation writes a journal** to `.locks/` (placed by ADR-029): its
+own identity, recorded as a claim records it (Fork 4), the moves it is about to make and the outputs it
+is about to publish. The journal is deleted once the manifest and the history's `finished` entry are
+written.
 
 - **A failing invocation** — a hard ceiling reached, a write error — **rolls itself back before exiting**:
   the outputs it published are removed, the outputs it archived are moved back, the journal is deleted.
-- **After a crash** the journal remains. **The next invocation of any command finds it first and rolls
-  back the same way**, records the recovery in the history (ADR-030), then continues with its own work.
+- **After a crash** the journal remains. **The next invocation of any command finds it first and applies
+  Fork 4's stale test to the journal's owner**, because a journal also exists for every invocation still
+  publishing:
+  - owner still running → the journal is left alone; it belongs to a live invocation mid-publish;
+  - another host or process-id space → a command that publishes outputs is refused, offering
+    `--break-lock`, as for a claim; a command that publishes nothing (`history`, `eval report`) reports
+    the journal, leaves it in place and proceeds — ADR-030 shows that invocation as *cannot tell*;
+  - owner stopped, with no `finished` entry in the history → **rolled back the same way**; the recovery
+    is recorded in the history (ADR-030), and the invocation continues with its own work;
+  - owner stopped, with a `finished` entry — a crash after step 7, before the journal was deleted → the
+    journal is deleted without a roll-back: the publish completed, and the history already says so.
 - The archived copy of the previous manifest makes the roll-back checkable: afterwards, the root manifest
   is byte-identical to that copy.
 
@@ -268,11 +302,13 @@ The recovery journal lives in `.locks/` (Fork 5).
 #### Constraint flagged for ADR-030
 The history records, per invocation, what it archived and what was purged; archive folders are named
 by invocation id (Fork 1); a recovery appends an entry naming the unfinished invocation and what was
-undone (Fork 5).
+undone (Fork 5). Each `started` entry records the holder identity Fork 4 defines, so the history and the
+claims judge a process by one test.
 
 #### Constraint flagged for ADR-031
 Every refusal here — a first render into a folder with no file list, an earlier-version folder, a held
-claim, a superseded input, a stale lock on another host — carries ADR-031's refusal status; `purge` and
+claim, a superseded input, a claim, lock or journal from another host or process-id space — carries
+ADR-031's refusal status; `purge` and
 `--break-lock` follow its consent rule, including refusing without `--yes` when nothing can prompt.
 
 ### Locations
@@ -300,6 +336,11 @@ ancestor of it, the run directory itself, its namespaces — are placement rules
 5. Using one run directory from several machines, and rendering into one `--source-out` folder from two run
    directories at once, are documented as unsupported rather than prevented.
 6. The four re-render modes are more to learn than one flag.
+7. The stale test reads a process's start time and its process-id space from the operating system, which
+   each platform reports differently.
+8. A claim, lock or journal left before a restart, or by the other shell on the same machine, waits for
+   `--break-lock`: the tool cannot tell it from a live holder elsewhere, so the roll-back a crash needs is
+   not automatic when a restart followed the crash.
 
 ## Confirmation
 
@@ -338,6 +379,19 @@ ancestor of it, the run directory itself, its namespaces — are placement rules
     place and reports them (integration test).
 17. A cross-drive archive copy that fails part-way leaves no partial archive folder and every original
     untouched (fault-injection test).
+18. A claim whose process id now names a process with another start time is taken over; a claim recorded
+    from another process-id space under the same host name is refused, offering `--break-lock` and naming
+    the holder's invocation identifier (unit test).
+19. A `history` or `eval report` run while a `render` is publishing leaves that render's journal and
+    outputs untouched (concurrency test).
+20. A journal left behind after its invocation's `finished` entry is deleted without a roll-back; the
+    published outputs and the manifest are unchanged (fault-injection test).
+21. No claim, lock or journal contains the host's name (unit test).
+22. A `history` run from another process-id space while a `render` publishes shows that render as *cannot
+    tell*, leaves its journal untouched and exits 0; a `render` run from there is refused (concurrency
+    test).
+23. A journal recording an earlier boot session is refused by a publishing command, and the message says
+    when `--break-lock` is safe (unit test).
 
 ## Pros and Cons of the Considered Options
 
@@ -441,8 +495,10 @@ ancestor of it, the run directory itself, its namespaces — are placement rules
 **(a) Roll back. ✅ Chosen.**
 * Good, because one rule covers a crash and a failure alike.
 * Good, because nothing is lost — the archive holds everything until the roll-back moves it back.
-* Good, because no manual step blocks CI.
+* Good, because no manual step blocks CI after a crash on the same host and process-id space.
 * Bad, because a failed run's completed new outputs are discarded and must be produced again.
+* Bad, because a journal from another host or process-id space — one left before a restart included —
+  waits for `--break-lock` instead of being rolled back automatically.
 
 **(b) Roll forward when possible.**
 * Good, because a run that wrote everything before crashing keeps its work.
@@ -495,3 +551,21 @@ ancestor of it, the run directory itself, its namespaces — are placement rules
 ### Open questions
 
 * None recorded at stage 1. The cluster's design review adds any it raises.
+
+## Revision history
+
+* **2026-11-12** — Fork 4 states what a claim, the brief lock and the journal record about their holder
+  — a hash of the host name, the process-id space, the process id and its start time — and the stale test
+  compares all four. Fork 5's recovery applies that test before rolling a journal back, and deletes
+  without a roll-back a journal whose invocation already recorded its `finished` entry. Exposed by the
+  design review of the change that gave ADR-030 its interrupted-or-running check: the claim's content and
+  its liveness test were unstated, a reused process id kept a dead holder alive, Windows and WSL share a
+  host name but not process ids, and a concurrent command could roll back a live invocation's journal.
+* **2026-11-18** — A claim, lock or journal also records its invocation's identifier, so a refusal names
+  the holder. A command that publishes nothing proceeds past a journal from another host or process-id
+  space, reporting it, as ADR-030 shows such an invocation. A holder left before a restart is stated to
+  read as another process-id space, with the refusal message saying when `--break-lock` is safe; Fork 5's
+  pros and cons, a Negative Consequence and the constraint flagged for ADR-031 follow. Exposed by a
+  verification of the 2026-11-12 change: read-only commands were blocked where ADR-030 reported, and the
+  cost of recording the boot session was unstated. The stale test names the four fields it compares, as
+  a fifth field is recorded beside them.
