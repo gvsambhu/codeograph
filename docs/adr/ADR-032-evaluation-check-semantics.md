@@ -138,12 +138,16 @@ The value is the count of violations across:
 3. every method's parent class exists;
 4. every unresolved call carries its origin FQCN and its target identifier (ADR-003 §5; FR-40 AC-1);
 5. every key in the annotations file resolves to a class node in the graph — run only when the run has
-   annotations; a class node with no annotation is not a violation (ADR-006, 2026-06-17 item 4; FR-34
-   AC-4).
+   annotations and the file is the one the manifest recorded; a class node with no annotation is not a
+   violation (ADR-006, 2026-06-17 item 4; FR-34 AC-4).
 
-The scorecard discloses the rule set it enforced: `details.rules_enforced` (5, or 4 when there are no
-annotations), with the rule names. When rule 5 runs, the graph scorecard's input fingerprint includes the
-annotations' SHA-256 (the output-layout amendment to ADR-017). The dropped invariant guarded a case the
+The scorecard discloses the rule set it enforced: `details.rules_enforced` (5, or 4 when rule 5 is not
+run), with the rule names, and `details.rule_5_skip_reason` holds the reason rule 5 was not run
+(`no_annotations` or `annotations_modified_since_run`). When rule 5 runs, the graph scorecard's input
+fingerprint includes the annotations' SHA-256 (the output-layout amendment to ADR-017). **An annotations
+file the manifest indexes that is missing, or whose SHA-256 differs from the manifest's,** has changed
+since the run: rule 5 is not run (`details.rules_enforced` is 4) and `details.rule_5_skip_reason` is
+`annotations_modified_since_run`. The dropped invariant guarded a case the
 default domain grouping cannot produce; its one real form — a manual domain-mapping entry that matches no
 class — is a configuration error, caught when `render` starts (FR-38 AC-2; see *Constraint flagged for
 ADR-009*).
@@ -173,8 +177,9 @@ or fails, a comparison it was not given:
 5. Recompute the corpus fingerprint. Different → `source_changed`.
 6. Resolution follows the **run's record, never ambient configuration**. A corpus-only run is re-run
    corpus-only even when a classpath setting is present. A classpath run needs its classpath supplied
-   again (ADR-033 Fork 1), and the record built from it must have the recorded summary hash. Missing or
-   different → `resolution_settings_changed`.
+   again (ADR-033 Fork 1), and the record built from it must have the recorded summary hash; the stored
+   classpath record must have the SHA-256 the manifest records for it. Missing or different →
+   `resolution_settings_changed`.
 7. If the scored run recorded a transient extraction degradation (ADR-033) →
    `transient_degradation_in_scored_run`: the graph is already known not to be reproducible, for a
    recorded environmental reason.
@@ -207,14 +212,19 @@ the opt-out.
 
 ### Fork 6 — `annotations_schema_validity`: (b)
 
-* A new graph check: `llm-annotations.json` validates against its published schema (FR-7b AC-2).
+* A new graph check: `llm-annotations.json` validates against its published schema (FR-7b AC-2) — the
+  schema of the file's major, with the properties, and the values of optional enums, it does not know
+  ignored (ADR-035 Fork 5).
   `BooleanThreshold(expected=True)`; deterministic.
 * A run without annotations (`--ast-only`) → skip, `no_annotations`.
+* An annotations file the manifest indexes that is missing, or whose SHA-256 differs from the manifest's
+  → skip, `annotations_modified_since_run`: the check never certifies, or fails, a file it was not given
+  (Fork 4's principle). A file that fails validation with its hash verifying is a writer defect.
 * **No model provenance is recorded** (`model_version`, `prompt_id` and `provider` null). FR-18 AC-1 asks
   for provenance so that a score that moves can be attributed to the tool or to the model; whether a file
   validates does not move with the model, because write-time validation (FR-7b AC-1) makes a failure a
   writer defect.
-* The check reads the annotations, so the graph scorecard's input fingerprint includes their SHA-256
+* When the check reads the annotations, the graph scorecard's input fingerprint includes their SHA-256
   (the output-layout amendment to ADR-017 records each scorecard's input fingerprints).
 * Adding a check is an additive scorecard change (ADR-017 Fork 3).
 
@@ -248,7 +258,8 @@ evaluation — is discharged by Fork 3's rule 5.
 On acceptance, Fork 3's four superseded definitions and Fork 4's coverage definition carry a *superseded
 by ADR-032* note; the skip-reason taxonomy gains `no_expectation`, `graph_modified_since_run`,
 `tool_version_changed`, `envelope_changed`, `source_changed`, `resolution_settings_changed`,
-`transient_degradation_in_scored_run`, `render_audit_missing_or_corrupt` and `no_annotations`; and Fork 2's
+`transient_degradation_in_scored_run`, `render_audit_missing_or_corrupt`, `no_annotations` and
+`annotations_modified_since_run`; and Fork 2's
 derivation table states that a sharp `MinRatioThreshold` below its bar derives to `fail`.
 
 #### Constraint flagged for ADR-021
@@ -267,7 +278,8 @@ release**:
   resolution, extraction counts, enrichment counts, two artefact entries — ADR-025);
 * **the scorecard schema** takes its next minor (`annotations_schema_validity`, `provider` in
   provenance, new skip reasons — ADR-017);
-* **the render audit** takes its next minor (render failures and placeholders — ADR-010, ADR-034);
+* **the render audit** starts at `1.0.0` if it ships with the output-layout cluster, which introduces it;
+  otherwise it takes its next minor (render failures and placeholders — ADR-010, ADR-034);
 * **the extraction report and the classpath record** start at `1.0.0` (ADR-033);
 * **the tool** takes a minor in `0.x` (the classpath and parser-timeout settings).
 
@@ -319,20 +331,26 @@ release**:
 7. A manifest whose recorded tool version, or JDK version, differs from the evaluating environment makes
    `reproducibility` skip with `tool_version_changed` or `envelope_changed` (unit tests).
 8. Evaluating a corpus-only run with a classpath setting present re-runs corpus-only and passes; a
-   classpath run evaluated without its classpath skips with `resolution_settings_changed` (integration
-   tests).
+   classpath run evaluated without its classpath, or whose stored classpath record was changed after the
+   run, skips with `resolution_settings_changed`, and `eval` completes (integration tests).
 9. A scored run whose manifest records a transient extraction degradation makes `reproducibility` skip
    with `transient_degradation_in_scored_run` (unit test).
 10. With a render audit present and verified, `coverage` records a numeric value; a render in which one
     selected class's call failed scores below 1.0, as does one with a refused class; with the audit
     deleted, or one byte changed, it skips with `render_audit_missing_or_corrupt` (integration tests).
-11. An annotations file that violates its schema fails `annotations_schema_validity`, with null model
-    provenance; an `--ast-only` run skips it with `no_annotations` (integration test).
+11. An annotations file that violates its schema, written with its hash recorded in the manifest as a
+    writer defect would be, fails `annotations_schema_validity`, with null model provenance; an
+    `--ast-only` run skips it with `no_annotations`; a file at a newer minor of its major, with a property
+    the schema does not list, passes it, and one with a value of a required enum the schema does not list
+    fails it — the optional-enum case is ADR-035's Confirmation 6, on the graph (integration test).
 12. The corpus fingerprint of a fixture corpus equals a hand-computed value over its listed files, and is
     the same from two different directories (unit test).
 13. The committed scorecard JSON Schema regenerates cleanly at its new minor version (CI freshness gate).
 14. A manual domain mapping with an entry matching no class makes `render` fail at startup with a message
     naming the entry, before any render work (unit test).
+15. Changing or deleting the annotations file after the run makes `annotations_schema_validity` skip with
+    `annotations_modified_since_run` and `internal_consistency` report `details.rules_enforced == 4` with
+    `details.rule_5_skip_reason` set to it, and `eval` completes (integration test).
 
 ## Pros and Cons of the Considered Options
 
@@ -518,3 +536,19 @@ a hand-worked value.
 * **2026-11-18** — The *Constraint flagged for ADR-026* cites ADR-035 Fork 5 for its one-bump-per-release
   rule, which it applies to this release's schemas. Exposed by ADR-035, which decides that rule for every
   schema; this constraint had stated it for one release only.
+* **2026-11-19** — The same constraint: the render audit starts at `1.0.0` when it ships with the
+  output-layout cluster, and takes its next minor only otherwise. A format that has never shipped has no
+  minor to take; ADR-029 starts the audit at `1.0.0`. Exposed by ADR-035's design review, which found the
+  two constraints at odds once the audit carries its own `schema_version`.
+* **2026-11-19** — An annotations file, and a stored classpath record, whose SHA-256 differs from the
+  manifest's now skip like the graph and the render audit: Fork 6 skips with the new reason
+  `annotations_modified_since_run`, Fork 3's rule 5 is not run with that reason, and Fork 4 step 6 adds
+  the classpath record's hash to `resolution_settings_changed`; the constraint for ADR-017 lists the new
+  reason; Confirmations 8 and 11 extended, 15 added. Fork 6 validates against the schema of the file's
+  major, ignoring what it does not know (ADR-035 Fork 5). Exposed by the re-check of ADR-035's design
+  review: these two inputs fell to a status-1 failure of the whole `eval` while the other three skipped,
+  with nothing to say why, and a newer-minor file would have failed validation against the reader's
+  schema. The second re-check: a missing annotations file skips like a changed one; the details name
+  `rule_5_skip_reason`, and `rules_enforced` is 4 whenever rule 5 is not run; Confirmation 11 gains the
+  tolerant case — a property, and a value of an optional enum, ignored; a value of a required enum is a
+  major (ADR-035 Fork 5) — and 15 the deleted file.

@@ -83,9 +83,9 @@ every command, not only the layout's. It is one of four coupled decisions:
 | Status | Meaning | Examples |
 |---|---|---|
 | **0** | Success | Everything requested was produced |
-| **1** | Failed — no usable result, or a precondition was not met | A usage error; a source location carrying credentials; a source that cannot be fetched (FR-24 AC-4); an unreadable manifest; misconfigured settings (FR-38 AC-2); an empty corpus (FR-24 AC-5); enrichment past its failure bound (FR-35 AC-6); a hard ceiling reached; any failure after which ADR-028 rolled the directory back |
+| **1** | Failed — no usable result, or a precondition was not met | A usage error; a source location carrying credentials; a source that cannot be fetched (FR-24 AC-4); an unreadable manifest; a file whose schema version disagrees with its manifest pointer (ADR-035); misconfigured settings (FR-38 AC-2); an empty corpus (FR-24 AC-5); enrichment past its failure bound (FR-35 AC-6); a hard ceiling reached; any failure after which ADR-028 rolled the directory back |
 | **2** | Completed, with outputs recorded as failed | Corpus synthesis failed but the annotations were written; some classes failed to render and were skipped and recorded; the manifest records each missing output (ADR-025) |
-| **3** | **Refused — nothing changed; safe to retry** | A claim held by another invocation; an input superseded mid-run; an earlier-version folder; a run directory holding unrelated content; a project folder with content and no file list; every requested scorecard skipped as stale; consent required and not given; the cost gate declined |
+| **3** | **Refused — nothing changed; safe to retry** | A claim held by another invocation; an input superseded mid-run; an earlier-version folder; a file with no `schema_version`, or in a schema version the tool does not read (ADR-035); a run directory holding unrelated content; a project folder with content and no file list; every requested scorecard skipped as stale; consent required and not given; the cost gate declined |
 | **4** | Completed; a quality gate failed | An evaluation check returned *fail* |
 
 **Precedence.** A refusal is exclusive — nothing was done. Otherwise the most severe applies:
@@ -276,3 +276,8 @@ The history's outcome field uses these classes.
 * **2026-11-12** — Two references brought up to date: an interrupted invocation's history shows it
   *interrupted*, the state ADR-030 Fork 4 derives, rather than *unfinished*; and ADR-016 extends the cost
   gate rather than superseding it (ADR-027, 2026-11-11 amendment). No decision changed.
+* **2026-11-19** — Fork 1's status table lists two more examples: a file with no `schema_version`, or in a
+  schema version the tool does not read, under status 3; a file whose schema version disagrees with its
+  manifest pointer, under status 1. Conforms with ADR-035, which decides both conditions and gives them
+  these statuses. Exposed by ADR-035's design review: the table the two decisions rest on did not list
+  them.
