@@ -342,3 +342,60 @@ hosts at different prices, or free**. Fork 4's pricing is amended to match; the 
 No locked decision reversed; Fork 4's pricing is aligned to the provider expansion (the protection
 remains price-independent — only the advisory figure gains endpoint awareness). Clarification +
 additive only.
+
+**2026-11-11 — The floor is the permanent base of FR-39; no version target; every command that calls an
+LLM is bounded (2 decisions).** The requirements bound LLM spend before and during every invocation that
+calls an LLM, with no end date (FR-39): an estimate, a confirmation above a threshold, a rule for
+non-interactive invocations, and optional hard ceilings on spend. This ADR's design meets AC-1 to AC-4 for
+`run`. Its premise that the floor is temporary no longer holds, and one command was never covered.
+
+1. **Nothing here is removed at a version.** The *Removal contract*, the Consequence *"removed cleanly at
+   `1.1.0`"*, and the relationship *"Superseded by ADR-016 (target removal: `1.1.0`)"* are superseded: a
+   scope's completion sets no version (ADR-026, 2026-11-11 amendment), and FR-39 keeps the estimate, the
+   confirmation gate and its non-interactive behaviour permanently. **ADR-016 extends this floor rather
+   than replacing it** — it adds what FR-39 still lacks: a dry run (AC-5), a ceiling in money (AC-6) and
+   the end-of-invocation report (AC-7). FR-39 AC-4 names no unit, so whether the call and token ceilings
+   stay beside the money ceiling is ADR-016's fork; until then they are this floor's AC-4 ceilings.
+
+   **Reading this ADR.** Wherever this ADR — its 2026-06-29 amendment included — calls the floor
+   temporary or throwaway, says it is removed, or says ADR-016 supersedes it at `1.1.0`, read: *the
+   permanent base that ADR-016 extends*. The title is kept as the record of what was decided on 2026-06-29.
+
+2. **The floor applies to every command that calls an LLM — `run` and `render`.** Each runs the estimate
+   before its first call, applies the confirmation gate, and takes the same flags: `--max-llm-calls`,
+   `--max-tokens-total`, `--llm-call-confirm-threshold`, `--yes`, `--non-interactive`. A declined gate is a
+   refusal and a ceiling stop a failure, with the statuses ADR-031 assigns.
+
+   **`render`'s estimate is computed from the graph and the source it points at.** `render` makes one call per class selected for
+   rendering (ADR-009), so its call count is known before any call. Its input tokens are estimated from
+   each selected class's source characters, read from the source files the graph names, at the
+   characters-per-token ratio ADR-005 measured for Java
+   (D-005-4), together with the context sent with it; its output tokens at the per-call output cap. The
+   token figures are an estimate, not a ceiling — the gate counts calls (Fork 2). A class a policy
+   refuses makes no call, so the call count errs high. The confirmation threshold stays one call count,
+   shared by every command.
+
+**Constraint flagged for ADR-020.** An LLM-judge check runs under this floor: `eval` knows its call count
+before any call, and takes the same estimate, gate and ceilings.
+
+**Rejected alternatives.**
+* *Keep the floor temporary* — contradicts FR-39, whose AC-1 to AC-4 carry no end date.
+* *A new ADR superseding this one* — the published rule supersedes a decision whose option changes or
+  whose scope grows, and both happen here. It is not followed because ADR-016 will restate the whole
+  spend surface — the money ceiling, the dry run and the report — on top of this floor. A superseding
+  floor ADR would be one more record for ADR-016 to cite, with no change to Forks 1–4.
+* *Name the commands rather than state a rule* — `eval` calls an LLM once ADR-020's checks exist, and a
+  list of commands would leave it unbounded.
+
+**New Confirmation items (from this amendment):**
+* `render` shows an estimate based on its selected-class count before any LLM call and, above the
+  threshold, asks for confirmation; with no terminal and neither `--yes` nor `--non-interactive`, it
+  refuses with status 3 (CLI test).
+* `render --max-llm-calls N` stops after N calls with status 1, reporting what was completed (CLI test).
+* `render`'s estimated call count equals the number of classes selected for rendering, and its input-token
+  estimate is the selected classes' source characters, plus the context sent, at ADR-005's ratio (unit
+  test). On the committed example, the input-token estimate lies within a band of the tokens the calls
+  used; the test states the band and its basis in ADR-005's measurement (integration test).
+
+Reverses the floor's temporary status — the removal contract and the `1.1.0` target are superseded —
+and extends Forks 1–4, unchanged, to every command that calls an LLM.

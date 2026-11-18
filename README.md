@@ -100,7 +100,7 @@ To prevent accidental runaway API bills during large runs, Codeograph implements
 - **Hard Ceilings:** You can configure hard limits using `--max-llm-calls N` or `--max-tokens-total M`. A middleware wrapper checks these ceilings mid-run and aborts execution immediately if either threshold is reached, displaying the partial progress manifest.
 
 > [!NOTE]
-> **Removal Contract:** These temporary cost limits are built for v1.0.0 and will be replaced in **v1.1.0** by live billing-accurate budget tracking (`--max-cost-usd`).
+> The estimate and the confirmation gate are permanent. The call and token ceilings remain until a ceiling in money is designed, which decides whether they stay. Planned additions: a dry run that estimates cost without making paid calls, a ceiling in money (`--max-cost-usd`), and a report of token use and cost at the end of each run and render. `codeograph render` shows no estimate and asks no confirmation yet — see [Known gaps](#known-gaps).
 
 ## Rendering (DC3)
 
@@ -202,6 +202,7 @@ The limitations above are deliberate v1 scope. These are different: places where
 - **Render policies and domain grouping cannot yet be set.** `codeograph render` reads only its command-line flags; the `[render.typescript]` configuration section is not read yet, so the defaults always apply — security and WebFlux classes refused, other unsupported features rendered as stub + TODO, package-prefix domain grouping. WebFlux classes are detected from the LLM's annotations rather than from the graph, so on a run with `--ast-only` none is detected and each is rendered instead of refused.
 - **The feature-coverage check does not run yet.** The code-quality scorecard's `coverage` check needs a record of which features rendering translated, and rendering does not yet write one, so the check is always reported as skipped.
 - **Telemetry records no per-call cost.** Each call's cost estimate is written as `0.0`, so the cost lines in `codeograph cache report` always read ~$0.00. The pre-flight estimate shown before a run is computed separately and is unaffected.
+- **`codeograph render` runs without the cost estimate and confirmation gate.** It shows no estimate, asks no confirmation and takes no ceiling flags. A call or token ceiling set by environment variable or config file does apply to it; without one, its LLM calls are bounded only by the per-domain class cap.
 - **Cloning a git URL that needs credentials can wait for input.** `git clone` runs with prompting enabled, so for a private repository without stored credentials git may ask for a username and wait — in CI, a hang — instead of failing with an error that names the cause.
 
 ## Documentation

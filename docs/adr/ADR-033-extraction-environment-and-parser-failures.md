@@ -14,10 +14,11 @@ informed: future contributors
 cited as it stands at that commit. No symbol solver is configured in the shipped parser, so no
 third-party reference resolves on any machine; the decisions below govern resolution as designed.
 
-The requirements make the knowledge graph *"a function of the corpus and the tool alone"* — nothing
-outside them may change a byte of it (FR-34) — and require byte-identical graphs within a declared,
-pinned execution envelope (FR-10 AC-2, NFR-6). Two decisions in ADR-003 let something outside the corpus
-and the tool change the graph.
+The requirements make the knowledge graph a function of the corpus, the tool and its recorded
+extraction settings alone — nothing else may change a byte of it (FR-34) — and require byte-identical
+graphs for the same corpus, version and recorded extraction settings, within a declared, pinned execution
+envelope (FR-10 AC-2, NFR-6). Two decisions in ADR-003 let something that is neither the corpus, the
+tool nor a recorded extraction setting change the graph.
 
 **1 · Third-party resolution reads the machine's local Maven repository.** ADR-003's classpath fork chose
 CP2: JavaParser's symbol solver adds a JAR solver for each dependency *"resolved from a parsed `pom.xml` +
@@ -115,15 +116,16 @@ ahead of it.
   edge fork; FR-40 AC-1). The tool never reads a local repository and never parses `pom.xml` or a Gradle
   build file for resolution.
 * **Opt-in:** a **classpath setting** names the classpath the project's own build resolved. It resolves
-  through the documented precedence — invocation flag, environment, local environment file, project
-  config file — and has no built-in default (FR-38 AC-1). Its name follows ADR-001's naming rule and is
-  fixed at implementation.
+  through the documented precedence — invocation flag, environment, the user's environment file, the
+  user's config file — and has no built-in default (FR-38 AC-1). Its name follows ADR-001's naming rule
+  and is fixed at implementation.
 * **Producing the input** is the user's step, with their own build tool — for example
   `mvn dependency:build-classpath -Dmdep.outputFile=classpath.txt`, or a Gradle task that prints a
   configuration's resolved files. The tool reads the result; it never runs the build (assumption 4). Gradle
   projects gain third-party resolution this way, which CP2 never offered.
-* **Validated at startup:** every listed entry must exist and be readable. A setting naming a missing or
-  unreadable file fails before any work, with exit status 1 and a message naming the entry (FR-38 AC-2;
+* **Validated at startup:** every listed entry must exist and be readable — for a mapping, every
+  classpath file it names and every entry in each. A setting naming a missing or unreadable file fails
+  before any work, with exit status 1 and a message naming the entry (FR-38 AC-2;
   ADR-031).
 * **Entries that are the corpus's own output are dropped.** A build-produced classpath can list the
   corpus's own modules — a reactor build lists their `target/classes` directories, a standalone one their
@@ -136,22 +138,34 @@ ahead of it.
 * **Read by `run`, and by evaluation's reproducibility re-run** — and there only to supply the entries
   again: the re-run's resolution mode always comes from the run's record, so a classpath setting present
   at evaluation is ignored when the run was corpus-only (ADR-032 Fork 4).
-* **The classpath is part of the declared envelope when used.** A corpus-only graph is a function of the
-  corpus and the tool alone (FR-34). A classpath-mode graph is reproducible given the same classpath
-  record as well — the record is the envelope's resolution component (NFR-6 AC-4), and ADR-032's check
-  compares it before comparing graphs. The golden harness and CI always run corpus-only, whatever a
-  contributor's environment sets (see *Constraint flagged for ADR-007*).
+* **The classpath is a recorded extraction setting, not part of the envelope.** The resolution mode,
+  and in classpath mode the classpath record, are recorded extraction settings: a graph is a function of
+  the corpus, the tool and those settings alone (FR-34), and is reproducible given the same ones (NFR-6).
+  A corpus-only graph needs only the mode; a classpath-mode graph needs the same classpath record as
+  well, and ADR-032's check compares it before comparing graphs. The envelope stays the pinned
+  environment ADR-007 Fork 8 declares, which a user-supplied classpath is not part of. The golden harness
+  and CI always run corpus-only, whatever a contributor's environment or configuration sets (see
+  *Constraint flagged for ADR-007*).
 
 ### Fork 2 — Per-module classpaths: (b)
 
 * Modules resolve their own dependencies, and two modules can resolve different versions of one library.
   The setting therefore takes **either** one file, applied to every module, **or** a mapping from module
   (identified by its corpus-relative path, as FR-30 AC-1 labels it) to file.
-* **The mapping lives only in the project config file**, as a table from module path to file. The
-  invocation flag, the environment and the local environment file carry the single-file form only. The
-  layers resolve as FR-38 AC-1 orders them, each layer's value whole: a single file given at a higher
-  layer replaces a lower layer's mapping.
+* **The setting names one file, at every layer: a classpath file or a mapping file.** A mapping file is
+  a table from module path to classpath file; paths in it resolve against the mapping file's own folder,
+  and its format is fixed at implementation. The two are told apart by content, so **the mapping format
+  is chosen so that no classpath file parses as one**. A file that is neither — a mapping that does not
+  parse, or lines that are not paths — fails at startup with one error naming the file, not an entry.
+  A file with no entries is the same error, and so is a file whose lines contain the mapping's separator
+  but do not parse as a mapping.
+  Because the value is a path, the mapping travels per project and per CI job through the invocation flag
+  or the environment; the user's config file, shared by every project, can name one too, and then applies
+  to every project the user runs. The layers resolve as FR-38 AC-1 orders them, each layer's value whole: a
+  file named at a higher layer replaces a lower layer's, whichever form either is.
 * A module the mapping omits resolves corpus-only, and the end-of-run report names it.
+* A mapping entry whose module path matches no module of the corpus draws a warning in the end-of-run
+  report — the sign that the mapping belongs to another project.
 * A classpath file is a list of JAR paths, separated by the platform path separator (as Maven writes it) or
   one per line.
 
@@ -222,7 +236,7 @@ report, so the console and the file cannot disagree.
 
 The graph keeps recording, on each node, which extraction produced it (FR-31 AC-1); the report adds the
 reason and the run-level view. Every entry except the transient marker is a function of the corpus, the
-tool and the declared environment.
+tool, the recorded extraction settings and the declared environment.
 
 ### Constraints flagged for other ADRs
 
@@ -251,12 +265,15 @@ targets; CBO, and the selection ranked on it (ADR-009), follow the recorded reso
 cited CBO bands assume library coupling is for ADR-004 to state.
 
 #### Constraint flagged for ADR-007
-The golden harness and CI run corpus-only, whatever classpath setting the environment carries, and the
-envelope ADR-007 declares records the resolution mode beside the operating system and JDK.
+The golden harness and CI run corpus-only, with `home_dir` pointed at a temporary folder, whatever
+classpath setting or configuration the contributor's environment carries. Each golden's refresh log
+entry records the extraction settings the golden was captured with — the resolution mode, always
+corpus-only — and the golden test asserts that a run's settings equal the last entry's. These settings
+are not part of the envelope ADR-007 declares.
 
 #### Constraint flagged for ADR-021
 When the determinism contract is written, it absorbs or cites this ADR's two rules — the resolution
-environment as a recorded part of the envelope, and transient degradation as a flagged exception.
+mode and classpath as recorded extraction settings, and transient degradation as a flagged exception.
 
 ## Consequences
 
@@ -276,8 +293,11 @@ environment as a recorded part of the envelope, and transient degradation as a f
   corpus's reproducibility check skips until the file or the parser changes.
 * Bad, because in the default mode CBO counts no library call targets, so CBO values and the selection
   ranked on them differ from a classpath-mode run of the same corpus. Both are recorded with their mode.
-* Bad, because a multi-module project that wants per-module classpaths must write the mapping in its
-  config file; the command line and the environment carry one file only.
+* Bad, because a multi-module project that wants per-module classpaths writes and keeps current a mapping
+  file as well as one classpath file per module.
+* Bad, because a classpath or mapping named in the user's config file applies to every project the user
+  runs; a project that needs its own is given it by the invocation flag or the environment, and a
+  mapping meant for another project shows only as warnings for its unmatched modules.
 * Good, because degraded files, excluded sources and reduced-resolution conditions finally have one
   record, and the end-of-run report is generated from it.
 * Neutral, because the manifest gains a resolution section and counts, and the run directory an extraction
@@ -315,8 +335,13 @@ environment as a recorded part of the envelope, and transient degradation as a f
 12. A classpath listing a corpus module's `target/classes` directory and another module's installed JAR
     drops both, names them in the end-of-run report and the record, and the summary hash is unchanged after
     rebuilding those modules (integration test on a two-module fixture).
-13. A per-module mapping in the config file applies per module; the same setting given as a single file on
-    the command line replaces the mapping for every module (unit test).
+13. A mapping file named on the command line applies per module; a single classpath file named in the
+    environment replaces a mapping file named in the user's config file, for every module; a file that
+    parses as a table is read as a mapping, any other as a classpath; a mapping naming a missing classpath
+    file, or a classpath file in it listing a missing entry, fails at startup with exit status 1; a file
+    that is neither, an empty file, and a file whose lines contain the mapping's separator but do not
+    parse as a mapping each fail with one error naming the file; a mapping entry whose module path matches no
+    module draws a warning in the end-of-run report (unit tests).
 14. A JAR with two embedded Maven coordinate sets is recorded by its file-name stem and SHA-256 (unit test).
 
 ## Pros and Cons of the Considered Options
@@ -422,8 +447,9 @@ environment as a recorded part of the envelope, and transient degradation as a f
   the parser choice and extraction approach are unchanged.
 * **ADR-004** (complexity model) — CBO counts resolved call targets, so its value follows the resolution
   mode recorded here (a constraint flagged above).
-* **ADR-007** (golden-graph pattern) — its declared envelope gains the resolution mode, never a local
-  repository; goldens are captured corpus-only and are stable on every machine.
+* **ADR-007** (golden-graph pattern) — each golden's refresh log records its extraction settings, never a
+  local repository; goldens are captured corpus-only, isolated from the contributor's configuration, and
+  are stable on every machine.
 * **ADR-009** (rendering budget cap) — selection ranks on CBO, so it too follows the resolution mode.
 * **ADR-021** (determinism contract, v1.1) — absorbs or cites this ADR's two rules.
 * **ADR-025** (manifest schema) — the resolution section and the transient flag.
@@ -451,3 +477,25 @@ NFR-6 AC-3, AC-4 · assumptions 2 and 4.
 ### Deferred
 
 * The full determinism contract — per-field classification and consumer guarantees — ADR-021 (v1.1).
+
+## Revision history
+
+* **2026-11-11** — The resolution mode and the classpath record are recorded extraction settings, not part
+  of the execution envelope: Fork 1's envelope bullet, the constraints flagged for ADR-007 and ADR-021,
+  the ADR-007 relationship, the report's conditions, and the Context's FR-34 and NFR-6 wording follow. No
+  fork changes — what is recorded, and how the reproducibility check compares it, stay as decided.
+  Exposed by a requirements revision: the requirements define the envelope as the pinned environment, and
+  a classpath the user supplies is an input, so NFR-6 and FR-34 now name *recorded extraction settings*.
+* **2026-11-12** — Fork 2: the classpath setting names a classpath file or a mapping file at every layer,
+  so a per-module mapping travels per project and per CI job; the setting's precedence names the user's
+  environment and config files. The constraint flagged for ADR-007 now names its record — each golden's
+  refresh log entry — and isolates the golden harness from the contributor's configuration. Exposed by
+  the design review of the change that reads configuration from `home_dir` only (ADR-029 Fork 8): the
+  mapping had lived only in a project config file, which no longer exists. A Consequence follows.
+* **2026-11-18** — Fork 2: the mapping format is required to be one no classpath file parses as, a file
+  that is neither fails with one error naming it, and the startup check covers a mapping's classpath
+  files and their entries; a mapping entry that matches no module draws a warning; a Consequence states
+  that a classpath or mapping in the user's config file applies to every project. Exposed by a
+  verification of the 2026-11-12 change: detection rested on a format fixed only at implementation, and
+  the shared config layer carried a mapping to every project unstated. An empty file, and a malformed
+  mapping whose lines look like paths, are the same one error.

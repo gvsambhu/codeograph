@@ -746,3 +746,10 @@ removed. That precondition no longer holds; ADR-025 takes a companion note.
 
 No reversal of any prior decision. Fork 2's field gains a computation and a null state; the manifest
 regains fields the 2026-06-07 amendment deferred, on the trigger that amendment specified.
+
+**2026-11-18 — ADR-027's floor is permanent (no decision changes).** The 2026-08-12 amendment's
+*Relationship to ADR-027's removal contract* quotes ADR-027 as *"temporary by construction… removed when
+ADR-016 lands"*. ADR-027's 2026-11-11 amendment supersedes that removal contract: the floor is the
+permanent base of the spend bounds, and ADR-016 extends it rather than replacing it. Read the paragraph
+with that change: ADR-016 may add a live tally as a further source of the figures. What this ADR decided
+is unchanged — the obligation to record cost lives here, whatever supplies the figures.

@@ -34,8 +34,9 @@ command replaces an output, nothing says what was there, which command produced 
 earlier command finished.
 
 **The requirements** ask that every invocation be recorded with its command, its outcome,
-the invocation it built on, what it produced and what it superseded; that an unfinished invocation be
-distinguishable; and that the history be viewable without an external service (FR-43). The run directory
+the invocation it built on, what it produced and what it superseded; that an interrupted invocation be
+distinguishable from one that finished and from one still running; and that the history be viewable
+without an external service (FR-43). The run directory
 is reused by every command against a run (glossary, *Output directory*), and superseded output is kept
 (FR-42) — so a directory accumulates a history that has to be legible.
 
@@ -56,7 +57,8 @@ invocation logs.** It is one of four coupled decisions:
 * **One join key per record** — any manifest entry, log line or telemetry record leads to the invocation
   that wrote it (FR-20 AC-3).
 * **The manifest stays about the present** — history lives beside it, not inside it.
-* **An interrupted invocation is visible as unfinished** (FR-43 AC-2).
+* **An interrupted invocation is told apart** from one that finished and from one still running
+  (FR-43 AC-2).
 * **No external service required** — everything is inspectable locally (FR-43 AC-3).
 
 ## Considered Options
@@ -79,6 +81,12 @@ invocation logs.** It is one of four coupled decisions:
 * (a) One log file per run directory that every command appends to, with a field naming the command.
 * **(b) One log file per invocation, `logs/<invocation id>.jsonl`. ✅**
 * (c) Only `run` logs to a file (the shipped behaviour).
+
+### Fork 4 — How `history` tells an interrupted invocation from one still running
+
+* **(a) The `started` entry records the process; `history` checks whether it is still alive. ✅**
+* (b) `history` checks whether the invocation still holds an ADR-028 claim.
+* (c) A running invocation refreshes a heartbeat; one older than a threshold counts as interrupted.
 
 ## Decision Outcome
 
@@ -111,14 +119,26 @@ own `schema_version`. **Two entries per invocation:**
 
 | Entry | Written | Holds |
 |---|---|---|
-| `started` | when the invocation begins | identifier · parent · command · the options given on the command line · start time (UTC) · codeograph version |
-| `finished` | when it ends, whatever the result | identifier · end time · outcome · what it produced · what it superseded and archived · for `purge`, what it removed |
+| `started` | when the invocation begins | identifier · parent · command · the options given on the command line · start time (UTC) · codeograph version · the holder identity ADR-028 Fork 4 defines — host, process-id space, process id and the process's start time (Fork 4) |
+| `finished` | when it ends, whatever its outcome | identifier · end time · outcome · what it produced · what it superseded and archived · for `purge`, what it removed · for an invocation that called an LLM, its LLM totals |
 
-- **Outcome** is one of ADR-031's five classes — success, failure, completed with recorded failures,
-  refused, quality gate failed — the same class as the exit status.
-- **A `started` entry with no `finished` entry is an invocation that did not finish** (FR-43 AC-2) —
-  crashed, killed, or still running. A refused invocation still writes both: refusing changes no artefact
-  and no superseded output (FR-45 AC-2), and the history is a diagnostic record, not an artefact.
+- **Outcome** is one of the five exit statuses ADR-031 assigns — success, failure, completed with
+  recorded failures, refused, quality gate failed — the same as the invocation's exit status. Exit 130,
+  for an interrupt, is never written: an interrupted invocation leaves no `finished` entry, and `history`
+  derives it (Fork 4).
+- **A `started` entry with no `finished` entry is an invocation that has not finished** — still running,
+  or interrupted (Ctrl-C, killed, crashed); Fork 4 tells the two apart (FR-43 AC-2). A refused invocation
+  still writes both entries: refusing changes no artefact and no superseded output (FR-45 AC-2), and the
+  history is a diagnostic record, not an artefact.
+- **An invocation's LLM totals live in its `finished` entry** (FR-16 AC-3): the requests it made,
+  counted by FR-16 AC-1's three kinds — answered by the provider, answered from the cache, failed — its
+  input and output tokens, and its cost. A call whose route has no price carries no cost, and the total
+  is then marked unavailable, never `$0` — ADR-027 Fork 4's rule for an unknown price. The manifest keeps
+  its present-tense aggregates (ADR-015, ADR-025); the history is where every invocation's totals stay,
+  including one whose outputs a later invocation superseded.
+- **An interrupted invocation's totals are derived.** It writes no `finished` entry, so `history` sums
+  its telemetry records, which carry its identifier (ADR-015), and shows the totals marked *derived*; when
+  that telemetry is not on this machine, they are shown as unavailable.
 - **No secret is ever recorded.** A source location carrying credentials is refused before anything is
   written (ADR-002 amendment); credentials otherwise come only from the environment (FR-38 AC-3) and
   never reach any record (FR-38 AC-5); and every recorded value passes through credential stripping
@@ -132,9 +152,10 @@ own `schema_version`. **Two entries per invocation:**
     mount), its entries go to a fallback history under `<home_dir>/history/`, keyed by the run
     directory's identity, and `history` says so;
   - **`history` hides its own entries by default** (`--all` shows them), so viewing does not drown the
-    record.
+    record — except a recovery entry, which is always shown.
 - **A recovery is recorded** (ADR-028 Fork 5): the invocation that rolls back an unfinished one appends an
-  entry naming it and what was undone.
+  entry naming it and what was undone. `history` shows a recovery entry whichever command wrote it,
+  `history` itself included.
 - **A truncated last line** — from a crash mid-append — is skipped and reported by readers; writers write
   each line and its newline in one call.
 
@@ -166,6 +187,41 @@ file, a log is never appended to by a later command, and an invocation's log can
 **Logs are kept with the history.** They are diagnostic records, not superseded output, so nothing
 archives them; retention is deferred with log rotation (ADR-022).
 
+### Fork 4 — The recorded process, checked for liveness: (a)
+
+**The `started` entry records the holder identity ADR-028 Fork 4 defines** — the host, the process-id
+space, the process id and the process's start time. For an entry with no `finished` entry, `history`
+applies ADR-028 Fork 4's stale test to it:
+
+| Where the invocation started | Its process | `history` shows |
+|---|---|---|
+| This host and process-id space | Alive, with the recorded start time | **running** |
+| This host and process-id space | Gone, or the id now belongs to a process with another start time | **interrupted** |
+| This host and process-id space | Gone, and a later invocation rolled it back (ADR-028 Fork 5) | **interrupted — recovered by** the recovering invocation's identifier |
+| Another host, another process-id space, or an earlier boot of this machine | — | **not finished — started where its process cannot be checked, cannot tell** |
+
+**The start time defeats a reused process id**: an id that now names a different process is not taken for
+the original. **Another host or process-id space is reported, not guessed** — ADR-028 refuses a claim
+from one for the same reason, and lets `history`, which publishes nothing, proceed past a journal from
+one (ADR-028 Fork 5). **A restart reads the same way**: the boot session is part of the recorded
+process-id space (ADR-028 Fork 4), so an invocation a restart killed shows as *cannot tell*. FR-43 AC-2
+is therefore met for an interruption within one boot; a restart is the stated exception. Windows and WSL
+on one machine share a host name but not process ids, which
+is why the process-id space is compared too.
+
+**A `finished` entry is final.** A journal its invocation left behind is deleted without a roll-back
+(ADR-028 Fork 5), so no recovery ever names a finished invocation.
+
+**The check covers every invocation, read-only ones included.** `history` and `eval report` take no claim,
+so a claim-based check (b) would show a running `eval report` as interrupted. **No heartbeat** (c): it
+would cover the cases this check reports as *cannot tell* — another host, another process-id space such
+as Windows and WSL on one machine, and an earlier boot — but it writes throughout the run, needs a threshold with no
+cited basis, is a second liveness rule beside ADR-028's, and leaves a window in which a dead invocation
+still looks alive.
+
+**`history --json` returns the derived state beside the raw entries**, so a script reads the same
+answer a person sees.
+
 ### Constraints flagged for other ADRs
 
 #### Constraint flagged for ADR-002
@@ -181,17 +237,20 @@ Every manifest entry records the identifier of the invocation that produced it.
 
 #### Constraint flagged for ADR-015
 Each invocation's telemetry records carry that invocation's identifier, and its telemetry file is named by
-it — for `render` as for `run`.
+it — for `render` as for `run` — so an interrupted invocation's totals can be derived from them (Fork 2).
+A call whose route has no price records no cost, rather than a cost of zero.
 
 #### Constraint flagged for ADR-031
-The outcome recorded in the history uses the same five classes as the exit statuses.
+The outcome recorded in the history is one of the five exit statuses; exit 130, for an interrupt, is
+derived by `history`, never written (Fork 4).
 
 ## Consequences
 
 **Positive.**
 1. Every record joins to the invocation that wrote it.
 2. A run directory's history is one command away, without opening any file.
-3. An interrupted invocation is visible as unfinished.
+3. An interrupted invocation is shown as interrupted — distinct from a finished one and from one still
+   running — for every command, read-only ones included.
 4. `render` and `eval` gain log files, matching the verbosity flags they already accept.
 5. One identity rule replaces three inconsistent behaviours.
 
@@ -200,6 +259,9 @@ The outcome recorded in the history uses the same five classes as the exit statu
 2. Every invocation writes two history entries and a log file.
 3. One run's work spans several identifiers; grouping them needs the history. An evaluation's records no
    longer carry the run's identifier, so a reader that relied on it changes.
+4. For an invocation started on another host or in another process-id space — the other shell on the same
+   machine included — or before the machine last restarted, `history` cannot say whether it is running or
+   interrupted.
 
 ## Confirmation
 
@@ -209,8 +271,10 @@ The outcome recorded in the history uses the same five classes as the exit statu
    and that identifier's history entry names the `run` it rendered (integration test — FR-20 AC-3).
 3. After `run`, `render` and `eval`, `runs.jsonl` holds six entries — `started` and `finished` for each —
    with outcome `success` (integration test).
-4. Killing an invocation after it starts leaves a `started` entry with no `finished` entry, and `history`
-   marks it as not finished (fault-injection test).
+4. Killing an invocation before its recovery journal is written (ADR-028 Fork 1, step 4) leaves a
+   `started` entry with no `finished` entry, and `history` shows it as interrupted. Killing one after the
+   journal is written, then running `history`, shows it as interrupted and recovered by that `history`
+   invocation, without `--all` (fault-injection test).
 5. A refused invocation writes both entries, with outcome `refused`, and changes no artefact (integration
    test).
 6. Two invocations running at once produce whole, non-interleaved lines in `runs.jsonl` and two separate
@@ -227,8 +291,20 @@ The outcome recorded in the history uses the same five classes as the exit statu
 12. `eval report` over two run directories appends its entries to both (integration test).
 13. A history file whose last line is truncated is read without error, and the truncation is reported
     (unit test).
-14. The outcome field takes each of the five classes, always matching the exit status (unit test).
+14. The outcome field takes each of the five exit statuses, always matching the invocation's, and never
+    *interrupted* (unit test).
 15. A source URL carrying a token is refused before any history entry is written (integration test).
+16. `history` run while a `render` and an `eval report` are still running shows both as running; a
+    `started` entry whose process id now belongs to a process with another start time shows as
+    interrupted; one recording another host, another process-id space or an earlier boot session shows as
+    *cannot tell* (integration and unit tests).
+17. Two `render` invocations against one run each record their own LLM totals in their `finished`
+    entries, and the second does not change the first's (integration test — FR-16 AC-3).
+18. An interrupted `run` shows LLM totals marked *derived*, equal to the sums of its telemetry records
+    (fault-injection test).
+19. An invocation in which one call's route has no price records its total cost as unavailable, not `0`
+    (unit test).
+20. No `runs.jsonl` entry contains the host's name; a `started` entry holds its one-way hash (unit test).
 
 ## Pros and Cons of the Considered Options
 
@@ -294,6 +370,28 @@ The outcome recorded in the history uses the same five classes as the exit statu
 * Bad, because `render` and `eval` accept the verbosity flags with no file output, contradicting ADR-022
   Fork 6's same-flags-everywhere decision.
 
+### Fork 4 — Running or interrupted
+
+**(a) The recorded process, checked for liveness. ✅ Chosen.**
+* Good, because it covers every invocation, read-only ones included.
+* Good, because it is the same liveness test ADR-028 applies to a stale claim — one rule, not two.
+* Good, because recording the process's start time defeats a reused process id.
+* Bad, because an invocation started on another host or in another process-id space is reported as
+  *cannot tell*.
+* Bad, because every `started` entry carries four more fields.
+
+**(b) A claim still held.**
+* Good, because it reuses state ADR-028 already keeps, and adds no field.
+* Bad, because read-only invocations take no claim, so a running `history` or `eval report` shows as
+  interrupted — FR-43 AC-2 is not met for them.
+* Bad, because `history` comes to depend on ADR-028's lock layout.
+
+**(c) A heartbeat.**
+* Good, because it works across hosts.
+* Bad, because a running invocation writes throughout, and the staleness threshold needs a cited basis.
+* Bad, because until the threshold passes a dead invocation still looks alive.
+* Bad, because it is a second liveness rule beside ADR-028's.
+
 ## More Information
 
 ### Relationships
@@ -302,7 +400,7 @@ The outcome recorded in the history uses the same five classes as the exit statu
   parent); Forks 4 and 6 unchanged.
 * **ADR-029** (output layout and ownership) — places `runs.jsonl` and `logs/`.
 * **ADR-028** (what a command may overwrite, delete or refuse) — names archive folders by invocation
-  identifier; supplies the brief lock the history is appended under.
+  identifier; supplies the brief lock the history is appended under, and the liveness test Fork 4 reuses.
 * **ADR-031** (command outcomes and consent) — the outcome classes recorded here.
 * **ADR-025** (manifest schema) — amended so every entry records its producing invocation.
 * **ADR-015** (telemetry and response cache) — telemetry carries each invocation's identifier.
@@ -311,10 +409,11 @@ The outcome recorded in the history uses the same five classes as the exit statu
 
 ### Requirements touched
 
+* **FR-16 AC-3** — each invocation that called an LLM records its totals (Fork 2).
 * **FR-20 AC-2, AC-3** — every invocation logs; one identifier per record joins manifest, logs and
   telemetry (Forks 1, 3).
-* **FR-43 AC-1, AC-2, AC-3** — every invocation recorded; unfinished ones visible; viewable locally
-  (Fork 2).
+* **FR-43 AC-1, AC-2, AC-3** — every invocation recorded; an interrupted one told apart from a finished
+  one and from one still running; viewable locally (Forks 2, 4).
 * **FR-45 AC-2** — a refused invocation changes no artefact; its history entries are diagnostic records.
 * **FR-38 AC-3, AC-5** — secrets come only from the environment, and none enters the history.
 
@@ -330,3 +429,32 @@ The outcome recorded in the history uses the same five classes as the exit statu
 ### Open questions
 
 * None recorded at stage 1. The cluster's design review adds any it raises.
+
+## Revision history
+
+* **2026-11-10** — Fork 4 added: `history` tells an interrupted invocation from one still running by
+  checking, on the same host, whether the process recorded in the `started` entry is alive — ADR-028's
+  stale-claim test; for another host it reports that it cannot tell. The `started` entry gains the host
+  and the process identity, and the outcome field is stated as five completion classes, with
+  *interrupted* derived. Exposed by a requirements revision: FR-43 AC-2 now asks that an interrupted
+  invocation be distinguishable from one still running, which a missing `finished` entry alone cannot
+  show.
+* **2026-11-11** — The `finished` entry gains the invocation's LLM totals — calls, tokens and cost — so
+  each invocation's totals survive a later one that supersedes its outputs; the manifest keeps its
+  present-tense aggregates. Exposed by a requirements revision: FR-16 AC-3 now asks that each invocation
+  that called an LLM record its totals, which a per-pass manifest aggregate cannot keep for two `render`
+  invocations.
+* **2026-11-12** — Fork 4 records the holder identity ADR-028 Fork 4 defines — the host as a one-way
+  hash, the process-id space, the process id and its start time — and applies ADR-028's stale test in
+  place of a same-host check; a `finished` entry is final, so no recovery names a finished invocation.
+  The `finished` entry counts requests by FR-16 AC-1's three kinds, an unpriced call makes the cost
+  unavailable (ADR-027 Fork 4), and an interrupted invocation's totals are derived from its telemetry.
+  Exposed by the design review of the 2026-11-10 and 2026-11-11 changes: the liveness test was unstated,
+  a reused process id or the other shell on one machine could be taken for the holder, and an interrupted
+  invocation's totals were lost.
+* **2026-11-18** — The outcome is stated in ADR-031's exit statuses; the heartbeat's rejection and the
+  *cannot tell* statements name another process-id space as well as another host; `history` proceeds
+  past a journal from another host or space (ADR-028 Fork 5) and always shows a recovery entry; a
+  Confirmation item covers the host's hash in `runs.jsonl`. An invocation a restart killed shows as
+  *cannot tell* — in the heartbeat's rejection too — and FR-43 AC-2 is stated as met within one boot; Confirmation 4's kill points are set at
+  the journal write. Exposed by a verification of the 2026-11-12 change.

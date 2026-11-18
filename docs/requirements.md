@@ -79,6 +79,7 @@ Terms are ordered so that each is defined before it is used, except *invocation*
 | **Golden** | A committed known-good artefact for a pinned input (FR-7c). |
 | **Diagnostic record** | A file the tool writes for later inspection rather than as an output — the structured run log, the LLM call records (FR-16), and the invocation history (FR-43). Not an artefact. |
 | **Prompt** | The instruction text the tool sends to an LLM with each call. It ships with the tool; it is not an artefact. |
+| **Spend** | The LLM usage an invocation incurs — its calls, its tokens or its cost. |
 | **Domain** | A grouping of classes used to partition the corpus for rendering (FR-14). |
 | **Render target** | A language/framework stack the graph can be rendered into (FR-3, FR-4, NFR-5). |
 | **Rendered project** | The rendered source together with the files that build and run it in its target stack. |
@@ -397,7 +398,8 @@ A score or a cached response can be attributed only if the prompt behind it is i
   with the run correlation identifier, provider, model, prompt version, input and output tokens, cost
   estimate, latency, timestamp, and which of the three it was.
 - **AC-2** The records are machine-readable and can be inspected without an external service.
-- **AC-3** The manifest records the total calls, tokens and cost of each invocation that called an LLM.
+- **AC-3** Each invocation that called an LLM records its total calls, tokens and cost, inspectable
+  without an external service.
 
 #### NFR-8 · The tool sends data only where the user directs it
 **Negative guarantee.** Source code leaves the user's machine only for the service the user chose.
@@ -425,8 +427,7 @@ So a re-run neither pays twice nor gets a different LLM answer to the same quest
 - **AC-2** Above a configurable call-count threshold, an interactive invocation asks for confirmation.
 - **AC-3** A non-interactive invocation handles that confirmation as FR-45 AC-4 requires: it never waits
   for it and never proceeds without it.
-- **AC-4** Optional hard ceilings on total calls and total tokens abort the invocation mid-flight,
-  reporting what was completed.
+- **AC-4** Optional hard ceilings on spend abort the invocation mid-flight, reporting what was completed.
 - **AC-5** A dry run estimates cost without making paid calls.
 - **AC-6** A ceiling on spend in money stops the invocation on projected or accumulated spend.
 - **AC-7** At the end of each invocation that calls an LLM, its token use and cost are reported to the
@@ -614,7 +615,7 @@ recorded before the 2026-08-23 re-specification, or assigned when a requirement 
 | FR-13 | partial | v1 | AC-1 holds — default 3, documented in the user guide. **AC-2 not met** — the cap cannot be disabled (`0`, the documented value, is rejected). **AC-3 not met** — see FR-14. **AC-4 not met** — nothing reports the cap binding at the end of a render; the user guide itself says classes beyond the cap are *"silently excluded"* |
 | FR-14 | partial | v1 | AC-1 and AC-4 hold — selection and the domain partition are pure functions of the graph. **AC-2 not met** — the thresholds are cited, but the documented ordering rule (ADR-009: a composite of CBO and WMC) is not the one implemented (WMC alone). **AC-3 not met** — no record of what was selected or skipped is persisted. Only the strategy name reaches the output, in a generated module's header comment, beside a "selected" count that is the group's total |
 | FR-15 | partial | v1 | **Re-verify.** Versioned prompt files with content-hash pinning ship. **AC-3 not verified** — the prompt input-contract check is not separately confirmed. *(The scorecard `prompt_id` gap moved to FR-18 AC-1, which owns provenance.)* |
-| FR-16 | partial | v1 | **AC-1 not met** — the cost estimate is hardcoded `0.0`; whether a failed request is recorded is not yet verified. AC-2 holds. **AC-3 not met for cost** — calls and tokens roll into the manifest; cost reads 0 |
+| FR-16 | partial | v1 | **AC-1 not met** — the cost estimate is hardcoded `0.0`; whether a failed request is recorded is not yet verified. AC-2 holds. **AC-3 not met** — `run`'s call and cache-hit counts roll into the manifest per pass, replaced by a later run; no tokens or cost are recorded there, and `render`'s calls are not recorded there at all; per-call cost in telemetry reads 0; no per-invocation record exists yet (FR-43 is planned) |
 | FR-17 | partial | v1 | **AC-1 not met** — the cache key carries the provider name but not the OpenAI-compatible endpoint URL, and the cache is shared by every run, so two endpoints serving the same model id share entries. **Re-verify** AC-2 |
 | FR-18 | partial | v1 | **Re-verify.** AC-2 holds — the graph scorecard records no model provenance, correctly, since its subject is deterministic. **AC-1 unmet**: the code scorecard grades LLM-rendered source and its `model_version` / `prompt_id` fields, present in both the model and the published schema, are never populated |
 | FR-19 | partial | v1 | **Re-verify.** AC-1 to AC-3 — `--cov-fail-under=80` enforced in CI; mock provider, no live calls. **AC-4 not met** — the tests for FR-24's failure classes are planned for v1.1 |
@@ -637,7 +638,7 @@ recorded before the 2026-08-23 re-specification, or assigned when a requirement 
 | FR-36 | partial | v1 | AC-4 holds as documentation — ADR-010 Fork 9 is the matrix — but the code enforces only two of its refuse rows (Security, WebFlux); classes in the other refuse rows are rendered. **AC-1 not met** — a class refused by policy, or whose render call fails, is absent from the output with no placeholder, and a refusal is logged at debug level only. Placeholders inside a rendered class are asked for in the prompt, not enforced. **AC-2 not met for method-level security** — the policy checks class-level annotations only, so a controller secured by `@PreAuthorize` on its methods is rendered with no refusal and no guard stub. **AC-3 not met** — no user-reachable setting changes any policy: `render` builds the renderer's configuration from three CLI flags and reads no configuration section. **AC-5 not met** — the permissive values carry no warning |
 | FR-37 | partial | v1 | **Re-verify.** `cache stats`, `cache report`; growth beyond configured size and entry limits is reported. **AC-5 not met** — `cache purge` deletes on `--force` without the consent FR-45 requires |
 | FR-38 | partial | v1 | **Re-verify.** Precedence documented in the committed config file and enforced by the settings layer. **AC-5 not yet verified** — whether a credential embedded in a git URL can reach the run log or the console is untraced. **AC-4 not met** — settings and credentials are documented in the repository's example files, which are not installed with the package. **AC-6 not met** — the environment file and the config file are read from the current working directory |
-| FR-39 | partial | v1 | **Re-verify.** AC-1 to AC-4 hold for `run` — a pre-flight estimate from a dated local price table, a TTY-aware confirmation gate, and mid-run call and token ceilings. **Not met for `render`**, which shows no estimate, asks no confirmation, and takes no ceiling flags. **AC-5, AC-6 and AC-7 not met** — planned for v1.1 |
+| FR-39 | partial | v1 | **Re-verify.** AC-1 to AC-4 hold for `run` — a pre-flight estimate from a dated local price table, a TTY-aware confirmation gate, and mid-run call and token ceilings. **Not met for `render`**, which shows no estimate, asks no confirmation, and takes no ceiling flags; a call or token ceiling set by environment variable or config file does apply to it. **AC-5, AC-6 and AC-7 not met** — planned for v1.1 |
 | FR-40 | partial | v1 | AC-1 holds — unresolvable calls are emitted as `calls_unresolved`, and an unresolved edge is replaced only by a resolved one, never dropped. **AC-3 not met** — nothing reports conditions that reduce resolution to the user. The remediation hint the status once cited does not exist, and the symbol solver that would consult a local Maven repository is not configured: resolution is a four-case source-only heuristic, and local-variable callees always stay unresolved. AC-4 has nothing to act on while AC-3 is unmet |
 | FR-41 | planned | v1.1 | Not shipped in any form. FR-7c's harness detects drift against a captured baseline, which cannot serve as a correctness oracle. The two accuracy checks that need this expectation are `structural_completeness` (ADR-032, proposed, defines it against this expectation) and `semantic_accuracy` (skipped, deferred) |
 | FR-42 | planned | v1 | |
@@ -651,7 +652,7 @@ recorded before the 2026-08-23 re-specification, or assigned when a requirement 
 | NFR-4 | partial | v1 | **Re-verify.** AC-1 holds — the default branch's ruleset requires lint, the tests, both example-corpus evaluations, the report and the secret scan, with no bypass. AC-2 holds — scorecards are uploaded per corpus. **AC-3 not met** — the evaluation runs the deterministic path and does not invoke the target toolchain |
 | NFR-5 | partial | v1 | The architecture holds — a renderer is a self-contained package behind a registry. **AC-1 not met** — `Scorecard.kind` is a hardcoded `Literal["graph","ts","go"]`, so a new target also edits the evaluation model; the render pipeline hardcodes the TypeScript renderer's prompt directory and prompt id in the render cache key; and the CLI imports the TypeScript package by name to register it. **AC-2 not met** — no renderer-authoring documentation yet; a short contributor-guide section is planned first, the full guide with the second renderer |
 | NFR-6 | partial | v1 | Holds when enrichment is disabled — canonical serialisation in the writer, and the same bytes feed the manifest hash and the golden assertion. **AC-1 and AC-2 not met on LLM-enabled runs** — the corpus-synthesis pass rewrites the graph without the canonical form, so the file on disk is neither canonical nor the bytes that were hashed (see FR-34). Goldens are captured without enrichment, so they never see this |
-| NFR-7 | partial | v1 | **Re-verify.** AC-2 and AC-3 — graph and manifest schema versions are independent of the application version; the manifest is `2.0.0`, strict-additive within `2.x`. **AC-1 not met for the enrichment file** — a bare list, it carries no version in the file |
+| NFR-7 | partial | v1 | **Re-verify.** AC-2 and AC-3 — graph and manifest schema versions are independent of the application version; the manifest is `2.0.0`, strict-additive within `2.x`. **AC-1 not met** — the graph and the enrichment file carry their schema version only in the manifest (the enrichment file, a bare list, cannot hold one); the scorecards and the compile-check record carry it only in the file |
 | NFR-8 | shipped | v1 | **Re-verify.** Not yet traced against the code |
 
 ---

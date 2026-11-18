@@ -211,3 +211,19 @@ The exact build-backend configuration (static field vs the backend's version hoo
 * PEP 621 — Storing Project Metadata in `pyproject.toml` — https://peps.python.org/pep-0621/
 * `importlib.metadata` — https://docs.python.org/3/library/importlib.metadata.html
 * MADR template — https://github.com/adr/madr
+
+## Amendments
+
+**2026-11-11 — Scope milestones are not version numbers (correction).** Fork 1's pros say *"the v1 → v1.1
+milestone language maps cleanly onto MAJOR.MINOR"*. It does not, and Fork 3 is why: the version starts at
+`0.5.0` and `1.0.0` is withheld until the stability gate, so the scope called *v1* ships under `0.x`, not
+as `1.0`. In this ADR, *v1* and *v1.1* name **scopes of work** — the first scope, which ships under `0.x`,
+and the scope after it — **not version numbers**.
+
+**A scope's completion sets no version.** The version moves only at a release, by Fork 1's human-decided
+bump, and its value follows Fork 3 — after `1.0.0`, an additive increment bumps MINOR and a fix bumps
+PATCH; before it, the number is informational — whichever scope the work belongs to. That pros line is superseded. The Decision Driver *Forward compatibility with
+v1.1* and the Consequence *additive v1.1 capability maps to a routine MINOR bump* keep this meaning — an
+additive increment is a MINOR bump — and imply no particular version number.
+
+No decision changes; every fork stands.

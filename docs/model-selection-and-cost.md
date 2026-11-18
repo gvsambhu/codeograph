@@ -248,4 +248,5 @@ ADR-005 §6's "`cache_control` must stay reachable" is satisfiable via OpenRoute
   OpenAI-compatible provider).
 * **ADR-027** (temporary cost-safety floor) — consumes §6's dated price table for its pre-flight
   estimate.
-* **ADR-016** (cost-control CLI, v1.1) — dollar-accurate budgeting; supersedes ADR-027 at `1.1.0`.
+* **ADR-016** (cost-control CLI, v1.1) — dollar-accurate budgeting; extends ADR-027's floor, which stays
+  as its permanent base (ADR-027, 2026-11-11 amendment).

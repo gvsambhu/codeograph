@@ -583,3 +583,21 @@ The Fork 1 Decision Outcome and the pyproject.toml sketch both treated `.pre-com
 
 - **F-023-2** — Fork 1 runner `ubuntu-22.04` vs Fork 4 / project `ubuntu-latest`: corrected to `ubuntu-latest` throughout (matches shipped CI and project standard).
 - **F-023-3** — Gitleaks pin `8.30.1` documented in ADR forks may differ from the pin in the shipped `secrets-scan.yml`. This is a reconciliation pointer; the authoritative pin is in `secrets-scan.yml`. Verify at the reconciliation gate.
+
+---
+
+### 2026-11-11 — The scheduled scan covers every ref
+
+Fork 4 decides a scheduled full-history scan without saying which branches it reads. FR-21 AC-4 requires
+the full history of **every branch on the public repository** to be scanned: a secret committed to a
+branch that never merged is as public as one on `main`. Tags and pull-request refs are as public as
+branches, so a commit reachable only from one of them is covered too. **The scheduled scan reads every
+ref the public repository holds** — branches, tags and pull-request refs, fetched with their full
+history — and walks all of them, not only the branch the job checked out. The rest of Fork 4 is unchanged: event scans stay
+diff-only, and the scheduled scan stays non-blocking with redacted output.
+
+**New Confirmation item:** a commit reachable only from a branch other than the default, or only from a
+tag or a pull-request ref, is covered by the scheduled scan (checked whenever the scheduled workflow
+changes).
+
+No reversal of Fork 4; its scope is stated.
