@@ -19,5 +19,9 @@ class AnthropicProvider(LangChainLlmProvider):
 
         # ChatAnthropic requires a SecretStr for api_key; wrap the plain string here so
         # callers can pass a raw key without forcing them to import pydantic.
-        chat = ChatAnthropic(api_key=SecretStr(api_key), **kwargs)
-        super().__init__(chat, tier_map)
+        secret = SecretStr(api_key)
+
+        def chat_factory(model: str) -> ChatAnthropic:
+            return ChatAnthropic(model_name=model, api_key=secret, **kwargs)
+
+        super().__init__(chat_factory, tier_map)
