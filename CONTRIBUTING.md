@@ -2,9 +2,8 @@
 
 ## Before you start
 
-Codeograph is solo-maintained. v1 has shipped; v1.1 is in planning, and the roadmap is visible in
-the [ADR index](docs/adr/README.md) — anything marked deferred there is scope that has been thought
-about but not built.
+Codeograph is solo-maintained. What is built and what is planned is in the [Roadmap](ROADMAP.md);
+anything marked deferred in the [ADR index](docs/adr/README.md) has been thought about but not built.
 
 **Please open an issue before investing effort in a change.** Not a formality: it is so we can agree
 scope before you write anything. Some areas are settled and closed to outside proposals, some are
