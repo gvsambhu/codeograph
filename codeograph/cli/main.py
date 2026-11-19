@@ -233,6 +233,15 @@ def run(
     scorecards) and hands them to the assembler for a single build; strict-on-
     write Pydantic validation is the boundary check.
     """
+    # --- Source-location check: refuse a secret before anything is written or echoed ---
+    from codeograph.input.acquirers.base_acquirer import AcquisitionError
+    from codeograph.input.input_acquirer import InputAcquirer
+
+    try:
+        InputAcquirer.check_source(input_path)
+    except AcquisitionError as exc:
+        raise click.ClickException(str(exc)) from exc
+
     # --- Output directory resolution, safety, and clearing (FR-27) ------
     # clear=True: --force removes existing files so the dir contains exactly
     # one run's artefacts (consistent with render's --force semantics).
@@ -247,8 +256,6 @@ def run(
     from codeograph.graph.graph_assembler import GraphAssembler
     from codeograph.graph.graph_builder import GraphBuilder
     from codeograph.graph.graph_writer import GraphWriter
-    from codeograph.input.acquirers.base_acquirer import AcquisitionError
-    from codeograph.input.input_acquirer import InputAcquirer
     from codeograph.llm.errors import LlmError
     from codeograph.manifest import ManifestAssembler
     from codeograph.manifest.artefact import GraphArtefact

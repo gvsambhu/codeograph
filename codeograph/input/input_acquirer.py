@@ -16,6 +16,7 @@ from codeograph.input.acquirers.local_acquirer import LocalAcquirer
 from codeograph.input.acquirers.zip_acquirer import ZipAcquirer
 from codeograph.input.models import AcquisitionSource, CorpusSpec
 from codeograph.input.source_discoverer import SourceDiscoverer
+from codeograph.input.source_location import ensure_no_credentials
 
 
 def _detect_input_type(input_spec: str) -> AcquisitionSource:
@@ -65,15 +66,29 @@ class InputAcquirer:
             AcquisitionSource.ZIP: ZipAcquirer(discoverer),
         }
 
+    @staticmethod
+    def check_source(input_spec: str) -> None:
+        """
+        Refuse a source location that carries a secret (e.g. ``https://user:token@host/repo.git``).
+
+        Call this before anything is written or echoed; acquire() repeats it as a backstop.
+
+        :raises AcquisitionError: The message names the alternatives and shows the location
+            without its userinfo.
+        """
+        ensure_no_credentials(input_spec)
+
     def acquire(self, input_spec: str) -> CorpusSpec:
         """
         Detect input type, dispatch to the correct acquirer, and return a
         fully-discovered CorpusSpec.
 
         :param input_spec: Raw argument from `codeograph run <INPUT>`.
-        :raises AcquisitionError: Propagated from the concrete acquirer.
+        :raises AcquisitionError: If the location carries a secret, or propagated from the
+            concrete acquirer.
             Import from codeograph.input.acquirers.base_acquirer to catch it.
         """
+        self.check_source(input_spec)
         source_type = _detect_input_type(input_spec)
         return self._acquirers[source_type].acquire(input_spec)
 

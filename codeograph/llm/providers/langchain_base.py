@@ -1,4 +1,6 @@
+import threading
 import time
+from collections.abc import Callable
 from typing import Any, TypeVar
 
 import anthropic
@@ -86,11 +88,32 @@ def _classify_error(e: Exception) -> LlmError:
 
 
 class LangChainLlmProvider(LlmProvider):
-    """Base provider wrapping any LangChain BaseChatModel."""
+    """Base provider wrapping any LangChain BaseChatModel.
 
-    def __init__(self, chat_model: BaseChatModel, tier_map: dict[Tier, str]):
-        self._chat = chat_model
+    A chat model is bound to one model name, so each call runs on a chat object built for the
+    model that call resolves to (the tier's model, or an ``override_model``). Subclasses supply
+    ``chat_factory``, which builds a chat object for a given model name; this class owns the
+    per-model choice, so the tier-to-model rule is not repeated in each provider.
+    """
+
+    def __init__(self, chat_factory: Callable[[str], BaseChatModel], tier_map: dict[Tier, str]):
+        self._chat_factory = chat_factory
         self._tier_map = tier_map
+        self._chats: dict[str, BaseChatModel] = {}
+        self._chats_lock = threading.Lock()
+        # Build every tier's chat object now so a misconfigured provider fails at startup,
+        # not on the first call of a run.
+        for model in tier_map.values():
+            self._chat_for(model)
+
+    def _chat_for(self, model: str) -> BaseChatModel:
+        """Return the chat object for ``model``, building it on first use."""
+        with self._chats_lock:
+            chat = self._chats.get(model)
+            if chat is None:
+                chat = self._chat_factory(model)
+                self._chats[model] = chat
+            return chat
 
     def _to_langchain_messages(self, messages: list[Message]) -> list[BaseMessage]:
         lc_msgs: list[BaseMessage] = []
@@ -112,8 +135,9 @@ class LangChainLlmProvider(LlmProvider):
 
     def count_tokens(self, messages: list[Message]) -> int:
         lc_msgs = self._to_langchain_messages(messages)
+        # The count has no tier or model argument; the deep tier's model is the tokenizer used.
         try:
-            return self._chat.get_num_tokens_from_messages(lc_msgs)
+            return self._chat_for(self._tier_map[Tier.DEEP]).get_num_tokens_from_messages(lc_msgs)
         except Exception as e:
             raise _classify_error(e) from e
 
@@ -131,7 +155,7 @@ class LangChainLlmProvider(LlmProvider):
 
         # We use include_raw=True to get both the parsed Pydantic object AND the raw AIMessage
         # so we can extract token usage metadata.
-        chain = self._chat.with_structured_output(schema, include_raw=True)
+        chain = self._chat_for(model_name).with_structured_output(schema, include_raw=True)
 
         start = time.monotonic()
         try:

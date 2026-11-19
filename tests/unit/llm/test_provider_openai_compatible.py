@@ -75,7 +75,7 @@ def test_resolver_resolves_openai_compatible():
     resolver = LlmProviderResolver(settings)
     provider = resolver.resolve()
     assert isinstance(provider, OpenAICompatibleProvider)
-    chat = provider._chat
+    chat = provider._chat_for(settings.llm_model)
 
     assert isinstance(chat, ChatOpenAI)
     assert chat.openai_api_base == settings.openai_compat_base_url
@@ -95,7 +95,7 @@ def test_openrouter_provider_preset():
     resolver = LlmProviderResolver(settings)
     provider = resolver.resolve()
     assert isinstance(provider, OpenRouterProvider)
-    chat = provider._chat
+    chat = provider._chat_for(settings.llm_model)
     assert isinstance(chat, ChatOpenAI)
     assert chat.openai_api_base == "https://openrouter.ai/api/v1"
 
