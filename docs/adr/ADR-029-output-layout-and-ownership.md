@@ -1,6 +1,6 @@
 ---
 status: proposed
-date: 2026-10-31
+date: 2026-11-19
 deciders: learner
 consulted: AI design advisor
 informed: future contributors
@@ -10,9 +10,6 @@ informed: future contributors
 
 ## Context and Problem Statement
 
-**State at the time of this decision:** codeograph 0.5.0, `main` at `bd6a837` (2026-10-31). File and
-line references are to that commit.
-
 **ADR-022 Fork 5** locked a per-run directory layout by formalising the pattern shipped at the time: a
 single `<out>` root holding the manifest, the logs, the graph, the annotations, the telemetry, the
 rendered target tree and the evaluations. It stated its own assumption plainly — *"`<out>` **is** the
@@ -21,11 +18,11 @@ multi-run history use distinct `--out` paths per run"*.
 
 **The code diverged from that layout in three places, none recorded as a decision:**
 
-| # | ADR-022 Fork 5 specified | Shipped | Evidence |
+| # | ADR-022 Fork 5 specified | Shipped | How the code does it |
 |---|---|---|---|
-| 1 | `<out>/telemetry/` | `~/.codeograph/cache/telemetry/` | `telemetry/session_manager.py:22` derives it as `cache_dir / "telemetry"` |
-| 2 | rendered source under `<out>/` | its own mandatory `--out` root | `cli/render.py:59,70,172` |
-| 3 | rendered source under `<out>/<target>/` | the root of render's `--out`, no target segment | `renderers/typescript_nestjs/scaffold_emitter.py:65,71` (root-relative keys such as `package.json`, `src/main.ts`) |
+| 1 | `<out>/telemetry/` | `~/.codeograph/cache/telemetry/` | the telemetry folder is derived from the cache folder, as its `telemetry` subfolder |
+| 2 | rendered source under `<out>/` | its own mandatory `--out` root | `render` requires its own `--out` and writes the project there |
+| 3 | rendered source under `<out>/<target>/` | the root of render's `--out`, no target segment | the TypeScript renderer returns root-relative keys such as `package.json`, `src/main.ts` |
 
 **What the divergence breaks:**
 
@@ -34,18 +31,17 @@ multi-run history use distinct `--out` paths per run"*.
   directory. The second command is refused as non-empty; `--force` "resolves" it by clearing the
   directory, including the graph the first command produced.
 - **The compile-check record lands outside the run directory.** Render adds
-  `evals/compile-checks.<target>.json` to the rendered project's file map
-  (`cli/render_pipeline.py:152-154`), so it is written under render's `--out` while its manifest pointer
-  is stored in the run's manifest — two roots, nothing reconciling them.
+  `evals/compile-checks.<target>.json` to the rendered project's file map, so it is written under
+  render's `--out` while its manifest pointer is stored in the run's manifest — two roots, nothing
+  reconciling them.
 - **`eval` finds render targets by exclusion** — every directory except `evals` and `.codeograph`
-  (`cli/eval.py:81`, duplicated at `evals/corpus_evaluator.py:50`). `telemetry` is not on that list, so
-  under ADR-022 Fork 5 as written, `eval` would have scored a telemetry directory as a target.
-- **The compile check already assumes ADR-022's layout** — it resolves the tree at `<out>/<target>/`
-  (`evals/checks/code/compile.py:114`), which the split layout never produces.
+  (the list is kept in two places in the code). `telemetry` is not on that list, so under ADR-022 Fork 5
+  as written, `eval` would have scored a telemetry directory as a target.
+- **The compile check already assumes ADR-022's layout** — it resolves the tree at `<out>/<target>/`,
+  which the split layout never produces.
 - **Corpus synthesis writes into the deterministic graph.** Pass 2 adds `projectOverview` to `graph.json`
-  after the graph is written and hashed (`passes/pass2/corpus_synthesizer.py:89`), so on any LLM-enabled
-  run the graph is no longer a function of the corpus alone, and the manifest's hash describes a file
-  that is no longer on disk.
+  after the graph is written and hashed, so on any LLM-enabled run the graph is no longer a function of
+  the corpus alone, and the manifest's hash describes a file that is no longer on disk.
 
 **And the requirements ask for more than a single root can give.** The rendered source is placed
 where the user chooses, or at a documented default (**FR-3 AC-3**); every artefact other than the
@@ -186,7 +182,7 @@ source folders are disjoint, and every per-target record is named for its target
 `render` invocation** is assumed throughout.
 
 **`eval` finds the rendered targets from the manifest only.** The folder name is a default, not an
-identifier, so the exclusion list in `cli/eval.py` and `evals/corpus_evaluator.py` is retired.
+identifier, so the exclusion list `eval` uses is retired.
 
 ### Fork 2 — `./codeograph-out/<name>-<id>/`, configurable: (d)
 
@@ -355,7 +351,7 @@ committed with the user's application — the project's own `.gitignore` is a st
 both.
 
 **The boundary already exists in code.** A renderer returns only target-stack files; the pipeline adds
-the compile-check record at one place (`cli/render_pipeline.py:152-154`). This decision moves that one
+the compile-check record in one place. This decision moves that one
 write to the run directory.
 
 ### Fork 7 — Corpus synthesis in its own artefact: (b)
@@ -506,10 +502,9 @@ synthesis, the history and the render audit.
    `evals/`, `logs/`, `.locks/` or the archive location is refused before anything is written; a run directory that is the
    current directory or an ancestor of it is refused (unit tests on path resolution, including a symbolic
    link and, on Windows, a case variant).
-5. A renderer's returned file keys contain no `<target>-source` prefix (unit test on `renderer.render()`).
+5. A renderer's returned file keys contain no `<target>-source` prefix (unit test on a renderer's returned files).
 6. Rendering `ts` then `go` into one run leaves both projects present; `eval` scores both, found from
-   the manifest, and the exclusion tuple `("evals", ".codeograph")` no longer exists in `cli/eval.py` or
-   `evals/corpus_evaluator.py` (integration test + grep).
+   the manifest, and no list of excluded directory names remains in the code (integration test + grep).
 7. The rendered project contains no file the renderer did not return — in particular no `evals/`
    directory; the compile-check and render-audit records are under `<run>/evals/` (integration test).
 8. Source discovery over a project containing a run directory — default-named or custom-named — leaves
@@ -812,3 +807,4 @@ synthesis, the history and the render audit.
 * **2026-11-18** — Fork 6: render's two records carry `schema_version` at their root, copied on their
   manifest pointers. Conforms with ADR-035, which places every indexed artefact's schema version in the
   file as well as on its pointer (NFR-7 AC-1).
+* **2026-11-19** — code citations replaced by descriptions of the behaviour; no decision changed.
