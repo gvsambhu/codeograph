@@ -1,6 +1,6 @@
 # Architecture Decision Records
 
-This directory holds Codeograph's locked architecture decisions, one ADR per file, following the [MADR](https://github.com/adr/madr) template.
+This directory holds Codeograph's architecture decisions, one ADR per file, following [MADR 4.0.0](https://adr.github.io/madr/) with the differences listed under [Template](#template). ADRs record decisions, not code. Earlier ADRs include implementation snippets; where they differ, the code and schemas are authoritative. The rules an ADR decides still govern.
 
 ADR numbers reflect **architectural layer** (input → graph → rendering → LLM → quality → cross-cutting), not the order they were designed or the runtime execution sequence. If you read them in strict number order, you'll hit forward references between layers — the recommended reading order below is grouped by topic and orders concerns the way the runtime pipeline actually flows.
 
@@ -144,7 +144,9 @@ an issue first — that's the cheaper place for option debates than a PR thread.
 
 ### 3. Acceptance
 
-Merge to `main` with `status: accepted`. A reviewer checks that the decision is genuinely
+Merge to `main` with `status: proposed` or `status: accepted`. An ADR merged as `proposed` is
+accepted later, once the code that implements it has passed review — see
+[Status lifecycle](#status-lifecycle). Before either merge, a reviewer checks that the decision is genuinely
 architectural (see "When to write a new ADR"), that at least two options were considered with real
 tradeoffs, that the Confirmation section states how the decision can be verified in code, and that
 no forward reference contradicts a locked ADR.
@@ -170,7 +172,8 @@ These are maintainer-owned by design. Issues and discussion are welcome; ADR PRs
 - Numbers `001`–`021` were allocated by architectural layer (input → graph → rendering → LLM →
   quality → cross-cutting). That scheme is closed: from `022` onward numbers are allocated in
   reservation order. The recommended reading order above carries the layer grouping instead.
-- One decision per file. If a file covers two decisions, split it into two numbers.
+- One topic per file. An ADR may group closely related decisions — its *forks* — each with its own
+  options and outcome; a decision on a different topic gets its own number.
 
 ### Status lifecycle
 
@@ -228,22 +231,35 @@ Do **not** write an ADR for:
 ADR-NNN-kebab-case-slug.md
 ```
 
-`NNN` is the three-digit ADR number (`001`–`024`). The slug is a short kebab-case identifier — keep it under ~40 characters.
+`NNN` is the three-digit ADR number. The slug is a short kebab-case identifier — keep it under ~40 characters.
 
 ### Template
 
-Each ADR follows MADR with these sections:
-1. **YAML frontmatter** — `status`, `date`, `deciders`, `consulted`, `informed`
+Each ADR follows MADR 4.0.0 with these sections:
+1. **YAML frontmatter** — `status`, `date` (the day it was last updated), `deciders`, `consulted`, `informed`
 2. **Context and Problem Statement**
 3. **Decision Drivers**
-4. **Considered Options** — fork list with ✅ on the chosen option
-5. **Decision Outcome** — per-fork detail with code samples / tables
+4. **Considered Options** — one list per fork, with ✅ on the chosen option
+5. **Decision Outcome** — per fork: the chosen option and the rules it makes, with a table where the table is
+   itself the decision. No implementation code, copied configuration or line references; a short snippet
+   only for an interface or format the decision fixes
 6. **Consequences** — Positive / Negative
 7. **Confirmation** — checklist of how to verify the decision is implemented correctly
 8. **Pros and Cons of the Considered Options** — per-fork tradeoff breakdown
 9. **More Information** — relationships to other ADRs, deferred items, references
 10. **Revision history** — only for a merged ADR changed while `proposed`: one dated line per change
 11. **Amendments** — only after acceptance, append-only
+
+**Differences from MADR 4.0.0, kept on purpose** so new ADRs read like the accepted ones:
+- Several closely related decisions (forks) in one ADR, where MADR has one decision per ADR.
+- Consequences and Confirmation as top-level sections; Confirmation is required, as numbered checks a test
+  can show.
+- `deciders:` (the MADR 3 key) rather than `decision-makers:`.
+- Revision history and Amendments: a proposed ADR is edited with a dated history line; an accepted one
+  changes only by amendment or supersession.
+- *Constraint flagged for ADR-NNN* subsections in Decision Outcome, for an obligation one ADR places on
+  another — what the other ADR must honour, not how.
+- Third-person voice; the headings *Pros and Cons of the Considered Options* and `# ADR-NNN — Title`.
 
 ---
 
