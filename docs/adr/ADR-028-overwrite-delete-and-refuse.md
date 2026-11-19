@@ -1,6 +1,6 @@
 ---
 status: proposed
-date: 2026-10-31
+date: 2026-11-19
 deciders: learner
 consulted: AI design advisor
 informed: future contributors
@@ -10,13 +10,10 @@ informed: future contributors
 
 ## Context and Problem Statement
 
-**State at the time of this decision:** codeograph 0.5.0, `main` at `bd6a837` (2026-10-31). File and
-line references are to that commit.
-
 **Every command that writes output answers a non-empty destination the same way: refuse, or with
-`--force`, delete everything in it.** `run` and `render` both call `prepare_output_directory(out, force,
-clear=True)` (`cli/main.py:239`, `cli/render.py:172`). With `--force`, that function removes every file
-and folder in the destination (`cli/output_directory.py:41-47`) — whether the tool wrote it or not.
+`--force`, delete everything in it.** `run` and `render` both prepare their destination through one
+shared routine. With `--force`, it removes every file and folder in the destination — whether the tool
+wrote it or not.
 
 **That rule fails in both directions:**
 
@@ -25,9 +22,8 @@ and folder in the destination (`cli/output_directory.py:41-47`) — whether the 
   without `--force` — which then deletes the graph the first pass produced.
 - **Too loose for everything else.** `--force` is the ordinary way to re-run, and it empties the folder
   regardless of what is in it: a user's edits to a rendered project, files they added, anything placed
-  there by mistake. The only guard rejects the working directory and its ancestors
-  (`cli/output_directory.py:30`); a sibling folder, a home folder or another drive is emptied without
-  complaint.
+  there by mistake. The only guard rejects the working directory and its ancestors; a sibling folder, a
+  home folder or another drive is emptied without complaint.
 - **Nothing protects concurrent commands.** `render` and `eval` update the manifest by reading, changing
   and rewriting it, with no lock or check; two renders running at once (a CI matrix over targets) can
   silently lose one's entry.
@@ -600,3 +596,4 @@ ancestor of it, the run directory itself, its namespaces — are placement rules
   The second re-check of that review added what the refusal for an unreadable journal says about
   `--break-lock` (Fork 5, Confirmation 24), and Fork 2 names a render whose file list the tool does not
   read beside a first render.
+* **2026-11-19** — code citations replaced by descriptions of the behaviour; no decision changed.
