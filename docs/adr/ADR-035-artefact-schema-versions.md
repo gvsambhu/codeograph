@@ -1,6 +1,6 @@
 ---
 status: proposed
-date: 2026-11-12
+date: 2026-11-19
 deciders: learner
 consulted: AI design advisor
 informed: future contributors
@@ -9,9 +9,6 @@ informed: future contributors
 # ADR-035 — Artefact Schema Versions
 
 ## Context and Problem Statement
-
-**State at the time of this decision:** codeograph 0.5.0, `main` at `7eb02d3` (2026-11-10). ADR text and
-code are cited as they stand at that commit. Code paths are relative to the `codeograph/` package.
 
 **NFR-7 AC-1** requires every emitted artefact whose format the tool defines to declare its schema version
 *"in the artefact itself and in the manifest, independently per artefact"*. Two decisions placed the
@@ -31,10 +28,8 @@ contract.
    renders (FR-2), obtainable on its own (FR-34 AC-4), and validated against its published schema (FR-7b).
    A file handed over alone cannot say what it is.
 2. **The project holds two conventions.** The scorecards and the compile-check record were designed after
-   ADR-006 and carry `schema_version` in the file — the scorecards' schema requires it
-   (`evals/scorecard.schema.json`) and `evals/runner.py:185,233` writes it; the compile-check record's is
-   written at `cli/render_pipeline.py:137` — and their manifest pointers carry none
-   (`manifest/models.py:62-87`). The graph and the annotations carry it only on the pointer.
+   ADR-006 and carry `schema_version` in the file, while their manifest pointers carry none; the graph and
+   the annotations carry it only on the pointer (table below).
 3. **Formats built for other tools carry their version in the document** — SARIF (`version`), CycloneDX
    (`specVersion`), SPDX (`spdxVersion`), OpenAPI (`openapi`); and, of the formats Fork 6 cited, npm's
    lockfile (`lockfileVersion`) and the OCI image manifest (`schemaVersion`). The manifest-only pattern
@@ -44,14 +39,14 @@ contract.
 
 | Artefact | In the file | On its manifest pointer |
 |---|---|---|
-| `graph.json` | none — the schema's root allows `nodes`, `edges`, `projectOverview` only, and forbids other properties (`schema/graph.schema.json`) | `1.0.0`, from one constant (`graph/graph_writer.py:49,124`) |
-| `llm-annotations.json` | none — the file is a bare list (`passes/pass1/node_annotator.py:197`), though its published schema declares an object root with `annotations` only | **the graph's version, copied** (`analyzer/llm_corpus_enricher.py:181`: *"same version as graph in v1"*) |
-| scorecards | `schema_version`, required (`evals/scorecard.schema.json`), written at `evals/runner.py:185,233` | no field (`ScorecardPointer`, `manifest/models.py:62`) |
-| compile-check record | `schema_version`, written at `cli/render_pipeline.py:137` | no field (`CompileChecksPointer`, `manifest/models.py:77`) |
+| `graph.json` | none — the published schema's root allows `nodes`, `edges`, `projectOverview` only, and forbids other properties | `1.0.0`, from one constant in the graph writer |
+| `llm-annotations.json` | none — the file is a bare list, though its published schema declares an object root with `annotations` only | **the graph's version, copied** — the code treats the two as one version in v1 |
+| scorecards | `schema_version`, required by their published schema and written by the evaluator | no field (`ScorecardPointer`) |
+| compile-check record | `schema_version`, written by `render` | no field (`CompileChecksPointer`) |
 
-**No reader checks a version.** `render` validates the graph's shape and nothing else
-(`cli/render.py:151`), and nothing compares one: the code that handles `schema_version` writes or copies
-it. Every check this ADR decides is new code.
+**No reader checks a version.** `render` validates the graph's shape and nothing else, and nothing
+compares one: the code that handles `schema_version` writes or copies it. Every check this ADR decides is
+new code.
 
 The output-layout and evaluation clusters add more artefacts the manifest indexes, each designed with its
 own `schema_version`: the corpus synthesis and each rendered target's file list (ADR-029, with the
@@ -132,18 +127,17 @@ file list, the compile-check record, the render audit and the scorecards.
   and patch are authored there, once — and CI checks that it is in the major its schema names, as
   ADR-022's freshness gate checks the manifest's schema, and that it equals the newest entry of the
   schema's version log, so a minor is never added without its log line. The patch is `0` until an ADR
-defines a patch release; the pattern admits one for that day. When a schema takes a new major,
-  the schema of each earlier released major stays committed beside it, so a consumer pinned to it can
-  still validate (FR-7b AC-3); each schema keeps a version log, as the manifest does
+  defines a patch release; the pattern admits one for that day. When a schema takes a new major, the
+  schema of each earlier released major stays committed beside it, so a consumer pinned to it can still
+  validate (FR-7b AC-3); each schema keeps a version log, as the manifest does
   (`docs/manifest-versions.md`), recording what each minor added.
 * **The rendered source carries none** — its format is the target stack's. Its file list carries its own
   `schema_version`.
 * **Diagnostic records are not indexed.** The telemetry records and the invocation history version
   their own entries (ADR-015, ADR-030); the log format is ADR-022's.
 * **Tool-internal state is outside this rule.** The claims, the brief lock and the recovery journal in
-  `.locks/` (ADR-028) are neither artefacts nor diagnostic records; their format is ADR-028's, and its
-  Fork 5 versions the journal, treating one in a format it does not read as a journal from another
-  process-id space.
+  `.locks/` (ADR-028) are neither artefacts nor diagnostic records; their format is ADR-028's, which
+  versions the journal (*What this changes in other ADRs*, below).
 * **The annotations file's envelope** — `{ "graph_ref": …, "annotations": { … } }`, from the amendment to
   ADR-006 that accompanies ADR-032 and ADR-033 — gains `schema_version` beside `graph_ref`.
 
@@ -187,29 +181,19 @@ refused with status 3.
   the prompts, the rendered inputs and the output schemas unchanged; a release that changes any of them
   re-pays those calls (Consequences). ADR-026 makes no compatibility promise before `1.0.0`.
 
-**What separates Forks 2 and 3 is the symptom, not its cause.** A file in a version the tool does not
-read is ADR-031's earlier-version folder (status 3). A run directory whose manifest contradicts a file
-it hashed is ADR-031's unreadable manifest (status 1).
-
 ### Fork 3 — A disagreement is a failure: (a)
 
 A reader that finds a file's `schema_version` different from its pointer's, **for a file whose hash
 matches its pointer**, **fails with exit status 1**, naming the file and both values. Neither value
-overrides the other.
+overrides the other. A manifest that contradicts a file it hashed is the same kind of fault as ADR-031's
+unreadable manifest — a precondition the run directory does not meet. The message names the command that
+re-creates the run directory.
 
 **The hash is checked first.** A file whose SHA-256 differs from its pointer has changed since the
-manifest recorded it; that event already has decided outcomes. Where the reading ADR decides one, it
-applies — ADR-017's compile-check record, and ADR-032's graph (for `reproducibility`), annotations, render
-audit and classpath record, each skip the check that reads them (for the annotations, in
-`internal_consistency`, the rule) with their reason, and `eval` completes. A reader with no decided rule
-for it fails with status 1, as for a disagreement. The version comparison therefore runs only on files
-whose hash verifies.
-
-**A failure, not a refusal.** A file that matches the hash its manifest recorded, but not the version the
-same manifest recorded for it, means the manifest contradicts a file it hashed. ADR-031's status 1
-covers a precondition the run directory does not meet, such as an unreadable manifest; a manifest that
-contradicts its own files is the same kind of fault. The message names the command that re-creates the
-run directory.
+manifest recorded it; that event already has decided outcomes. Where the reading ADR decides one — the
+skips of ADR-017 and ADR-032 listed in the read-path table below — it applies, the check that reads the
+file is skipped with its reason, and `eval` completes. A reader with no decided rule for it fails with
+status 1, as for a disagreement. The version comparison therefore runs only on files whose hash verifies.
 
 **A publish in progress.** A read that races a publish, or follows a crash whose recovery waits for
 `--break-lock`, can meet a changed file or a manifest not yet written. When a recovery journal is present
@@ -239,7 +223,7 @@ steps 2 and 3 apply to it.
 |---|---|---|---|
 | `run` | each rendered target's file list, for its input fingerprints; one in a version it does not read is treated as none, and the project marked stale. **The graph and annotations it supersedes are archived unread**, so `run` over a run directory written before this ADR re-creates it in place | status 1 | 1 |
 | `render` | the graph, the annotations, the target's file list (ADR-028 Fork 2); a file list in a version it does not read is treated as none | status 1 | 1 |
-| `eval` | the graph, the annotations, the compile-check record, the render audit, the classpath record | graph — ADR-032's `reproducibility` skip; annotations — ADR-032's `annotations_modified_since_run` skip, and rule 5 not run; compile-check record — ADR-017's skip; render audit — ADR-032's skip; classpath record — ADR-032's `resolution_settings_changed` skip | 1 |
+| `eval` | the graph, the annotations, the compile-check record, the render audit, the classpath record | graph — ADR-032's `reproducibility` skip; annotations — ADR-032's `annotations_modified_since_run` skip, and rule 5 of `internal_consistency` not run; compile-check record — ADR-017's skip; render audit — ADR-032's skip; classpath record — ADR-032's `resolution_settings_changed` skip | 1 |
 | `eval report` | the scorecards of each run directory it reads | status 1 | before it writes anything (it publishes nothing) |
 | `history`, `purge` | none | — | — |
 
@@ -272,6 +256,8 @@ property**, **a new value of an enum on a required property**, and **a new node 
 (a new definition under the schema's `oneOf` on `kind`) — a record cannot be validated or understood
 without them. *Required* is judged on the property in its own object: an array of enum items follows its
 array, so a new Java modifier is a major, and a required enum inside an optional object is a major.
+Because a schema grows only by optional additions, a file at any earlier minor of the major stays valid
+against the schema of its major as the schema grows in place.
 
 **Validation follows the same split.** A writer validates strictly against the closed schema of its own
 version (FR-7b AC-1). A reader, and the schema-validity checks — ADR-017's for the graph, ADR-032's
@@ -281,10 +267,6 @@ before validating, they drop the properties the major's schema does not list, an
 whose enum value it does not list, then validate what remains against the same closed schema — there is
 one published schema per major, and no second, open form. This is the rule the manifest already
 follows: strict on write, tolerant on read (ADR-022, ADR-025).
-
-**A schema grows only by optional additions.** An added property is optional in the schema, and an enum
-value is added only on an optional property, so a file at any earlier minor of the major stays valid
-against the schema of its major as the schema grows in place.
 
 **For an external consumer** (FR-7b AC-3), the published schema is the writer's contract, and it is
 strict: validated against the schema of an earlier minor, a file from a later minor may fail it. To read
@@ -313,6 +295,8 @@ ADR-032's *Constraint flagged for ADR-026* applies the rule to the release it sh
   read is treated as a journal from another process-id space. Forks 3 and 5 state the cache claim's
   condition, as Fork 2 here does.
 
+**Accepted ADRs:**
+
 #### Constraint flagged for ADR-006
 On acceptance, these statements are superseded by Forks 1 and 2 here:
 * **Fork 6 (d)** — the Considered Option and its Decision Outcome (*files carry no `schema_version`*;
@@ -331,10 +315,9 @@ On acceptance, these statements are superseded by Forks 1 and 2 here:
 * **Relationships, ADR-010** — the renderer *"loads `manifest.json` and dispatches per declared schema
   version"*.
 
-The graph and annotations schemas each gain a required root `schema_version`, pinned to its major as
-Fork 1 decides. The 2026-06-17 amendment's closed objects and closed enums hold for write-time
-validation against the schema of the file's major; a reader within a major ignores the properties, and
-the values of optional enums, it does not know (Fork 5's mechanism).
+The graph and annotations schemas each gain a required root `schema_version` (Fork 1). The 2026-06-17
+amendment's closed objects and closed enums hold for write-time validation against the schema of the
+file's major; reading within a major follows Fork 5.
 
 #### Constraint flagged for ADR-025
 On acceptance, these statements of the manifest-as-version-authority contract are superseded: the pointer
@@ -347,8 +330,8 @@ copies the file's version rather than being its only record.
   *"contradicts ADR-006's version-authority"*;
 * **Relationships, ADR-006** — *"artefact files carry none … ADR-006 needs no change"*.
 
-Confirmation 5 (the graph pointer's `schema_version` is present) stands. `ScorecardPointer` and
-`CompileChecksPointer` gain an optional `schema_version` (Fork 4 here), in the next `2.x` minor.
+Confirmation 5 (the graph pointer's `schema_version` is present) stands. The two pointers of Fork 4 gain
+the field in the next `2.x` minor.
 
 #### Constraint flagged for ADR-007
 Adding the field changes every golden's bytes: one refresh under the `change` category, citing this ADR.
@@ -356,19 +339,13 @@ Adding the field changes every golden's bytes: one refresh under the `change` ca
 #### Constraint flagged for ADR-017
 On acceptance, the graph's `schema_validity` check — *"`graph.json` validates against
 `codeograph/schema/graph.schema.json`"* — reads as validation against the published schema of the file's
-own major, ignoring the properties, and the values of optional enums, it does not know (Fork 5's
-mechanism): a file at a newer minor of that major passes. Write-time validation stays strict (FR-7b
-AC-1).
+own major, as Fork 5 decides: a file at a newer minor of that major passes. Write-time validation stays
+strict (FR-7b AC-1).
 
 #### Constraint flagged for ADR-026
-**At every release:** each schema takes at most one version bump — one major if any change breaks it,
-otherwise one minor if any change adds to it (Fork 5).
-
-**At the release that ships this:** the graph schema and the annotations schema each take one major
-version, shared with the other breaking changes released with them; the manifest takes one `2.x` minor.
-
-#### Constraint flagged for ADR-031
-Conformed in place (*What this changes in other ADRs*, above).
+At every release, ADR-026 applies Fork 5's rule. At the release that ships this, the graph schema and the
+annotations schema each take one major version, shared with the other breaking changes released with
+them; the manifest takes one `2.x` minor (Fork 4).
 
 ## Consequences
 
@@ -555,27 +532,24 @@ Conformed in place (*What this changes in other ADRs*, above).
 
 ### Relationships
 
-* **ADR-006** (knowledge graph schema) — on acceptance, **Fork 6 (d)** and the statements listed in its
+* **ADR-006** (knowledge graph schema) — on acceptance, Fork 6 (d) and the statements listed in its
   constraint are superseded by Forks 1 and 2.
 * **ADR-025** (manifest schema) — on acceptance, Fork 4's version-authority statements are superseded;
   two pointers gain a field (Fork 4).
 * **ADR-017** (evaluation framework) — the scorecards carry their version in the file; this rule covers
-  them by name. Its skip for a compile-check record whose hash differs takes precedence over Fork 3: the
-  hash is checked first. On acceptance, its graph `schema_validity` check validates within the file's
-  major, tolerant of additions (constraint flagged above).
+  them by name. Its skip for a changed compile-check record, and its graph `schema_validity` check, are
+  as Fork 3 and the constraint above state.
 * **ADR-028** (what a command may overwrite, delete or refuse) — its Fork 3 refuses earlier-layout run
   directories; the read path runs in its step 1. For a command that publishes, its Fork 5 recovery runs
   before any version is read; a command that publishes nothing reports a journal it cannot recover and
   proceeds, which is the window Fork 3's message covers. It owns the format of claims, the lock and the
-  journal, and is conformed: its Fork 5 versions the journal, and Forks 3 and 5 state the cache claim's
-  condition.
+  journal, and is conformed (above).
 * **ADR-029** (output layout and ownership) and **ADR-033** (extraction environment and parser failures)
   — their records follow this rule.
 * **ADR-031** (command outcomes and consent) — conformed: a version the tool does not read takes status
   3, a disagreement status 1.
-* **ADR-032** (evaluation semantics) — its constraint for ADR-026 applies Fork 5's rule; its skips for a
-  graph, annotations file, render audit or classpath record whose hash differs take precedence over
-  Fork 3; `annotations_schema_validity` validates against the file's major (Fork 5).
+* **ADR-032** (evaluation semantics) — conformed (above); its skips for a changed file take precedence
+  over Fork 3.
 * **ADR-022** (run manifest and structured logging) — its strict-write, lenient-read rule and freshness
   gate are the pattern Forks 1 and 5 extend to every schema.
 * **ADR-026** (release version management) — schema versions are separate from the application version
@@ -614,3 +588,8 @@ Conformed in place (*What this changes in other ADRs*, above).
 ### Open questions
 
 * None.
+
+## Revision history
+
+* **2026-11-19** — code citations replaced by descriptions of the behaviour; repetition cut. No fork,
+  option, decision or rule changed.
