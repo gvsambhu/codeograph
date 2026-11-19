@@ -10,6 +10,8 @@ informed: future contributors
 
 ## Context and Problem Statement
 
+**State at the time of this decision:** codeograph 0.5.0 (2026-10-31).
+
 **Every command that writes output answers a non-empty destination the same way: refuse, or with
 `--force`, delete everything in it.** `run` and `render` both prepare their destination through one
 shared routine. With `--force`, it removes every file and folder in the destination — whether the tool
@@ -596,4 +598,5 @@ ancestor of it, the run directory itself, its namespaces — are placement rules
   The second re-check of that review added what the refusal for an unreadable journal says about
   `--break-lock` (Fork 5, Confirmation 24), and Fork 2 names a render whose file list the tool does not
   read beside a first render.
-* **2026-11-19** — code citations replaced by descriptions of the behaviour; no decision changed.
+* **2026-11-19** — code citations replaced by descriptions of the behaviour; the commit anchor replaced by
+  the release the Context describes; no decision changed.

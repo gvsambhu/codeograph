@@ -10,6 +10,8 @@ informed: future contributors
 
 ## Context and Problem Statement
 
+**State at the time of this decision:** codeograph 0.5.0 (2026-11-10).
+
 **NFR-7 AC-1** requires every emitted artefact whose format the tool defines to declare its schema version
 *"in the artefact itself and in the manifest, independently per artefact"*. Two decisions placed the
 version differently, and the code follows neither consistently.
@@ -190,9 +192,9 @@ unreadable manifest — a precondition the run directory does not meet. The mess
 re-creates the run directory.
 
 **The hash is checked first.** A file whose SHA-256 differs from its pointer has changed since the
-manifest recorded it; that event already has decided outcomes. Where the reading ADR decides one — the
-skips of ADR-017 and ADR-032 listed in the read-path table below — it applies, the check that reads the
-file is skipped with its reason, and `eval` completes. A reader with no decided rule for it fails with
+manifest recorded it; that event already has decided outcomes. Where the reading ADR decides one, it applies:
+the check that reads the file is skipped with its reason (the ADR-017 and ADR-032 skips in the read-path table
+below), and `eval` completes. A reader with no decided rule for it fails with
 status 1, as for a disagreement. The version comparison therefore runs only on files whose hash verifies.
 
 **A publish in progress.** A read that races a publish, or follows a crash whose recovery waits for
@@ -591,5 +593,5 @@ them; the manifest takes one `2.x` minor (Fork 4).
 
 ## Revision history
 
-* **2026-11-19** — code citations replaced by descriptions of the behaviour; repetition cut. No fork,
-  option, decision or rule changed.
+* **2026-11-19** — code citations replaced by descriptions of the behaviour; the commit anchor replaced by
+  the release the Context describes; repetition cut. No fork, option, decision or rule changed.

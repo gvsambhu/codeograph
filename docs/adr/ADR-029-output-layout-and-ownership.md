@@ -10,6 +10,8 @@ informed: future contributors
 
 ## Context and Problem Statement
 
+**State at the time of this decision:** codeograph 0.5.0 (2026-10-31).
+
 **ADR-022 Fork 5** locked a per-run directory layout by formalising the pattern shipped at the time: a
 single `<out>` root holding the manifest, the logs, the graph, the annotations, the telemetry, the
 rendered target tree and the evaluations. It stated its own assumption plainly — *"`<out>` **is** the
@@ -807,4 +809,5 @@ synthesis, the history and the render audit.
 * **2026-11-18** — Fork 6: render's two records carry `schema_version` at their root, copied on their
   manifest pointers. Conforms with ADR-035, which places every indexed artefact's schema version in the
   file as well as on its pointer (NFR-7 AC-1).
-* **2026-11-19** — code citations replaced by descriptions of the behaviour; no decision changed.
+* **2026-11-19** — code citations replaced by descriptions of the behaviour; the commit anchor replaced by
+  the release the Context describes; no decision changed.

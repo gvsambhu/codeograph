@@ -10,6 +10,8 @@ informed: future contributors
 
 ## Context and Problem Statement
 
+**State at the time of this decision:** codeograph 0.5.0 (2026-11-01).
+
 The shipped parser configures no symbol solver, so no third-party reference resolves on any machine;
 the decisions below govern resolution as designed.
 
@@ -503,4 +505,5 @@ NFR-6 AC-3, AC-4 · assumptions 2 and 4.
 * **2026-11-18** — Forks 3 and 5: the classpath record and the extraction report carry `schema_version`
   at their root, copied on their manifest pointers. Conforms with ADR-035, which places every indexed
   artefact's schema version in the file as well as on its pointer (NFR-7 AC-1).
-* **2026-11-19** — code citations replaced by descriptions of the behaviour; no decision changed.
+* **2026-11-19** — code citations replaced by descriptions of the behaviour; the commit anchor replaced by
+  the release the Context describes; no decision changed.

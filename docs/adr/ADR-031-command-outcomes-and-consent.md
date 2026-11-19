@@ -10,6 +10,8 @@ informed: future contributors
 
 ## Context and Problem Statement
 
+**State at the time of this decision:** codeograph 0.5.0 (2026-10-31).
+
 **No decision covers how a command reports its outcome, and the exit statuses that ship disagree:**
 
 | Situation | Exit status |
@@ -91,8 +93,8 @@ every command, not only the layout's. It is one of four coupled decisions:
 interrupted (ADR-030 Fork 4), and ADR-028's recovery rolls it back.
 
 **Usage errors become 1.** Click exits with 2 for a wrong option, which here means *completed with
-recorded failures*; the command line maps usage errors to 1. Every path that now exits with 2 for a missing
-input does the same.
+recorded failures*; the command line maps usage errors to 1. Every path that exits with 2 for a missing
+input in 0.5.0 does the same.
 
 **A declined or stopped cost gate is a refusal (3), and it changes nothing.** The gate runs after Pass 0
 — its estimate needs the class count — so Pass 0's output is **held back and published only once the
@@ -138,7 +140,7 @@ passes; `--non-interactive` applies to the gate only.
 
 #### Constraint flagged for ADR-015
 `cache purge` asks for consent, refuses with 3 without `--yes` when nothing can prompt, drops `--force`
-and the dry-run default, and exits 1 on a usage error (it now exits 0); its filters align with `purge`'s.
+and the dry-run default, and exits 1 on a usage error (0 in 0.5.0); its filters align with `purge`'s.
 
 #### Constraint flagged for ADR-017
 A failing check exits with 4; a missing or unreadable manifest exits with 1, not 2; every requested
@@ -277,4 +279,5 @@ The history's outcome field uses these classes.
   manifest pointer, under status 1. Conforms with ADR-035, which decides both conditions and gives them
   these statuses. Exposed by ADR-035's design review: the table the two decisions rest on did not list
   them.
-* **2026-11-19** — code citations replaced by descriptions of the behaviour; no decision changed.
+* **2026-11-19** — code citations replaced by descriptions of the behaviour; the commit anchor replaced by
+  the release the Context describes; no decision changed.

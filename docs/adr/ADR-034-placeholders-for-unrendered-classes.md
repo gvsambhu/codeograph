@@ -10,6 +10,8 @@ informed: future contributors
 
 ## Context and Problem Statement
 
+**State at the time of this decision:** codeograph 0.5.0 (2026-11-01).
+
 A class selected for rendering can end up with no output for two reasons, and both are decided as
 omission:
 
@@ -117,7 +119,7 @@ flagged*).
 #### Constraint flagged for ADR-008
 The renderer interface gains a placeholder generator, which every renderer implements: it produces the
 skeleton of a class the renderer did not render, carrying the reason (NFR-5: adding a render target changes
-no shared code). Its signature is ADR-008's to define.
+no shared code).
 On acceptance, D-008-2 carries a *superseded by ADR-034* note.
 
 #### Constraint flagged for ADR-010
@@ -260,4 +262,5 @@ FR-3 AC-1, AC-2 · FR-23 · FR-36 AC-1, AC-2 · FR-45 AC-1 · NFR-5 AC-1.
 ## Revision history
 
 * **2026-11-10** — NFR-5 cited by its reworded AC-1 (adding a render target changes no shared code) instead of the removed wording. Reference fix; no decision changed.
-* **2026-11-19** — code citations replaced by descriptions of the behaviour; no decision changed.
+* **2026-11-19** — code citations replaced by descriptions of the behaviour; the commit anchor replaced by
+  the release the Context describes; no decision changed.

@@ -10,6 +10,8 @@ informed: future contributors
 
 ## Context and Problem Statement
 
+**State at the time of this decision:** codeograph 0.5.0 (2026-10-31).
+
 **ADR-022 Fork 3** fixed the run identifier's format — a UTC timestamp plus a six-character random
 suffix — and FR-20 AC-3 requires one correlation identifier to join the manifest, the logs and the
 telemetry. **Which identifier each command uses was never decided, and the three commands disagree:**
@@ -455,4 +457,5 @@ derived by `history`, never written (Fork 4).
   Confirmation item covers the host's hash in `runs.jsonl`. An invocation a restart killed shows as
   *cannot tell* — in the heartbeat's rejection too — and FR-43 AC-2 is stated as met within one boot; Confirmation 4's kill points are set at
   the journal write. Exposed by a verification of the 2026-11-12 change.
-* **2026-11-19** — code citations replaced by descriptions of the behaviour; no decision changed.
+* **2026-11-19** — code citations replaced by descriptions of the behaviour; the commit anchor replaced by
+  the release the Context describes; no decision changed.

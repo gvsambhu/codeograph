@@ -10,6 +10,8 @@ informed: future contributors
 
 ## Context and Problem Statement
 
+**State at the time of this decision:** codeograph 0.5.0 (2026-11-01).
+
 ADR-017 Fork 3 locked the seven graph-quality check definitions *"exactly"*, and Fork 4 locked the three
 code-quality slots. Each definition was written as a formula. **Four of the formulas cannot measure what
 their check's name says**, and one code-quality slot had no designed input:
@@ -549,4 +551,5 @@ a hand-worked value.
   `rule_5_skip_reason`, and `rules_enforced` is 4 whenever rule 5 is not run; Confirmation 11 gains the
   tolerant case — a property, and a value of an optional enum, ignored; a value of a required enum is a
   major (ADR-035 Fork 5) — and 15 the deleted file.
-* **2026-11-19** — code citations replaced by descriptions of the behaviour; no decision changed.
+* **2026-11-19** — code citations replaced by descriptions of the behaviour; the commit anchor replaced by
+  the release the Context describes; no decision changed.
