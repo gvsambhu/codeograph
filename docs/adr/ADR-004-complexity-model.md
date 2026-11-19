@@ -242,3 +242,47 @@ References:
 * **Stale ADR-005 forward-reference.** The More-Information note predicting ADR-005 would consume Method LoC = 100 (`java:S138`) to gate chunked-vs-single extraction is withdrawn: ADR-005 instead uses a **class-level token estimate**, not Method LoC. The Method-LoC threshold remains valid as a reported complexity signal; it simply is not the token-strategy trigger.
 
 No reversal of any prior decision; clarification only.
+
+**2026-11-19 — Method Lines of Code follows its cited source (1 decision).** §3.6 cites SonarSource `java:S138`
+but describes a different count, and the §4 threshold it cites is not that rule's. The rule's own
+implementation in `sonar-java` counts, for the method body, the distinct lines that hold at least one code
+token: `MethodTooBigCheck` takes `getLinesOfCode` over the body block, and `LinesOfCodeVisitor` records the
+start line of each syntax token, so blank lines and comment-only lines are not counted and the brace lines
+are. Its default maximum is **75**. §3.6's *"Physical lines … opening brace line through closing brace
+line"* with blank and comment lines *included* is instead Checkstyle `MethodLength`'s default count
+(`countEmpty = true`, default maximum 150), so the sentence *"(matches SonarSource convention)"* is
+false. The shipped computation matches neither: it spans the whole declaration, annotations included. FR-12
+AC-1 requires the computation to follow its cited source; AC-2 requires the threshold to.
+
+1. **Method Lines of Code is S138's count.** Per method or constructor, the number of distinct lines of the
+   body block, its opening and closing brace lines included, that hold at least one code token; blank lines
+   and comment-only lines are excluded, and the signature and annotations are not part of the body. A
+   multi-line token counts its first line. **Supersedes** §3.6's *"Physical lines of code in the method body
+   (opening brace line through closing brace line, inclusive)"* and *"Blank lines and comment-only lines are
+   included (matches SonarSource convention)"*. Unchanged: synthetic Lombok-generated methods report 0; a
+   bodyless method carries no value (2026-06-14 amendment, item 1). Source: SonarSource `java:S138`, as
+   implemented in `sonar-java` (`MethodTooBigCheck`, `LinesOfCodeVisitor`).
+2. **The §4 reference value is S138's default, 75** — *"Method LoC | 100 | rule default warning"* reads
+   *"Method LoC | 75 | rule default (`MethodTooBigCheck`)"*. The conservative refactor target of 20 (Martin,
+   2008) is unchanged.
+
+**Rejected alternatives.** *Checkstyle `MethodLength`'s physical count* (brace to brace, every line; default
+150) — it would keep §3.6's wording, but it breaks the ADR's single source family (cyclomatic `S1541`,
+cognitive `S3776`), counts comments as size, and contradicts the published graph schema, whose
+`method_loc` reads *"excluding blank lines and comments"*. *Non-commenting source statements* (PMD
+`NcssCount`, default 60) — a different metric under the same field name.
+
+**Consequences.** Most `method_loc` values change — lower wherever a method has annotations, a multi-line
+signature, blank lines or comments. A method with none of these, whose signature and opening brace share a
+line, keeps its value. Each golden is refreshed once under ADR-007's `change` category, citing this
+amendment. The graph schema's description of `method_loc` states this count and needs no change.
+
+**New Confirmation items (from this amendment):**
+* A method whose body holds blank lines and comment-only lines counts only the lines that hold a code token,
+  its brace lines included; its annotations and signature lines are not counted (unit test).
+* A constructor is counted the same way; a method whose body is a single line `{ return x; }` counts 1
+  (unit test).
+* The shipped example's `method_loc` values equal a hand count by this rule (golden refresh, reviewed).
+
+Reverses §3.6's counting rule and the §4 Method LoC threshold; every other metric, source and threshold is
+unchanged.
