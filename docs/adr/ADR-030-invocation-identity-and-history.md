@@ -1,6 +1,6 @@
 ---
 status: proposed
-date: 2026-10-31
+date: 2026-11-19
 deciders: learner
 consulted: AI design advisor
 informed: future contributors
@@ -10,23 +10,22 @@ informed: future contributors
 
 ## Context and Problem Statement
 
-**State at the time of this decision:** codeograph 0.5.0, `main` at `bd6a837` (2026-10-31). File and
-line references are to that commit.
+**State at the time of this decision:** codeograph 0.5.0 (2026-10-31).
 
 **ADR-022 Fork 3** fixed the run identifier's format — a UTC timestamp plus a six-character random
 suffix — and FR-20 AC-3 requires one correlation identifier to join the manifest, the logs and the
 telemetry. **Which identifier each command uses was never decided, and the three commands disagree:**
 
-| Command | Identifier it uses | Evidence |
-|---|---|---|
-| `run` | Generates its own | `cli/main.py:261` |
-| `render` | Generates its own, with **no link** to the run whose graph it rendered | `cli/render_pipeline.py:87` |
-| `eval` | **Reuses the run's**, read from the manifest | `evals/runner.py:119` |
+| Command | Identifier it uses |
+|---|---|
+| `run` | Generates its own |
+| `render` | Generates its own, with **no link** to the run whose graph it rendered |
+| `eval` | **Reuses the run's**, read from the manifest |
 
 So a render's telemetry cannot be joined to the run it rendered, and an evaluation's records are
 indistinguishable from the run's own.
 
-**Only `run` writes a log file** (`<out>/logs.jsonl`, `logging_config.py:121`). `render` and `eval` accept
+**Only `run` writes a log file** (`<out>/logs.jsonl`). `render` and `eval` accept
 the verbosity flags, but their file output never engages.
 
 **Nothing records the history of a directory.** The manifest describes the current state; once a later
@@ -458,3 +457,5 @@ derived by `history`, never written (Fork 4).
   Confirmation item covers the host's hash in `runs.jsonl`. An invocation a restart killed shows as
   *cannot tell* — in the heartbeat's rejection too — and FR-43 AC-2 is stated as met within one boot; Confirmation 4's kill points are set at
   the journal write. Exposed by a verification of the 2026-11-12 change.
+* **2026-11-19** — code citations replaced by descriptions of the behaviour; the commit anchor replaced by
+  the release the Context describes; no decision changed.

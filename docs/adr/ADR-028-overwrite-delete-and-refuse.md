@@ -1,6 +1,6 @@
 ---
 status: proposed
-date: 2026-10-31
+date: 2026-11-19
 deciders: learner
 consulted: AI design advisor
 informed: future contributors
@@ -10,13 +10,12 @@ informed: future contributors
 
 ## Context and Problem Statement
 
-**State at the time of this decision:** codeograph 0.5.0, `main` at `bd6a837` (2026-10-31). File and
-line references are to that commit.
+**State at the time of this decision:** codeograph 0.5.0 (2026-10-31).
 
 **Every command that writes output answers a non-empty destination the same way: refuse, or with
-`--force`, delete everything in it.** `run` and `render` both call `prepare_output_directory(out, force,
-clear=True)` (`cli/main.py:239`, `cli/render.py:172`). With `--force`, that function removes every file
-and folder in the destination (`cli/output_directory.py:41-47`) — whether the tool wrote it or not.
+`--force`, delete everything in it.** `run` and `render` both prepare their destination through one
+shared routine. With `--force`, it removes every file and folder in the destination — whether the tool
+wrote it or not.
 
 **That rule fails in both directions:**
 
@@ -25,9 +24,8 @@ and folder in the destination (`cli/output_directory.py:41-47`) — whether the 
   without `--force` — which then deletes the graph the first pass produced.
 - **Too loose for everything else.** `--force` is the ordinary way to re-run, and it empties the folder
   regardless of what is in it: a user's edits to a rendered project, files they added, anything placed
-  there by mistake. The only guard rejects the working directory and its ancestors
-  (`cli/output_directory.py:30`); a sibling folder, a home folder or another drive is emptied without
-  complaint.
+  there by mistake. The only guard rejects the working directory and its ancestors; a sibling folder, a
+  home folder or another drive is emptied without complaint.
 - **Nothing protects concurrent commands.** `render` and `eval` update the manifest by reading, changing
   and rewriting it, with no lock or check; two renders running at once (a CI matrix over targets) can
   silently lose one's entry.
@@ -188,12 +186,12 @@ as orphans.
 and reports them. They are regenerable, and archiving them would make the archive large and a cross-drive
 move slow.
 
-**A first render into a folder that has content but no file list** — the tool cannot tell its files from
-the user's — **is refused**, changing nothing, unless the user names `overwrite-edited` (each existing
-file the render would write is archived, then overwritten; others stay) or `clean` (everything archived,
-fresh render). **Empty means empty:** a folder holding only `.git` is not empty. The refusal states the
-consequence of each choice — how many existing files would be overwritten and which would stay — so the
-choice is informed.
+**A render into a folder that has content but no file list** (a first render, or one whose file list the
+tool does not read — ADR-035 Fork 2) — the tool cannot tell its files from the user's — **is refused**,
+changing nothing, unless the user names `overwrite-edited` (each existing file the render would write is
+archived, then overwritten; others stay) or `clean` (everything archived, fresh render). **Empty means
+empty:** a folder holding only `.git` is not empty. The refusal states the consequence of each choice —
+how many existing files would be overwritten and which would stay — so the choice is informed.
 
 **`--force` is removed from `run` and `render`.** Re-running needs no override (Fork 1), and every
 re-render stance has a name; a flag that means "do something destructive" has nothing left to mean. No
@@ -206,8 +204,10 @@ alias is kept.
 message that the folder is untouched and the exact command that re-creates it in the current layout.
 
 **A re-run is cheap by construction:** the graph is byte-identical for the same corpus within the
-execution envelope (NFR-6), and every LLM result comes back from the response cache (FR-17). No
-migration code is kept in the tool.
+execution envelope (NFR-6), and every LLM result comes back from the response cache (FR-17) when the
+release leaves the prompts, the rendered inputs and the output schemas unchanged — a release that changes
+any of them re-pays those calls, which ADR-027's cost gate estimates. No migration code is kept in the
+tool.
 
 ### Fork 4 — Claims, a brief lock, and an input check: (c)
 
@@ -272,6 +272,14 @@ written.
 
 - **A failing invocation** — a hard ceiling reached, a write error — **rolls itself back before exiting**:
   the outputs it published are removed, the outputs it archived are moved back, the journal is deleted.
+- **The journal carries a format version.** A journal in a format version this release of the tool does
+  not read — one written by another release — is **treated as a journal from another process-id space**
+  (the bullet below): its owner and its recorded moves cannot be read, so it is never rolled back. A
+  command that publishes outputs is refused, offering `--break-lock`; a command that publishes nothing
+  reports the journal and its format version, leaves it in place and proceeds. The refusal message
+  says what `--break-lock` leaves: it removes the journal and rolls nothing back, anything the crashed
+  invocation archived stays in the archive, and `run` re-creates the run directory. The journal is
+  tool-internal state, not an artefact, so ADR-035's rule for artefacts does not cover it.
 - **After a crash** the journal remains. **The next invocation of any command finds it first and applies
   Fork 4's stale test to the journal's owner**, because a journal also exists for every invocation still
   publishing:
@@ -287,7 +295,8 @@ written.
   is byte-identical to that copy.
 
 The previous state is restored and nothing is lost; the failed invocation's new outputs are discarded, and
-a re-run reproduces them — the graph is deterministic and LLM results are cached.
+a re-run reproduces them — the graph is deterministic, and LLM results are cached when the release leaves
+the prompts, the rendered inputs and the output schemas unchanged (Fork 3).
 
 ### Constraints flagged for other ADRs
 
@@ -306,8 +315,9 @@ undone (Fork 5). Each `started` entry records the holder identity Fork 4 defines
 claims judge a process by one test.
 
 #### Constraint flagged for ADR-031
-Every refusal here — a first render into a folder with no file list, an earlier-version folder, a held
-claim, a superseded input, a claim, lock or journal from another host or process-id space — carries
+Every refusal here — a render into a folder with no file list, an earlier-version folder, a held
+claim, a superseded input, a claim, lock or journal from another host or process-id space, a journal in
+a format version the tool does not read — carries
 ADR-031's refusal status; `purge` and
 `--break-lock` follow its consent rule, including refusing without `--yes` when nothing can prompt.
 
@@ -392,6 +402,12 @@ ancestor of it, the run directory itself, its namespaces — are placement rules
     test).
 23. A journal recording an earlier boot session is refused by a publishing command, and the message says
     when `--break-lock` is safe (unit test).
+24. A journal in a format version the tool does not read is never rolled back: a `render` is refused with
+    ADR-031's refusal status, the message naming the journal and its format version, offering
+    `--break-lock` and saying that it removes the journal without a roll-back, that anything archived
+    stays in the archive and that `run` re-creates the run directory, and nothing moves; a `history`
+    reports the journal and its format version, leaves it
+    in place and exits 0 (unit test).
 
 ## Pros and Cons of the Considered Options
 
@@ -447,7 +463,8 @@ ancestor of it, the run directory itself, its namespaces — are placement rules
 
 **(c) Refuse; re-run. ✅ Chosen.**
 * Good, because the folder is never half-understood or changed.
-* Good, because a re-run is cheap — deterministic graph, cached LLM results.
+* Good, because a re-run is cheap — deterministic graph, and cached LLM results when the release leaves
+  the LLM inputs unchanged.
 * Good, because no migration code is kept.
 * Bad, because the user must run a command instead of carrying on.
 
@@ -569,3 +586,17 @@ ancestor of it, the run directory itself, its namespaces — are placement rules
   verification of the 2026-11-12 change: read-only commands were blocked where ADR-030 reported, and the
   cost of recording the boot session was unstated. The stale test names the four fields it compares, as
   a fifth field is recorded beside them.
+* **2026-11-19** — Fork 5: the journal carries a format version, and a journal in a version the tool does
+  not read is treated as one from another process-id space — a publishing command is refused, offering
+  `--break-lock`; a command that publishes nothing reports it and proceeds; Confirmation 24 added, and the
+  constraint flagged for ADR-031 lists the refusal. A release that follows a crash parses a journal an
+  earlier release wrote, to roll it back, and nothing said what it does with one it cannot read. Exposed by
+  ADR-035's design review, which names the journal as outside its rule for artefacts and leaves its format
+  to this ADR. The same day, Fork 3, Fork 5's closing line and Fork 3's Pros and Cons state the cache
+  claim's condition — the release leaves the prompts, rendered inputs and output schemas unchanged — as
+  ADR-035 Fork 2 does; exposed by the re-check of that review, which found the premise stated two ways.
+  The second re-check of that review added what the refusal for an unreadable journal says about
+  `--break-lock` (Fork 5, Confirmation 24), and Fork 2 names a render whose file list the tool does not
+  read beside a first render.
+* **2026-11-19** — code citations replaced by descriptions of the behaviour; the commit anchor replaced by
+  the release the Context describes; no decision changed.

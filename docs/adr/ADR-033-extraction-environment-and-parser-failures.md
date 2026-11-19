@@ -1,6 +1,6 @@
 ---
 status: proposed
-date: 2026-11-01
+date: 2026-11-19
 deciders: learner
 consulted: AI design advisor
 informed: future contributors
@@ -10,9 +10,10 @@ informed: future contributors
 
 ## Context and Problem Statement
 
-**State at the time of this decision:** codeograph 0.5.0, `main` at `420f2b5` (2026-11-01). ADR text is
-cited as it stands at that commit. No symbol solver is configured in the shipped parser, so no
-third-party reference resolves on any machine; the decisions below govern resolution as designed.
+**State at the time of this decision:** codeograph 0.5.0 (2026-11-01).
+
+The shipped parser configures no symbol solver, so no third-party reference resolves on any machine;
+the decisions below govern resolution as designed.
 
 The requirements make the knowledge graph a function of the corpus, the tool and its recorded
 extraction settings alone — nothing else may change a byte of it (FR-34) — and require byte-identical
@@ -180,7 +181,8 @@ ahead of it.
     the SHA-256 identifies the build regardless);
   - otherwise — no metadata, or several sets, as in a shaded JAR — the file-name stem alone.
 
-  Per module, the record also names the entries dropped as the corpus's own output (Fork 1).
+  Per module, the record also names the entries dropped as the corpus's own output (Fork 1). It carries
+  `schema_version` at its root, copied on its manifest pointer (ADR-035 Fork 1).
 
   **No paths and no repository location are recorded** — they are machine-specific, may contain a user
   name, and add nothing once content is hashed. The same JARs at different paths therefore record
@@ -217,8 +219,9 @@ ahead of it.
 
 ### Fork 5 — One extraction report: (b)
 
-**`analysis/extraction-report.json`**, written by `run` at the end of Pass 0, with its own schema version
-(NFR-7 AC-1), indexed from the manifest with its SHA-256. It holds, sorted:
+**`analysis/extraction-report.json`**, written by `run` at the end of Pass 0, with its own
+`schema_version` at its root, copied on its manifest pointer (NFR-7 AC-1; ADR-035 Fork 1), indexed from the
+manifest with its SHA-256. It holds, sorted:
 
 * **degraded files** — corpus-relative path, the extraction that produced the node (full parse, regex
   extractor, or name-only stub — the values the graph schema enumerates), the reason (the parser's error,
@@ -499,3 +502,8 @@ NFR-6 AC-3, AC-4 · assumptions 2 and 4.
   verification of the 2026-11-12 change: detection rested on a format fixed only at implementation, and
   the shared config layer carried a mapping to every project unstated. An empty file, and a malformed
   mapping whose lines look like paths, are the same one error.
+* **2026-11-18** — Forks 3 and 5: the classpath record and the extraction report carry `schema_version`
+  at their root, copied on their manifest pointers. Conforms with ADR-035, which places every indexed
+  artefact's schema version in the file as well as on its pointer (NFR-7 AC-1).
+* **2026-11-19** — code citations replaced by descriptions of the behaviour; the commit anchor replaced by
+  the release the Context describes; no decision changed.
