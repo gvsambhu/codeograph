@@ -1,6 +1,6 @@
 ---
 status: proposed
-date: 2026-11-01
+date: 2026-11-19
 deciders: learner
 consulted: AI design advisor
 informed: future contributors
@@ -9,9 +9,6 @@ informed: future contributors
 # ADR-032 — Evaluation Check Semantics
 
 ## Context and Problem Statement
-
-**State at the time of this decision:** codeograph 0.5.0, `main` at `420f2b5` (2026-11-01). ADR text is
-cited as it stands at that commit.
 
 ADR-017 Fork 3 locked the seven graph-quality check definitions *"exactly"*, and Fork 4 locked the three
 code-quality slots. Each definition was written as a formula. **Four of the formulas cannot measure what
@@ -552,3 +549,4 @@ a hand-worked value.
   `rule_5_skip_reason`, and `rules_enforced` is 4 whenever rule 5 is not run; Confirmation 11 gains the
   tolerant case — a property, and a value of an optional enum, ignored; a value of a required enum is a
   major (ADR-035 Fork 5) — and 15 the deleted file.
+* **2026-11-19** — code citations replaced by descriptions of the behaviour; no decision changed.
