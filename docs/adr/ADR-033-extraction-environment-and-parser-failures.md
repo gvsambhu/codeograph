@@ -1,6 +1,6 @@
 ---
 status: proposed
-date: 2026-11-01
+date: 2026-11-19
 deciders: learner
 consulted: AI design advisor
 informed: future contributors
@@ -10,9 +10,8 @@ informed: future contributors
 
 ## Context and Problem Statement
 
-**State at the time of this decision:** codeograph 0.5.0, `main` at `420f2b5` (2026-11-01). ADR text is
-cited as it stands at that commit. No symbol solver is configured in the shipped parser, so no
-third-party reference resolves on any machine; the decisions below govern resolution as designed.
+The shipped parser configures no symbol solver, so no third-party reference resolves on any machine;
+the decisions below govern resolution as designed.
 
 The requirements make the knowledge graph a function of the corpus, the tool and its recorded
 extraction settings alone — nothing else may change a byte of it (FR-34) — and require byte-identical
@@ -504,3 +503,4 @@ NFR-6 AC-3, AC-4 · assumptions 2 and 4.
 * **2026-11-18** — Forks 3 and 5: the classpath record and the extraction report carry `schema_version`
   at their root, copied on their manifest pointers. Conforms with ADR-035, which places every indexed
   artefact's schema version in the file as well as on its pointer (NFR-7 AC-1).
+* **2026-11-19** — code citations replaced by descriptions of the behaviour; no decision changed.
