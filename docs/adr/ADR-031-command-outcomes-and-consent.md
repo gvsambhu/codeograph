@@ -1,6 +1,6 @@
 ---
 status: proposed
-date: 2026-10-31
+date: 2026-11-19
 deciders: learner
 consulted: AI design advisor
 informed: future contributors
@@ -10,18 +10,15 @@ informed: future contributors
 
 ## Context and Problem Statement
 
-**State at the time of this decision:** codeograph 0.5.0, `main` at `bd6a837` (2026-10-31). File and
-line references are to that commit.
-
 **No decision covers how a command reports its outcome, and the exit statuses that ship disagree:**
 
-| Situation | Exit status | Evidence |
-|---|---|---|
-| A wrong or missing option | 2 — Click's default for a usage error | `click.UsageError` |
-| `eval` cannot read its run's manifest, or an output is missing | 2 | `cli/eval.py:62,74,106` |
-| An evaluation check fails | 1 | `cli/eval.py:102`; `run --eval` at `cli/main.py:370` |
-| The user declines the cost-gate prompt | 1 — Click's `Abort` | `llm/confirmation_gate.py:32` |
-| `cache purge` with no criterion, or without `--force` | 0, having done nothing | `cli/cache.py:50-51, 54` |
+| Situation | Exit status |
+|---|---|
+| A wrong or missing option | 2 — Click's default for a usage error |
+| `eval` cannot read its run's manifest, or an output is missing | 2 |
+| An evaluation check fails, in `eval` or in `run --eval` | 1 |
+| The user declines the cost-gate prompt | 1 — Click's `Abort` |
+| `cache purge` with no criterion, or without `--force` | 0, having done nothing |
 
 So **2 means "the command line is wrong" in one place and "the input is missing" in another**; a run that
 completed but failed a quality check is indistinguishable from one that crashed; and a command that did
@@ -29,9 +26,8 @@ nothing reports success.
 
 **Consent is asked three different ways.** The cost gate (ADR-027) prompts on a terminal and, with no
 terminal, stops unless `--yes` or `--non-interactive` is given — where `--non-interactive` means *proceed
-without asking* (`llm/confirmation_gate.py:26`). `cache purge` deletes only with `--force` and is
-otherwise a dry run (`cli/cache.py:38`). `run --force` and `render --force` delete with no question at all
-(removed by ADR-028).
+without asking*. `cache purge` deletes only with `--force` and is otherwise a dry run. `run --force` and
+`render --force` delete with no question at all (removed by ADR-028).
 
 **The layout cluster adds new outcomes and new irreversible commands.** ADR-028 refuses on held claims,
 superseded inputs, earlier-version folders and unadoptable folders; `purge` and `--break-lock` cannot be
@@ -95,8 +91,8 @@ every command, not only the layout's. It is one of four coupled decisions:
 interrupted (ADR-030 Fork 4), and ADR-028's recovery rolls it back.
 
 **Usage errors become 1.** Click exits with 2 for a wrong option, which here means *completed with
-recorded failures*; the command line maps usage errors to 1. Every path that exits with 2 for a missing
-input in the snapshot does the same.
+recorded failures*; the command line maps usage errors to 1. Every path that now exits with 2 for a missing
+input does the same.
 
 **A declined or stopped cost gate is a refusal (3), and it changes nothing.** The gate runs after Pass 0
 — its estimate needs the class count — so Pass 0's output is **held back and published only once the
@@ -142,7 +138,7 @@ passes; `--non-interactive` applies to the gate only.
 
 #### Constraint flagged for ADR-015
 `cache purge` asks for consent, refuses with 3 without `--yes` when nothing can prompt, drops `--force`
-and the dry-run default, and exits 1 on a usage error (0 in the snapshot); its filters align with `purge`'s.
+and the dry-run default, and exits 1 on a usage error (it now exits 0); its filters align with `purge`'s.
 
 #### Constraint flagged for ADR-017
 A failing check exits with 4; a missing or unreadable manifest exits with 1, not 2; every requested
@@ -281,3 +277,4 @@ The history's outcome field uses these classes.
   manifest pointer, under status 1. Conforms with ADR-035, which decides both conditions and gives them
   these statuses. Exposed by ADR-035's design review: the table the two decisions rest on did not list
   them.
+* **2026-11-19** — code citations replaced by descriptions of the behaviour; no decision changed.
