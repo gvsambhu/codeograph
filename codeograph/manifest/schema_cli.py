@@ -56,7 +56,13 @@ def _current_schema() -> dict[str, object]:
     is_flag=True,
     help="Exit non-zero if the committed schema does not match the Pydantic source.",
 )
-def main(generate: bool, check: bool) -> None:
+@click.option(
+    "--schema-path",
+    type=click.Path(path_type=Path),
+    default=GENERATED_SCHEMA_PATH,
+    help="Schema file to check or write (default: the committed one).",
+)
+def main(generate: bool, check: bool, schema_path: Path = GENERATED_SCHEMA_PATH) -> None:
     """Generate or check the manifest JSON Schema."""
     if generate == check:
         raise click.UsageError("Exactly one of --generate or --check must be specified.")
@@ -64,21 +70,21 @@ def main(generate: bool, check: bool) -> None:
     current = _current_schema()
 
     if check:
-        if not GENERATED_SCHEMA_PATH.exists():
-            raise click.ClickException(f"{GENERATED_SCHEMA_PATH} does not exist; regenerate with --generate")
-        committed = json.loads(GENERATED_SCHEMA_PATH.read_text(encoding="utf-8"))
+        if not schema_path.exists():
+            raise click.ClickException(f"{schema_path} does not exist; regenerate with --generate")
+        committed = json.loads(schema_path.read_text(encoding="utf-8"))
         if committed != current:
-            raise click.ClickException(f"{GENERATED_SCHEMA_PATH} is stale; regenerate with --generate")
+            raise click.ClickException(f"{schema_path} is stale; regenerate with --generate")
         return
 
     if generate:
-        GENERATED_SCHEMA_PATH.parent.mkdir(parents=True, exist_ok=True)
-        GENERATED_SCHEMA_PATH.write_text(
+        schema_path.parent.mkdir(parents=True, exist_ok=True)
+        schema_path.write_text(
             json.dumps(current, indent=2, ensure_ascii=False) + "\n",
             encoding="utf-8",
             newline="",
         )
-        click.echo(f"wrote {GENERATED_SCHEMA_PATH}")
+        click.echo(f"wrote {schema_path}")
 
 
 __all__ = ["GENERATED_SCHEMA_PATH", "main"]
