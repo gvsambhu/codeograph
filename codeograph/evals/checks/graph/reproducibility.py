@@ -16,7 +16,7 @@ _RATIONALE = (
 _RUNS = 3
 
 
-def check_reproducibility(output_dir: Path) -> CheckResult:
+def check_reproducibility(source_path: str) -> CheckResult:
     """Run --ast-only against the recorded source_path three times and compare
     the canonical-form sha256 of each graph.json.
 
@@ -27,15 +27,7 @@ def check_reproducibility(output_dir: Path) -> CheckResult:
     start_time = time.perf_counter()
 
     # ------------------------------------------------------------------ #
-    # 1. Read source_path from the manifest
-    # ------------------------------------------------------------------ #
-    manifest_path = output_dir / "manifest.json"
-    with open(manifest_path, encoding="utf-8") as f:
-        manifest = json.load(f)
-    source_path = manifest.get("source_path", "")
-
-    # ------------------------------------------------------------------ #
-    # 2. Skip if source not recorded or no longer on disk
+    # 1. Skip if source not recorded or no longer on disk
     # ------------------------------------------------------------------ #
     if not source_path or not Path(source_path).exists():
         return CheckResult(

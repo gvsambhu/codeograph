@@ -2,7 +2,7 @@
 CorpusEvaluator — thin bridge between the run pipeline and run_evals.
 
 In the ``run --eval`` path, the run pipeline supplies corpus context
-in-memory (corpus_id, run_id, codeograph_version, graph_sha256) so
+in-memory (corpus_id, run_id, codeograph_version, graph_sha256, source_path) so
 run_evals can execute without needing manifest.json on disk. The caller
 (cli/main.py) then passes the returned scorecard pointers to the
 ManifestAssembler for the single terminal write.
@@ -29,10 +29,11 @@ def evaluate_corpus(
     run_id: str | None = None,
     codeograph_version: str | None = None,
     graph_sha256: str | None = None,
+    source_path: str | None = None,
 ) -> dict[str, ScorecardPointer]:
     """Run scorecard evaluations against *out_dir*; return scorecard pointers.
 
-    Context params are forwarded to ``run_evals``. When all four are
+    Context params are forwarded to ``run_evals``. When all five are
     provided (the ``run --eval`` path), no manifest read is performed.
     When any is absent (standalone ``eval run`` path), ``run_evals``
     reads the manifest itself.
@@ -57,6 +58,7 @@ def evaluate_corpus(
             run_id=run_id,
             codeograph_version=codeograph_version,
             graph_sha256=graph_sha256,
+            source_path=source_path,
         )
         return scorecard_pointers
     except MissingOutputError as e:

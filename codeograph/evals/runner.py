@@ -69,6 +69,7 @@ def run_evals(
     run_id: str | None = None,
     codeograph_version: str | None = None,
     graph_sha256: str | None = None,
+    source_path: str | None = None,
 ) -> tuple[list[Scorecard], dict[str, ScorecardPointer]]:
     """Run selected scorecards against *output_dir*.
 
@@ -79,8 +80,8 @@ def run_evals(
     the run assembler's single terminal write.
 
     Context params (``corpus_id``, ``run_id``, ``codeograph_version``,
-    ``graph_sha256``) are resolved from the on-disk manifest when not
-    supplied, which is the standalone ``codeograph eval run`` path.
+    ``graph_sha256``, ``source_path``) are resolved from the on-disk manifest
+    when not supplied, which is the standalone ``codeograph eval run`` path.
     The ``run --eval`` path passes them in-memory so no manifest read is
     needed before the terminal write.
 
@@ -95,6 +96,7 @@ def run_evals(
     :param run_id:              Run identifier. Read from manifest if None.
     :param codeograph_version:  Package version. Read from manifest if None.
     :param graph_sha256:        SHA-256 of graph.json. Read from manifest if None.
+    :param source_path:         Source directory path. Read from manifest if None.
     :raises MissingOutputError: If output_dir absent, or manifest absent and
                                 context params are not fully provided.
     """
@@ -110,7 +112,7 @@ def run_evals(
         raise MissingOutputError(f"no rendered output at {output_dir}; run `codeograph run` first.")
 
     # Resolve context from manifest when any param is absent (standalone path).
-    if corpus_id is None or run_id is None or codeograph_version is None or graph_sha256 is None:
+    if corpus_id is None or run_id is None or codeograph_version is None or graph_sha256 is None or source_path is None:
         if not manifest_path.exists():
             raise MissingOutputError(f"no rendered output at {output_dir}; run `codeograph run` first.")
         manifest = manifest_io_read(manifest_path)
@@ -118,6 +120,7 @@ def run_evals(
         codeograph_version = codeograph_version or manifest.codeograph_version
         run_id = run_id or manifest.run_id
         graph_sha256 = graph_sha256 or manifest.artefacts["graph"].sha256
+        source_path = source_path or manifest.source_path
 
     run_ts = datetime.datetime.now(datetime.UTC).isoformat().replace("+00:00", "Z")
 
@@ -168,7 +171,7 @@ def run_evals(
         if _is_active("relationship_correctness"):
             _graph_dispatch["relationship_correctness"] = check_relationship_correctness(graph_obj)
         if _is_active("reproducibility"):
-            _graph_dispatch["reproducibility"] = check_reproducibility(output_dir)
+            _graph_dispatch["reproducibility"] = check_reproducibility(source_path)
         if _is_active("schema_validity"):
             _graph_dispatch["schema_validity"] = check_schema_validity(graph_obj)
         if _is_active("semantic_accuracy"):
