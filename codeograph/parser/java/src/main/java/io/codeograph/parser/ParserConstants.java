@@ -39,11 +39,11 @@ final class ParserConstants {
 			"Email", "Pattern");
 
 	/**
-	 * Type names excluded from CBO (Coupling Between Objects) counting.
-	 *
-	 * Excludes Java primitives, boxed types, and ubiquitous java.lang / java.util
-	 * classes whose presence does not indicate meaningful coupling to a domain
-	 * type. Keeping this conservative avoids inflating CBO with noise.
+	 * Type names left out of the parser's own per-file CBO (Coupling Between
+	 * Objects) count: boxed types and ubiquitous java.lang / java.util classes.
+	 * This is a hand-picked subset and is not what decides the JDK for the
+	 * corpus-wide count, which the graph stage takes from the committed JDK list;
+	 * referenced_types is not filtered by it.
 	 *
 	 * CBO reference: Chidamber & Kemerer (1994), "A Metrics Suite for Object
 	 * Oriented Design", IEEE TSE 20(6), 476–493.
@@ -61,6 +61,10 @@ final class ParserConstants {
 			"Stream", "Function", "Consumer", "Supplier", "Predicate", "BiFunction",
 			// misc java.lang
 			"Class", "Enum", "Record", "Comparable", "Cloneable",
+			// java.lang exceptions and errors, which throws clauses name routinely
+			"Throwable", "Exception", "RuntimeException", "Error", "IllegalArgumentException", "IllegalStateException",
+			"UnsupportedOperationException", "NullPointerException", "IndexOutOfBoundsException", "ClassCastException",
+			"ArithmeticException", "InterruptedException", "CloneNotSupportedException",
 			// type-inference placeholder
 			"var");
 }

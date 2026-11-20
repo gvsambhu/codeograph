@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.SortedSet;
 import java.util.stream.Collectors;
 
 /**
@@ -121,14 +122,16 @@ final class ParsedFileAssembler {
 				.orElse(null);
 		obj.put("stereotype", stereotype != null ? stereotype : JSONObject.NULL);
 
-		// 7. Superclass (simple name — FQCN resolution requires symbol solver, out of
-		// v1)
-		String superclass = decl.getExtendedTypes().isEmpty() ? null : decl.getExtendedTypes().get(0).getNameAsString();
+		// 7. Superclass, as written in the source (with its qualifier if it has one).
+		// The graph stage resolves it against the corpus.
+		String superclass = decl.getExtendedTypes().isEmpty()
+				? null
+				: decl.getExtendedTypes().get(0).getNameWithScope();
 		obj.put("superclass", superclass != null ? superclass : JSONObject.NULL);
 
-		// 8. Implemented interfaces (simple names)
+		// 8. Implemented interfaces, as written
 		JSONArray implemented = new JSONArray();
-		decl.getImplementedTypes().forEach(t -> implemented.put(t.getNameAsString()));
+		decl.getImplementedTypes().forEach(t -> implemented.put(t.getNameWithScope()));
 		obj.put("implements", implemented);
 
 		// 9. Inner class flag
@@ -166,6 +169,7 @@ final class ParsedFileAssembler {
 
 		// 12. Imports (intermediate-only — Python converts to DependsOnEdge)
 		obj.put("imports", extractImports(cu));
+		obj.put("wildcard_imports", extractWildcardImports(cu));
 
 		// 13. Fields
 		obj.put("fields", buildFields(decl, fqcn));
@@ -192,14 +196,20 @@ final class ParsedFileAssembler {
 		}
 		obj.put("wmc", wmcValue);
 
-		// CBO = distinct non-trivial type references. C&K (1994) IEEE TSE 20(6).
-		// Always computed — not in D-004-1's omission list.
-		obj.put("cbo", ComplexityCalculator.computeCbo(decl));
+		// CBO. C&K (1994) IEEE TSE 20(6). referenced_types is every class the file
+		// names, as written; the graph stage resolves the names, adds the call
+		// targets and sets the corpus-wide count (ADR-004 §3.4). "cbo" is this file's
+		// own count, which stands only where a class has no referenced_types. It is
+		// always computed: a class has no omission rule.
+		SortedSet<String> referencedTypes = ComplexityCalculator.referencedTypes(decl);
+		obj.put("cbo", ComplexityCalculator.computeCbo(decl, referencedTypes));
+		obj.put("referenced_types", new JSONArray(referencedTypes));
 
 		// LCOM4 = weakly connected components in method-field access graph.
 		// Hitz & Montazeri (1995). Reads accessed_fields from the finished methodsArr.
 		// Node set = non-static methods + constructors (Lcom4Calculator definition).
-		// D-004-1: null when the node set is empty (no non-static methods or ctors).
+		// Null when the node set is empty (no non-static methods or ctors): a class
+		// with nothing to relate has no cohesion value, rather than a guessed one.
 		long lcom4NodeCount = 0;
 		for (int i = 0; i < methodsArr.length(); i++) {
 			JSONObject m = methodsArr.getJSONObject(i);
@@ -245,10 +255,11 @@ final class ParsedFileAssembler {
 		obj.put("annotations", extractAnnotationNames(decl.getAnnotations()));
 
 		JSONArray extendedInterfaces = new JSONArray();
-		decl.getExtendedTypes().forEach(t -> extendedInterfaces.put(t.getNameAsString()));
+		decl.getExtendedTypes().forEach(t -> extendedInterfaces.put(t.getNameWithScope()));
 		obj.put("extends_interfaces", extendedInterfaces);
 
 		obj.put("imports", extractImports(cu));
+		obj.put("wildcard_imports", extractWildcardImports(cu));
 		obj.put("methods", buildMethods(decl, fqcn));
 
 		return obj;
@@ -281,10 +292,11 @@ final class ParsedFileAssembler {
 		obj.put("constants", constants);
 
 		JSONArray implemented = new JSONArray();
-		decl.getImplementedTypes().forEach(t -> implemented.put(t.getNameAsString()));
+		decl.getImplementedTypes().forEach(t -> implemented.put(t.getNameWithScope()));
 		obj.put("implements", implemented);
 
 		obj.put("imports", extractImports(cu));
+		obj.put("wildcard_imports", extractWildcardImports(cu));
 
 		// EnumDeclaration is not a ClassOrInterfaceDeclaration;
 		// buildFields/buildMethods
@@ -326,10 +338,11 @@ final class ParsedFileAssembler {
 		obj.put("components", components);
 
 		JSONArray implemented = new JSONArray();
-		decl.getImplementedTypes().forEach(t -> implemented.put(t.getNameAsString()));
+		decl.getImplementedTypes().forEach(t -> implemented.put(t.getNameWithScope()));
 		obj.put("implements", implemented);
 
 		obj.put("imports", extractImports(cu));
+		obj.put("wildcard_imports", extractWildcardImports(cu));
 
 		return obj;
 	}
@@ -371,6 +384,7 @@ final class ParsedFileAssembler {
 		obj.put("elements", elements);
 
 		obj.put("imports", extractImports(cu));
+		obj.put("wildcard_imports", extractWildcardImports(cu));
 
 		return obj;
 	}
@@ -527,6 +541,8 @@ final class ParsedFileAssembler {
 			}
 		}
 
+		String classPath = classMappingPath(decl);
+
 		// --- Regular methods ---
 		for (MethodDeclaration method : decl.getMethods()) {
 			JSONObject mObj = new JSONObject();
@@ -569,16 +585,15 @@ final class ParsedFileAssembler {
 			}
 			mObj.put("response_status", responseStatus);
 
-			mObj.put("http_metadata", buildHttpMetadata(annotationList, method.getAnnotations()));
+			mObj.put("http_metadata", buildHttpMetadata(annotationList, method.getAnnotations(), classPath));
 
 			if (method.getBody().isPresent()) {
 				mObj.put("cyclomatic_complexity", ComplexityCalculator.computeCyclomatic(method));
 				mObj.put("cognitive_complexity", ComplexityCalculator.computeCognitive(method));
 				mObj.put("method_loc", ComplexityCalculator.computeMethodLoc(method));
 			} else {
-				// Bodyless method (interface default-less / abstract) — metrics omitted per
-				// D-004-1
-				// to avoid eval-weighting / class-selection skew (DC1R-10).
+				// Bodyless method (interface default-less / abstract) — metrics are omitted,
+				// not zero, so they do not skew eval weighting or class selection.
 				mObj.put("cyclomatic_complexity", JSONObject.NULL);
 				mObj.put("cognitive_complexity", JSONObject.NULL);
 				mObj.put("method_loc", JSONObject.NULL);
@@ -773,11 +788,13 @@ final class ParsedFileAssembler {
 	// -------------------------------------------------------------------------
 
 	/**
-	 * Extract HTTP mapping metadata from method-level mapping annotations.
+	 * Extract HTTP mapping metadata from method-level mapping annotations. The path
+	 * combines the class-level {@code @RequestMapping} path with the method's.
 	 *
 	 * Returns {@link JSONObject#NULL} if no mapping annotation is present.
 	 */
-	private static Object buildHttpMetadata(List<String> annotationNames, NodeList<AnnotationExpr> annotations) {
+	private static Object buildHttpMetadata(List<String> annotationNames, NodeList<AnnotationExpr> annotations,
+			String classPath) {
 		String httpMethod = null;
 		String annotKey = null;
 
@@ -809,36 +826,88 @@ final class ParsedFileAssembler {
 			if (!annotKey.equals(ann.getNameAsString()))
 				continue;
 
-			if (ann.isSingleMemberAnnotationExpr()) {
-				path = ann.asSingleMemberAnnotationExpr().getMemberValue().toString().replaceAll("^\"|\"$", "");
-			} else if (ann.isNormalAnnotationExpr()) {
+			path = mappingPath(ann);
+			if (ann.isNormalAnnotationExpr()) {
 				for (MemberValuePair pair : ann.asNormalAnnotationExpr().getPairs()) {
-					String raw = pair.getValue().toString().replaceAll("^\"|\"$", "");
-					switch (pair.getNameAsString()) {
-						case "value", "path" -> path = raw;
-						case "method" -> {
-							String m = pair.getValue().toString();
-							if (m.contains("GET"))
-								httpMethod = "GET";
-							else if (m.contains("POST"))
-								httpMethod = "POST";
-							else if (m.contains("PUT"))
-								httpMethod = "PUT";
-							else if (m.contains("DELETE"))
-								httpMethod = "DELETE";
-							else if (m.contains("PATCH"))
-								httpMethod = "PATCH";
-						}
+					if ("method".equals(pair.getNameAsString())) {
+						String m = pair.getValue().toString();
+						if (m.contains("GET"))
+							httpMethod = "GET";
+						else if (m.contains("POST"))
+							httpMethod = "POST";
+						else if (m.contains("PUT"))
+							httpMethod = "PUT";
+						else if (m.contains("DELETE"))
+							httpMethod = "DELETE";
+						else if (m.contains("PATCH"))
+							httpMethod = "PATCH";
 					}
 				}
 			}
 			break;
 		}
 
+		path = joinPaths(classPath, path);
+
 		JSONObject meta = new JSONObject();
 		meta.put("method", httpMethod != null ? httpMethod : JSONObject.NULL);
 		meta.put("path", path);
 		return meta;
+	}
+
+	/**
+	 * The class's {@code @RequestMapping} path, or an empty string if it has none.
+	 */
+	private static String classMappingPath(ClassOrInterfaceDeclaration decl) {
+		for (AnnotationExpr ann : decl.getAnnotations()) {
+			if ("RequestMapping".equals(ann.getNameAsString())) {
+				return mappingPath(ann);
+			}
+		}
+		return "";
+	}
+
+	/**
+	 * The path a mapping annotation declares: its {@code value} or {@code path},
+	 * the first element if that is an array; an empty string if it names none.
+	 */
+	private static String mappingPath(AnnotationExpr ann) {
+		Expression value = null;
+		if (ann.isSingleMemberAnnotationExpr()) {
+			value = ann.asSingleMemberAnnotationExpr().getMemberValue();
+		} else if (ann.isNormalAnnotationExpr()) {
+			for (MemberValuePair pair : ann.asNormalAnnotationExpr().getPairs()) {
+				if ("value".equals(pair.getNameAsString()) || "path".equals(pair.getNameAsString())) {
+					value = pair.getValue();
+				}
+			}
+		}
+		if (value instanceof ArrayInitializerExpr array) {
+			value = array.getValues().isEmpty() ? null : array.getValues().get(0);
+		}
+		if (value == null) {
+			return "";
+		}
+		return value.toString().replaceAll("^\"|\"$", "");
+	}
+
+	/**
+	 * Joins a class path and a method path with exactly one {@code /} at the seam.
+	 * Either part may be empty, in which case the other is returned unchanged.
+	 */
+	private static String joinPaths(String classPath, String methodPath) {
+		if (classPath.isEmpty()) {
+			return methodPath;
+		}
+		if (methodPath.isEmpty()) {
+			return classPath;
+		}
+		boolean classSlash = classPath.endsWith("/");
+		boolean methodSlash = methodPath.startsWith("/");
+		if (classSlash && methodSlash) {
+			return classPath + methodPath.substring(1);
+		}
+		return classSlash || methodSlash ? classPath + methodPath : classPath + "/" + methodPath;
 	}
 
 	// -------------------------------------------------------------------------
@@ -872,6 +941,17 @@ final class ParsedFileAssembler {
 	private static JSONArray extractImports(CompilationUnit cu) {
 		JSONArray arr = new JSONArray();
 		cu.getImports().forEach(imp -> arr.put(imp.getNameAsString()));
+		return arr;
+	}
+
+	/**
+	 * The package of every non-static on-demand import ({@code import java.util.*;}
+	 * gives {@code java.util}), in source order.
+	 */
+	private static JSONArray extractWildcardImports(CompilationUnit cu) {
+		JSONArray arr = new JSONArray();
+		cu.getImports().stream().filter(imp -> imp.isAsterisk() && !imp.isStatic())
+				.forEach(imp -> arr.put(imp.getNameAsString()));
 		return arr;
 	}
 

@@ -193,6 +193,8 @@ class GraphBuilder:
             entry_point=parsed_file.get("entry_point"),
             fqcn_resolved=parsed_file.get("fqcn_resolved", True),
             wmc=parsed_file.get("wmc"),
+            # The parser's per-file count; the assembler's CouplingCounter replaces it
+            # with the corpus-wide count wherever the parser reported its references.
             cbo=parsed_file.get("cbo"),
             lcom4=parsed_file.get("lcom4"),
         )

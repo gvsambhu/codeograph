@@ -1,12 +1,18 @@
 """
 GraphAssembler — merges per-file CodeographKnowledgeGraph fragments into a
-single corpus-wide graph and adds cross-file edges.
+single corpus-wide graph, adds cross-file edges, and sets the node fields that
+need the whole corpus.
 
 Sits between GraphBuilder (per-file) and GraphWriter (serialization).
 
+Node fields set here, because one file cannot know them:
+  superclass / implements / extends_interfaces — resolved to FQCNs
+  cbo                                          — the corpus-wide coupling count
+
 Cross-file edges added here:
   DependsOnEdge     — type-level dependencies from imports, field types,
-                      param types, return types, superclass, implements
+                      param types, return types (type arguments included),
+                      superclass, implements
   CallsResolvedEdge — method calls where the callee exists in the corpus;
                       promoted from CallsUnresolvedEdge
   RelationEdge      — JPA @OneToMany / @ManyToOne / @OneToOne / @ManyToMany
@@ -20,6 +26,7 @@ import logging
 from collections import defaultdict
 from typing import Any
 
+from codeograph.graph.coupling_counter import CouplingCounter
 from codeograph.graph.models.graph_schema import (
     CallsResolvedEdge,
     Cardinality,
@@ -29,6 +36,7 @@ from codeograph.graph.models.graph_schema import (
     Node,
     RelationEdge,
 )
+from codeograph.graph.type_name_resolver import TypeNameResolver
 from codeograph.parser.models import ParsedFile
 
 logger = logging.getLogger(__name__)
@@ -56,7 +64,9 @@ _COLLECTION_WRAPPERS = ("List<", "Set<", "Collection<", "Optional<")
 
 class GraphAssembler:
     """
-    Merges per-file graph fragments and adds corpus-wide cross-file edges.
+    Merges per-file graph fragments, adds corpus-wide cross-file edges, and
+    rewrites the node fields that need the whole corpus (resolved supertype
+    names, CBO).
 
     Stateless between calls — all working state is local to assemble().
     A single instance can be reused across corpus runs.
@@ -94,6 +104,12 @@ class GraphAssembler:
         param_index = self._build_param_index(all_nodes)
         import_maps = self._build_import_maps(corpus)
 
+        # Superclass and interface names arrive as written; resolve them once, here,
+        # so the node fields and the dependency edges agree.
+        resolver = TypeNameResolver(node_id_set)
+        wildcard_imports = {pf["id"]: pf.get("wildcard_imports", []) for pf, _ in corpus}
+        all_nodes = resolver.resolve_nodes(all_nodes, import_maps, wildcard_imports)
+
         # Step 3 — per-file cross-file edge addition
         # Dedup sets track emitted pairs so multiple sources don't repeat edges.
         dep_pairs: set[tuple[str, str]] = set()
@@ -107,6 +123,7 @@ class GraphAssembler:
                 node_id_set,
                 all_edges,
                 dep_pairs,
+                resolver,
             )
             if parsed_file["kind"] == "class":
                 self._add_relation_edges(
@@ -125,6 +142,9 @@ class GraphAssembler:
             method_index,
             import_maps,
         )
+
+        # Step 4b — CBO needs the resolved calls, so it is set here, once, for every class
+        all_nodes = CouplingCounter(resolver).apply(all_nodes, [pf for pf, _ in corpus], import_maps, all_edges)
 
         # Step 5 — safety dedup and return
         return CodeographKnowledgeGraph(
@@ -224,9 +244,9 @@ class GraphAssembler:
         """
         class_fqcn → {simple_name: fqcn}
 
-        Built from parsed_file["imports"] for each file. Used by all three
-        cross-file edge builders to resolve simple type names to FQCNs without
-        re-reading the source.
+        Built from parsed_file["imports"] for each file. Used by the cross-file
+        edge builders, the type-name resolver and the coupling counter to resolve
+        simple type names to FQCNs without re-reading the source.
 
         Example for OwnerService:
           "Owner"            → "com.example.model.Owner"
@@ -249,6 +269,7 @@ class GraphAssembler:
         node_id_set: set[str],
         all_edges: list[Edge],
         emitted: set[tuple[str, str]],
+        resolver: TypeNameResolver,
     ) -> None:
         """
         Emit DependsOnEdge for every corpus type this file depends on.
@@ -260,11 +281,12 @@ class GraphAssembler:
 
         Sources:
           1. imports list               — already FQCN; fastest path
-          2. field declared types       — simple name via import_map
-          3. method return types        — simple name via import_map
-          4. method parameter types     — simple name via import_map
-          5. superclass                 — simple name or FQCN
-          6. implements / extends_interfaces — simple names or FQCNs
+          2. field declared types       — every class the type names, type arguments
+                                          included; resolved by the resolver
+          3. method return types        — as source 2
+          4. method parameter types     — as source 2
+          5. superclass                 — as written; resolved by the resolver
+          6. implements / extends_interfaces — as written; resolved by the resolver
         """
         source = parsed_file["id"]
 
@@ -293,26 +315,34 @@ class GraphAssembler:
         for fqcn in parsed_file.get("imports", []):
             maybe_emit(fqcn)
 
+        package = source.rpartition(".")[0]
+
+        wildcards = parsed_file.get("wildcard_imports", [])
+
+        def emit_type_names(type_expression: str) -> None:
+            for name in resolver.resolve_type_expression(type_expression, package, import_map, wildcards):
+                maybe_emit(name)
+
         # Source 2 — field declared types
         for field in parsed_file.get("fields", []):
-            maybe_emit(import_map.get(field["type"]))
+            emit_type_names(field["type"])
 
         # Source 3 & 4 — method return types and parameter types
         for method in parsed_file.get("methods", []):
-            maybe_emit(import_map.get(method["return_type"]))
+            emit_type_names(method["return_type"])
             for param in method.get("parameters", []):
-                maybe_emit(import_map.get(param["type"]))
+                emit_type_names(param["type"])
 
-        # Source 5 — superclass (may arrive as simple name or FQCN)
+        # Source 5 — superclass (as written)
         superclass = parsed_file.get("superclass")
         if superclass:
-            maybe_emit(import_map.get(superclass, superclass))
+            maybe_emit(resolver.resolve(superclass, package, import_map, wildcards))
 
         # Source 6 — implements (class / enum) and extends_interfaces (interface)
         for iface in parsed_file.get("implements") or []:
-            maybe_emit(import_map.get(iface, iface))
+            maybe_emit(resolver.resolve(iface, package, import_map, wildcards))
         for iface in parsed_file.get("extends_interfaces") or []:
-            maybe_emit(import_map.get(iface, iface))
+            maybe_emit(resolver.resolve(iface, package, import_map, wildcards))
 
     # ------------------------------------------------------------------
     # Step 3b — RelationEdge

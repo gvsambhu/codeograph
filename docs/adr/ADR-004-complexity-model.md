@@ -242,3 +242,102 @@ References:
 * **Stale ADR-005 forward-reference.** The More-Information note predicting ADR-005 would consume Method LoC = 100 (`java:S138`) to gate chunked-vs-single extraction is withdrawn: ADR-005 instead uses a **class-level token estimate**, not Method LoC. The Method-LoC threshold remains valid as a reported complexity signal; it simply is not the token-strategy trigger.
 
 No reversal of any prior decision; clarification only.
+
+**2026-11-19 — Method Lines of Code follows its cited source (1 decision).** §3.6 cites SonarSource `java:S138`
+but describes a different count, and the §4 threshold it cites is not that rule's. The rule's own
+implementation in `sonar-java` counts, for the method body, the distinct lines that hold at least one code
+token: `MethodTooBigCheck` takes `getLinesOfCode` over the body block, and `LinesOfCodeVisitor` records the
+start line of each syntax token, so blank lines and comment-only lines are not counted and the brace lines
+are. Its default maximum is **75**. §3.6's *"Physical lines … opening brace line through closing brace
+line"* with blank and comment lines *included* is instead Checkstyle `MethodLength`'s default count
+(`countEmpty = true`, default maximum 150), so the sentence *"(matches SonarSource convention)"* is
+false. The shipped computation matches neither: it spans the whole declaration, annotations included. FR-12
+AC-1 requires the computation to follow its cited source; AC-2 requires the threshold to.
+
+1. **Method Lines of Code is S138's count.** Per method or constructor, the number of distinct lines of the
+   body block, its opening and closing brace lines included, that hold at least one code token; blank lines
+   and comment-only lines are excluded, and the signature and annotations are not part of the body. A
+   multi-line token counts its first line. **Supersedes** §3.6's *"Physical lines of code in the method body
+   (opening brace line through closing brace line, inclusive)"* and *"Blank lines and comment-only lines are
+   included (matches SonarSource convention)"*. Unchanged: synthetic Lombok-generated methods report 0; a
+   bodyless method carries no value (2026-06-14 amendment, item 1). Source: SonarSource `java:S138`, as
+   implemented in `sonar-java` (`MethodTooBigCheck`, `LinesOfCodeVisitor`).
+2. **The §4 reference value is S138's default, 75** — *"Method LoC | 100 | rule default warning"* reads
+   *"Method LoC | 75 | rule default (`MethodTooBigCheck`)"*. The conservative refactor target of 20 (Martin,
+   2008) is unchanged.
+
+**Rejected alternatives.** *Checkstyle `MethodLength`'s physical count* (brace to brace, every line; default
+150) — it would keep §3.6's wording, but it breaks the ADR's single source family (cyclomatic `S1541`,
+cognitive `S3776`), counts comments as size, and contradicts the published graph schema, whose
+`method_loc` reads *"excluding blank lines and comments"*. *Non-commenting source statements* (PMD
+`NcssCount`, default 60) — a different metric under the same field name.
+
+**Consequences.** Most `method_loc` values change — lower wherever a method has annotations, a multi-line
+signature, blank lines or comments. A method with none of these, whose signature and opening brace share a
+line, keeps its value. Each golden is refreshed once under ADR-007's `change` category, citing this
+amendment. The graph schema's description of `method_loc` states this count and needs no change.
+
+**New Confirmation items (from this amendment):**
+* A method whose body holds blank lines and comment-only lines counts only the lines that hold a code token,
+  its brace lines included; its annotations and signature lines are not counted (unit test).
+* A constructor is counted the same way; a method whose body is a single line `{ return x; }` counts 1
+  (unit test).
+* The shipped example's `method_loc` values equal a hand count by this rule (golden refresh, reviewed).
+
+Reverses §3.6's counting rule and the §4 Method LoC threshold; every other metric, source and threshold is
+unchanged.
+
+**2026-11-20 — CBO counts type arguments, and "JDK classes" gets a definition (2 decisions).** §3.4 counts the
+classes a class references through its field, parameter, return, local-variable and `throws` types and excludes
+*"JDK classes"*, but says neither whether the classes named inside a type's arguments count nor which classes
+the JDK is. As shipped, a generic type counted only its container (`List<Pet>` counted `List`, which is then
+excluded, so a JPA entity whose coupling is all in collection fields scored 0), and the JDK was a hand-picked
+list of simple names plus the `java.` and `javax.` prefixes. The list missed `StringBuilder`,
+`NumberFormatException` and every JDK type reached through a wildcard import, and the `javax.` prefix dropped
+Java EE APIs (`javax.persistence`, `javax.servlet`) that are third-party jars.
+
+1. **A type's arguments are references.** A field, parameter, return, local-variable or `throws` type counts
+   every class it names, recursively through type arguments, wildcard bounds and array element types:
+   `Map<String, List<Pet>>` references `Map`, `String`, `List` and `Pet`. Type parameters declared by the class,
+   a method or a constructor (`T`, `E`) are not classes and are not counted. Supersedes the container-only
+   reading. Source: Chidamber & Kemerer (1994), op. cit. — a class is coupled to every class whose methods or
+   instance variables it uses, and a type argument names one.
+2. **JDK classes are the public top-level types of the packages that a JDK's system modules export.** The
+   JDK is the newest one the project uses, recorded in the list itself (25 when written), which is at least as
+   new as any JDK the project supports. A newer JDK's exported packages include an older one's, and a corpus
+   class is checked first, so a newer list only recognises more JDK names. A class is a JDK class if its
+   package is one that a system module of that JDK exports without qualification, or, for a name written
+   without a package, if it is a type of `java.lang` or of a package the file imports on demand
+   (`import java.util.*;`). The packages and their types are generated from the JDK's module graph by a
+   committed program and recorded in a committed list that names the JDK version; they are not chosen by hand
+   and do not depend on the JDK the user runs. A class of the corpus is never a JDK class, whatever its name:
+   a project `Record` in the file's own package counts. Supersedes the `java.` / `javax.` prefix rule. A
+   class's own nested types count as the class itself and are not counted; self-references stay excluded.
+
+**Rejected alternatives.** *Counting the container only* — it leaves the coupling that generic collections
+carry out of the metric. *A hand-picked exclusion list* — it is incomplete by construction and would be
+extended whenever a case is found. *The `java.` / `javax.` prefix rule* — wrong for the Java EE APIs that
+share the `javax.` namespace. *Resolving names through the running JDK* (JavaParser's reflection type solver)
+— the output would change with the JDK installed where the tool runs, against the determinism the golden
+depends on.
+
+**Consequences.** Every CBO value that involves a generic type argument, a `java.lang` or wildcard-imported
+type, a type parameter or an own nested type changes, so each golden is refreshed once under ADR-007's
+`change` category, citing this amendment. The names a class's field, return and parameter types contribute are
+also the names its dependency edges are drawn from. The JDK list is regenerated when the project moves to a newer JDK, and the diff of that
+regeneration is the review of what the new JDK added.
+
+**New Confirmation items (from this amendment):**
+* A class whose coupling is only through type arguments (`List<Pet>`, `Map<String, List<Pet>>`, `? extends Pet`)
+  counts the argument classes; the containers are not counted (unit test).
+* `StringBuilder` as a local, `NumberFormatException` in a `throws` clause and `Date` through `import
+  java.util.*` are not counted; `javax.persistence.EntityManager` is counted, and a `javax` type the JDK
+  exports (`javax.sql.DataSource`) is not (unit test).
+* A project class named like a JDK type, in the file's own package, is counted (unit test).
+* A generic class's and a generic method's type parameters, and an unqualified own nested type, are not counted
+  (unit test).
+* The committed JDK list is what the generator program produces under the JDK it names (regeneration diff,
+  reviewed).
+
+Reverses §3.4's silence on type arguments and its undefined "JDK classes"; every other metric, source and
+threshold is unchanged.

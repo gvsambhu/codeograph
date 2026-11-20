@@ -185,6 +185,9 @@ class ParsedFile(_ParsedFileBase, total=False):
     line_range: list[int]  # [begin_line, end_line]; base keeps it optional
     # because regex fallback may not know the range
 
+    # --- from the JavaParser sidecar only; the regex fallback does not emit it ---
+    wildcard_imports: list[str]  # package of each non-static on-demand import ("java.util" for java.util.*)
+
     # --- present for class, interface, enum, annotation_type ---
     modifiers: list[str]
 
@@ -201,7 +204,8 @@ class ParsedFile(_ParsedFileBase, total=False):
     entry_point: bool
     fqcn_resolved: bool
     wmc: int | None  # Weighted Methods per Class; M7
-    cbo: int | None  # Coupling Between Objects; M7
+    cbo: int | None  # Coupling Between Objects, from this file alone; the graph stage recounts it
+    referenced_types: list[str]  # every class the file names, as written, type arguments included; input to CBO
     lcom4: int | None  # Lack of Cohesion of Methods 4; M7
 
     # --- interface-only ---

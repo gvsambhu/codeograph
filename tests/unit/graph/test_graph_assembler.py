@@ -8,7 +8,7 @@ public assemble() method using minimal two-file corpora.
 
 from __future__ import annotations
 
-from typing import cast
+from typing import Any, cast
 
 from codeograph.graph.graph_assembler import GraphAssembler
 from codeograph.graph.graph_builder import GraphBuilder
@@ -255,6 +255,57 @@ class TestAddDepEdges:
         dep_edges = _edges_of(graph, DependsOnEdge)
         assert any(e.source == "com.example.Impl" and e.target == "com.example.IFoo" for e in dep_edges)
 
+    @staticmethod
+    def _targets_of_a(a: ParsedFile, *others: ParsedFile) -> set[str]:
+        graph = GraphAssembler().assemble([(pf, _build_fragment(pf)) for pf in (a, *others)])
+        return {e.target for e in _edges_of(graph, DependsOnEdge) if e.source == a["id"]}
+
+    def test_same_package_field_type_gives_an_edge_without_an_import(self):
+        a = _class_pf(fields=[_field(id="com.example.A.address", name="address", type="Address")])
+        address = _class_pf(id="com.example.Address", name="Address")
+        assert self._targets_of_a(a, address) == {"com.example.Address"}
+
+    def test_type_argument_of_a_field_gives_an_edge(self):
+        a = _class_pf(fields=[_field(id="com.example.A.pets", name="pets", type="List<Pet>")])
+        pet = _class_pf(id="com.example.Pet", name="Pet")
+        assert self._targets_of_a(a, pet) == {"com.example.Pet"}
+
+    def test_nested_type_arguments_and_wildcard_bounds_give_edges(self):
+        a = _class_pf(
+            imports=["com.example.model.Owner"],
+            fields=[
+                _field(id="com.example.A.index", name="index", type="Map<String, List<Pet>>"),
+                _field(id="com.example.A.owners", name="owners", type="Set<? extends Owner>"),
+            ],
+        )
+        pet = _class_pf(id="com.example.Pet", name="Pet")
+        owner = _class_pf(id="com.example.model.Owner", name="Owner")
+        assert self._targets_of_a(a, pet, owner) == {"com.example.Pet", "com.example.model.Owner"}
+
+    def test_array_element_type_gives_an_edge(self):
+        a = _class_pf(fields=[_field(id="com.example.A.pets", name="pets", type="Pet[]")])
+        pet = _class_pf(id="com.example.Pet", name="Pet")
+        assert self._targets_of_a(a, pet) == {"com.example.Pet"}
+
+    def test_return_and_parameter_types_resolve_in_the_same_way(self):
+        a = _class_pf(
+            methods=[
+                _method(
+                    id="com.example.A#find(Optional<Owner>)",
+                    name="find",
+                    return_type="List<Pet>",
+                    parameters=[{"name": "owner", "type": "Optional<Owner>"}],
+                )
+            ],
+        )
+        pet = _class_pf(id="com.example.Pet", name="Pet")
+        owner = _class_pf(id="com.example.Owner", name="Owner")
+        assert self._targets_of_a(a, pet, owner) == {"com.example.Pet", "com.example.Owner"}
+
+    def test_edge_to_a_class_outside_the_corpus_is_not_drawn(self):
+        a = _class_pf(fields=[_field(id="com.example.A.pets", name="pets", type="List<Pet>")])
+        assert self._targets_of_a(a) == set()
+
 
 # ---------------------------------------------------------------------------
 # RelationEdge tests
@@ -453,6 +504,464 @@ class TestConvertUnresolvedToResolved:
         assert not any(e.target == "com.example.B#nonExistentMethod()" for e in resolved)
         unresolved = _edges_of(graph, CallsUnresolvedEdge)
         assert any("nonExistentMethod" in e.target for e in unresolved)
+
+
+# ---------------------------------------------------------------------------
+# Superclass and interface names — resolved on the graph nodes
+# ---------------------------------------------------------------------------
+
+
+def _node_named(graph: CodeographKnowledgeGraph, fqcn: str) -> Any:
+    return next(n.root for n in graph.nodes if n.root.id == fqcn)
+
+
+class TestSupertypeNameResolution:
+    """The parser reports supertypes as written; the assembled node carries FQCNs."""
+
+    def test_explicit_import_resolves_superclass_and_interfaces(self):
+        child = _class_pf(
+            id="com.example.web.Child",
+            name="Child",
+            imports=["com.example.base.Base", "com.example.base.Auditable"],
+            superclass="Base",
+            implements=["Auditable"],
+        )
+        base = _class_pf(id="com.example.base.Base", name="Base")
+        graph = GraphAssembler().assemble([(p, _build_fragment(p)) for p in (child, base)])
+        node = _node_named(graph, "com.example.web.Child")
+        assert node.superclass == "com.example.base.Base"
+        assert node.implements == ["com.example.base.Auditable"]
+
+    def test_same_package_class_resolves_without_an_import(self):
+        child = _class_pf(id="com.example.Child", name="Child", superclass="Base")
+        base = _class_pf(id="com.example.Base", name="Base")
+        graph = GraphAssembler().assemble([(p, _build_fragment(p)) for p in (child, base)])
+        assert _node_named(graph, "com.example.Child").superclass == "com.example.Base"
+        # The dependency edge follows the same rule as the node field.
+        assert any(
+            e.source == "com.example.Child" and e.target == "com.example.Base" for e in _edges_of(graph, DependsOnEdge)
+        )
+
+    def test_unresolvable_name_stays_as_written(self):
+        # Neither imported explicitly nor declared in the corpus: a wildcard-imported
+        # or java.lang type.
+        child = _class_pf(id="com.example.Child", name="Child", superclass="Exception", implements=["Runnable"])
+        graph = GraphAssembler().assemble([(child, _build_fragment(child))])
+        node = _node_named(graph, "com.example.Child")
+        assert node.superclass == "Exception"
+        assert node.implements == ["Runnable"]
+
+    def test_qualified_name_passes_through(self):
+        child = _class_pf(
+            id="com.example.Child",
+            name="Child",
+            superclass="org.other.Base",
+            implements=["java.io.Serializable"],
+        )
+        graph = GraphAssembler().assemble([(child, _build_fragment(child))])
+        node = _node_named(graph, "com.example.Child")
+        assert node.superclass == "org.other.Base"
+        assert node.implements == ["java.io.Serializable"]
+
+    def test_explicit_import_wins_over_same_package_class(self):
+        child = _class_pf(
+            id="com.example.Child",
+            name="Child",
+            imports=["org.other.Base"],
+            superclass="Base",
+        )
+        local_base = _class_pf(id="com.example.Base", name="Base")
+        graph = GraphAssembler().assemble([(p, _build_fragment(p)) for p in (child, local_base)])
+        assert _node_named(graph, "com.example.Child").superclass == "org.other.Base"
+
+    def test_nested_jdk_type_resolves_through_its_outer_type(self):
+        child = _class_pf(
+            id="com.example.Child",
+            name="Child",
+            imports=["java.util.Map"],
+            implements=["Map.Entry"],
+        )
+        graph = GraphAssembler().assemble([(child, _build_fragment(child))])
+        assert _node_named(graph, "com.example.Child").implements == ["java.util.Map.Entry"]
+
+    def test_nested_project_type_resolves_through_its_outer_type(self):
+        child = _class_pf(
+            id="com.example.web.Child",
+            name="Child",
+            imports=["com.example.model.Outer"],
+            superclass="Outer.Inner",
+        )
+        outer = _class_pf(id="com.example.model.Outer", name="Outer")
+        graph = GraphAssembler().assemble([(p, _build_fragment(p)) for p in (child, outer)])
+        assert _node_named(graph, "com.example.web.Child").superclass == "com.example.model.Outer.Inner"
+
+    def test_nested_type_of_a_same_package_class_resolves(self):
+        child = _class_pf(id="com.example.Child", name="Child", superclass="Outer.Inner")
+        outer = _class_pf(id="com.example.Outer", name="Outer")
+        graph = GraphAssembler().assemble([(p, _build_fragment(p)) for p in (child, outer)])
+        assert _node_named(graph, "com.example.Child").superclass == "com.example.Outer.Inner"
+
+    def test_nested_type_with_an_unresolved_outer_type_stays_as_written(self):
+        child = _class_pf(id="com.example.Child", name="Child", superclass="Unknown.Inner")
+        graph = GraphAssembler().assemble([(child, _build_fragment(child))])
+        assert _node_named(graph, "com.example.Child").superclass == "Unknown.Inner"
+
+    def test_package_qualified_name_with_a_lowercase_first_segment_is_unchanged(self):
+        # An import of an unrelated Base must not capture a name that is already qualified.
+        child = _class_pf(
+            id="com.example.Child",
+            name="Child",
+            imports=["org.other.Base"],
+            superclass="com.other.Base",
+        )
+        graph = GraphAssembler().assemble([(child, _build_fragment(child))])
+        assert _node_named(graph, "com.example.Child").superclass == "com.other.Base"
+
+    def test_supertype_reached_through_an_on_demand_import_of_a_project_package_resolves(self):
+        child = _class_pf(
+            id="com.example.web.Child",
+            name="Child",
+            wildcard_imports=["com.example.base"],
+            superclass="Base",
+            implements=["Auditable"],
+        )
+        base = _class_pf(id="com.example.base.Base", name="Base")
+        auditable = _class_pf(id="com.example.base.Auditable", name="Auditable")
+        graph = GraphAssembler().assemble([(p, _build_fragment(p)) for p in (child, base, auditable)])
+        node = _node_named(graph, "com.example.web.Child")
+        assert node.superclass == "com.example.base.Base"
+        assert node.implements == ["com.example.base.Auditable"]
+        targets = {e.target for e in _edges_of(graph, DependsOnEdge) if e.source == "com.example.web.Child"}
+        assert targets == {"com.example.base.Base", "com.example.base.Auditable"}
+
+    def test_field_type_reached_through_an_on_demand_import_draws_its_edge(self):
+        a = _class_pf(
+            wildcard_imports=["com.example.model"],
+            fields=[_field(id="com.example.A.pets", name="pets", type="List<Pet>")],
+        )
+        pet = _class_pf(id="com.example.model.Pet", name="Pet")
+        graph = GraphAssembler().assemble([(p, _build_fragment(p)) for p in (a, pet)])
+        targets = {e.target for e in _edges_of(graph, DependsOnEdge) if e.source == "com.example.A"}
+        assert targets == {"com.example.model.Pet"}
+
+    def test_a_name_declared_in_two_on_demand_packages_stays_as_written(self):
+        # Java rejects the ambiguity; the resolver does not guess.
+        child = _class_pf(
+            id="com.example.web.Child",
+            name="Child",
+            wildcard_imports=["com.example.one", "com.example.two"],
+            superclass="Base",
+        )
+        one = _class_pf(id="com.example.one.Base", name="Base")
+        two = _class_pf(id="com.example.two.Base", name="Base")
+        graph = GraphAssembler().assemble([(p, _build_fragment(p)) for p in (child, one, two)])
+        assert _node_named(graph, "com.example.web.Child").superclass == "Base"
+
+    def test_a_name_declared_in_only_one_of_two_on_demand_packages_resolves(self):
+        child = _class_pf(
+            id="com.example.web.Child",
+            name="Child",
+            wildcard_imports=["com.example.one", "com.example.two"],
+            superclass="Base",
+        )
+        two = _class_pf(id="com.example.two.Base", name="Base")
+        graph = GraphAssembler().assemble([(p, _build_fragment(p)) for p in (child, two)])
+        assert _node_named(graph, "com.example.web.Child").superclass == "com.example.two.Base"
+
+    def test_the_own_package_wins_over_an_on_demand_import(self):
+        child = _class_pf(
+            id="com.example.Child", name="Child", wildcard_imports=["com.example.base"], superclass="Base"
+        )
+        own = _class_pf(id="com.example.Base", name="Base")
+        other = _class_pf(id="com.example.base.Base", name="Base")
+        graph = GraphAssembler().assemble([(p, _build_fragment(p)) for p in (child, own, other)])
+        assert _node_named(graph, "com.example.Child").superclass == "com.example.Base"
+
+    def test_an_explicit_import_wins_over_the_own_package_and_an_on_demand_import(self):
+        child = _class_pf(
+            id="com.example.Child",
+            name="Child",
+            imports=["org.other.Base"],
+            wildcard_imports=["com.example.base"],
+            superclass="Base",
+        )
+        own = _class_pf(id="com.example.Base", name="Base")
+        other = _class_pf(id="com.example.base.Base", name="Base")
+        graph = GraphAssembler().assemble([(p, _build_fragment(p)) for p in (child, own, other)])
+        assert _node_named(graph, "com.example.Child").superclass == "org.other.Base"
+
+    def test_interface_extends_resolved(self):
+        iface = _class_pf(
+            kind="interface",
+            id="com.example.Repo",
+            name="Repo",
+            extends_interfaces=["Marker", "Serializable"],
+        )
+        marker = _class_pf(id="com.example.Marker", name="Marker")
+        graph = GraphAssembler().assemble([(p, _build_fragment(p)) for p in (iface, marker)])
+        node = _node_named(graph, "com.example.Repo")
+        assert node.extends_interfaces == ["com.example.Marker", "Serializable"]
+
+    def test_enum_implements_resolved(self):
+        enum = _class_pf(
+            kind="enum",
+            id="com.example.Status",
+            name="Status",
+            constants=["ACTIVE"],
+            implements=["Displayable"],
+        )
+        shown = _class_pf(id="com.example.Displayable", name="Displayable")
+        graph = GraphAssembler().assemble([(p, _build_fragment(p)) for p in (enum, shown)])
+        assert _node_named(graph, "com.example.Status").implements == ["com.example.Displayable"]
+
+
+# ---------------------------------------------------------------------------
+# CBO — set from the referenced types plus the resolved call targets
+# ---------------------------------------------------------------------------
+
+
+class TestCoupling:
+    """CBO counts the distinct classes a class references, other than itself and the JDK's."""
+
+    @staticmethod
+    def _cbo(files: list[ParsedFile], fqcn: str = "com.example.A") -> int | None:
+        graph = GraphAssembler().assemble([(pf, _build_fragment(pf)) for pf in files])
+        return cast(int | None, _node_named(graph, fqcn).cbo)
+
+    @staticmethod
+    def _callee(name: str, package: str = "com.example") -> ParsedFile:
+        return _class_pf(
+            id=f"{package}.{name}",
+            name=name,
+            methods=[_method(id=f"{package}.{name}#run()", name="run")],
+        )
+
+    def test_resolved_call_to_an_unreferenced_class_adds_one(self):
+        owner = _class_pf(id="com.example.Owner", name="Owner")
+        without_call = _class_pf(imports=["com.example.Owner"], referenced_types=["Owner"], cbo=1)
+        with_call = _class_pf(
+            imports=["com.example.Owner", "com.example.util.Util"],
+            referenced_types=["Owner"],
+            methods=[_method(id="com.example.A#doIt()", name="doIt", calls=["Util.run()"])],
+        )
+        util = self._callee("Util", "com.example.util")
+        assert self._cbo([without_call, owner]) == 1
+        assert self._cbo([with_call, owner, util]) == 2
+
+    def test_resolved_call_to_a_referenced_class_changes_nothing(self):
+        b = self._callee("B")
+        field = _field(id="com.example.A.b", name="b", type="B")
+        a = _class_pf(
+            imports=["com.example.B"],
+            fields=[field],
+            referenced_types=["B"],
+            methods=[_method(id="com.example.A#doIt()", name="doIt", calls=["b.run()"])],
+        )
+        assert self._cbo([a, b]) == 1
+
+    def test_names_resolving_to_one_class_count_once(self):
+        owner = _class_pf(id="com.example.Owner", name="Owner")
+        a = _class_pf(referenced_types=["Owner", "com.example.Owner"])
+        assert self._cbo([a, owner]) == 1
+
+    def test_unresolved_names_each_count(self):
+        # Neither is a JDK type, so each is counted as written.
+        a = _class_pf(referenced_types=["Foo", "Bar"])
+        assert self._cbo([a]) == 2
+
+    def test_jdk_classes_are_excluded(self):
+        a = _class_pf(imports=["java.io.IOException"], referenced_types=["IOException", "java.io.File"])
+        assert self._cbo([a]) == 0
+
+    def test_java_lang_types_named_without_a_package_are_excluded(self):
+        # A local StringBuilder and a throws NumberFormatException need no import.
+        a = _class_pf(referenced_types=["StringBuilder", "NumberFormatException", "Thread", "Runnable"])
+        assert self._cbo([a]) == 0
+
+    def test_a_type_imported_on_demand_from_the_jdk_is_excluded(self):
+        # import java.util.*;  →  Date, Iterator and Map.Entry are the JDK's.
+        a = _class_pf(wildcard_imports=["java.util"], referenced_types=["Date", "Iterator", "Map.Entry", "Owner"])
+        assert self._cbo([a]) == 1  # Owner only
+
+    def test_the_same_name_without_the_wildcard_import_counts(self):
+        # Date is not java.lang; with no import that names it, it is some other class.
+        a = _class_pf(referenced_types=["Date"])
+        assert self._cbo([a]) == 1
+
+    def test_an_on_demand_import_of_a_project_package_does_not_make_a_type_the_jdk(self):
+        a = _class_pf(wildcard_imports=["com.example.model"], referenced_types=["Owner"])
+        assert self._cbo([a]) == 1
+
+    def test_a_jdk_javax_package_is_excluded(self):
+        a = _class_pf(imports=["javax.sql.DataSource"], referenced_types=["DataSource", "javax.crypto.Cipher"])
+        assert self._cbo([a]) == 0
+
+    def test_a_javax_api_outside_the_jdk_counts(self):
+        a = _class_pf(
+            imports=["javax.persistence.EntityManager"],
+            referenced_types=["EntityManager", "javax.servlet.http.HttpServletRequest"],
+        )
+        assert self._cbo([a]) == 2
+
+    def test_a_project_class_named_like_a_jdk_type_counts(self):
+        record = _class_pf(id="com.example.Record", name="Record")
+        a = _class_pf(referenced_types=["Record"])
+        assert self._cbo([a, record]) == 1
+
+    def test_a_default_package_project_class_named_like_a_jdk_type_counts(self):
+        record = _class_pf(id="Record", name="Record", source_file="src/Record.java")
+        a = _class_pf(id="A", name="A", source_file="src/A.java", referenced_types=["Record"])
+        assert self._cbo([a, record], "A") == 1
+
+    def test_an_imported_project_class_named_like_a_jdk_type_counts(self):
+        date = _class_pf(id="com.example.util.Date", name="Date")
+        a = _class_pf(imports=["com.example.util.Date"], wildcard_imports=["java.util"], referenced_types=["Date"])
+        assert self._cbo([a, date]) == 1
+
+    def test_a_class_named_only_in_a_type_argument_is_counted(self):
+        pet = _class_pf(id="com.example.Pet", name="Pet")
+        owner = _class_pf(
+            id="com.example.Owner",
+            name="Owner",
+            imports=["java.util.List"],
+            fields=[_field(id="com.example.Owner.pets", name="pets", type="List<Pet>")],
+            referenced_types=["List", "Pet"],
+        )
+        graph = GraphAssembler().assemble([(p, _build_fragment(p)) for p in (owner, pet)])
+        assert _node_named(graph, "com.example.Owner").cbo == 1  # Pet; List is the JDK's
+        # The dependency edge is drawn from the same names.
+        assert any(
+            e.source == "com.example.Owner" and e.target == "com.example.Pet" for e in _edges_of(graph, DependsOnEdge)
+        )
+
+    def test_a_class_reached_only_through_an_on_demand_import_of_a_project_package_counts(self):
+        # java.io is imported on demand too, but only the project declares a Console: it wins,
+        # so the name is a corpus class and not java.io.Console.
+        console = _class_pf(id="com.example.tools.Console", name="Console")
+        a = _class_pf(wildcard_imports=["java.io", "com.example.tools"], referenced_types=["Console", "Owner"])
+        assert self._cbo([a, console]) == 2
+
+    def test_names_resolving_to_one_class_through_an_on_demand_import_count_once(self):
+        console = _class_pf(id="com.example.tools.Console", name="Console")
+        a = _class_pf(wildcard_imports=["com.example.tools"], referenced_types=["Console", "com.example.tools.Console"])
+        assert self._cbo([a, console]) == 1
+
+    def test_a_name_declared_in_two_on_demand_packages_is_left_as_written(self):
+        one = _class_pf(id="com.example.one.Base", name="Base")
+        two = _class_pf(id="com.example.two.Base", name="Base")
+        a = _class_pf(
+            wildcard_imports=["com.example.one", "com.example.two"],
+            referenced_types=["Base", "com.example.one.Base"],
+        )
+        # "Base" stays as written and is a class of its own to count; the qualified name is the other.
+        assert self._cbo([a, one, two]) == 2
+
+    def test_the_own_package_wins_over_an_on_demand_import(self):
+        own = _class_pf(id="com.example.Base", name="Base")
+        other = _class_pf(id="com.example.base.Base", name="Base")
+        a = _class_pf(wildcard_imports=["com.example.base"], referenced_types=["Base", "com.example.Base"])
+        assert self._cbo([a, own, other]) == 1
+
+    def test_an_explicit_import_wins_over_the_own_package_and_an_on_demand_import(self):
+        own = _class_pf(id="com.example.Base", name="Base")
+        other = _class_pf(id="com.example.base.Base", name="Base")
+        a = _class_pf(
+            imports=["org.other.Base"],
+            wildcard_imports=["com.example.base"],
+            referenced_types=["Base", "org.other.Base"],
+        )
+        assert self._cbo([a, own, other]) == 1
+
+    def test_an_unresolved_call_adds_no_class(self):
+        # `helper` is a local variable, so the call cannot be resolved even though Helper declares run().
+        helper = self._callee("Helper")
+        a = _class_pf(
+            referenced_types=["Owner"],
+            methods=[_method(id="com.example.A#doIt()", name="doIt", calls=["helper.run()"])],
+        )
+        assert self._cbo([a, helper]) == 1
+
+    def test_the_class_itself_is_excluded(self):
+        a = _class_pf(
+            referenced_types=["A"],
+            methods=[_method(id="com.example.A#outer()", name="outer", calls=["doIt()"])]
+            + [_method(id="com.example.A#doIt()", name="doIt")],
+        )
+        assert self._cbo([a]) == 0
+
+    def test_nested_jdk_type_is_excluded(self):
+        # Map.Entry resolves through its outer type to java.util.Map.Entry.
+        a = _class_pf(imports=["java.util.Map"], referenced_types=["Owner", "Map.Entry"])
+        assert self._cbo([a]) == 1  # Owner only
+
+    def test_a_class_does_not_count_its_own_nested_type(self):
+        order = _class_pf(id="com.example.Order", name="Order", referenced_types=["Order.Builder", "Address"])
+        assert self._cbo([order], "com.example.Order") == 1  # Address only
+
+    def test_another_class_counts_a_nested_type(self):
+        order = _class_pf(id="com.example.Order", name="Order")
+        a = _class_pf(imports=["com.example.Order"], referenced_types=["Order.Builder"])
+        assert self._cbo([a, order]) == 1
+
+    def test_no_referenced_types_keeps_the_parsers_count(self):
+        a = _class_pf(cbo=7)
+        assert self._cbo([a]) == 7
+
+    @staticmethod
+    def _hitz_montazeri_design(
+        calls_in_c: list[str], b_methods: list[MethodFact], c_declares_a: bool = True
+    ) -> list[ParsedFile]:
+        """Classes A, B and C of Hitz & Montazeri (1996), Fig. 1, p. 3, shaped as the parser emits them.
+
+        The classes sit in one package and C imports the other two, so a call on
+        a field or a class name resolves to its class. ``referenced_types`` lists
+        the types a class declares or uses. With ``c_declares_a`` false, C holds no
+        A: its only route to A is a call.
+        """
+
+        def pf(name: str, **kwargs: object) -> ParsedFile:
+            return _class_pf(id=f"hm.{name}", name=name, source_file=f"{name}.java", **kwargs)
+
+        a = pf("A", cbo=0, referenced_types=[], methods=[_method(id="hm.A#g()", name="g")])
+        b = pf("B", cbo=1, referenced_types=["A"], methods=b_methods)
+        declared = ["A", "B"] if c_declares_a else ["B"]
+        c = pf(
+            "C",
+            cbo=len(declared),
+            imports=["hm.A", "hm.B"],
+            referenced_types=declared,
+            fields=[_field(id=f"hm.C.{n.lower()}", name=n.lower(), type=n) for n in declared],
+            methods=[_method(id="hm.C#m()", name="m", calls=calls_in_c)],
+        )
+        return [a, b, c]
+
+    def test_hitz_montazeri_left_design_cbo_of_c_is_2(self):
+        # The left design reaches g() through b.f(), which violates the Law of Demeter.
+        files = self._hitz_montazeri_design(
+            calls_in_c=["a.g()", "b.f().g()", "b.f()"],
+            b_methods=[_method(id="hm.B#f()", name="f", return_type="A")],
+        )
+        assert self._cbo(files, "hm.C") == 2
+
+    def test_hitz_montazeri_right_design_cbo_of_c_is_2(self):
+        # The right design adds applyG() to B and calls it instead; the paper states the same value.
+        files = self._hitz_montazeri_design(
+            calls_in_c=["a.g()", "b.applyG()"],
+            b_methods=[
+                _method(id="hm.B#f()", name="f", return_type="A"),
+                _method(id="hm.B#applyG()", name="applyG", calls=["f().g()", "f()"]),
+            ],
+        )
+        assert self._cbo(files, "hm.C") == 2
+
+    def test_a_call_target_adds_the_class_a_declared_type_does_not_name(self):
+        # "Method M of class C uses methods of classes A and B": here C holds only a B,
+        # so A is counted through the call to its g() and through nothing else.
+        b_methods = [_method(id="hm.B#f()", name="f", return_type="A")]
+        without_call = self._hitz_montazeri_design(["b.f()"], b_methods, c_declares_a=False)
+        with_call = self._hitz_montazeri_design(["A.g()", "b.f()"], b_methods, c_declares_a=False)
+        assert self._cbo(without_call, "hm.C") == 1
+        assert self._cbo(with_call, "hm.C") == 2
 
 
 # ---------------------------------------------------------------------------

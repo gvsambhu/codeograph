@@ -6,7 +6,6 @@ import com.github.javaparser.ast.CompilationUnit;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
@@ -103,18 +102,38 @@ class ParsedFileAssemblerTest {
 			assertEquals(1, env.getJSONArray("implements").length());
 		}
 
-		@Disabled("superclass is emitted as a simple name; the schema defines it as a fully-qualified name")
+		/**
+		 * The parser reports the superclass as written; the graph stage resolves it.
+		 */
 		@Test
-		void class_superclass_is_fully_qualified() {
+		void class_superclass_is_reported_as_written() {
 			JSONObject env = parse(SERVICE_SOURCE);
-			assertEquals("com.example.BaseService", env.getString("superclass"));
+			assertEquals("BaseService", env.getString("superclass"));
 		}
 
-		@Disabled("implemented interfaces are emitted as simple names; the schema defines them as fully-qualified names")
 		@Test
-		void class_implements_are_fully_qualified() {
+		void class_implements_are_reported_as_written() {
 			JSONObject env = parse(SERVICE_SOURCE);
-			assertEquals("com.example.Auditable", env.getJSONArray("implements").getString(0));
+			assertEquals("Auditable", env.getJSONArray("implements").getString(0));
+		}
+
+		/** A qualifier written in the source is kept; type arguments are not. */
+		@Test
+		void qualified_supertypes_keep_their_qualifier() {
+			JSONObject env = parse("""
+					package com.example;
+					public class Report extends org.example.Base<String> implements java.io.Serializable {
+					}
+					""");
+			assertEquals("org.example.Base", env.getString("superclass"));
+			assertEquals("java.io.Serializable", env.getJSONArray("implements").getString(0));
+		}
+
+		@Test
+		void interface_extends_are_reported_as_written() {
+			JSONObject env = parse(INTERFACE_SOURCE);
+			assertEquals("Serializable", env.getJSONArray("extends_interfaces").getString(0));
+			assertEquals("Cloneable", env.getJSONArray("extends_interfaces").getString(1));
 		}
 
 		@Test
@@ -123,6 +142,37 @@ class ParsedFileAssemblerTest {
 			List<String> imports = toList(env.getJSONArray("imports"));
 			assertTrue(imports.contains("com.example.repo.OwnerRepository"));
 			assertTrue(imports.contains("org.springframework.stereotype.Service"));
+		}
+
+		/**
+		 * Each non-static on-demand import is reported by its package, in source order;
+		 * single-type and static imports are not.
+		 */
+		@Test
+		void wildcard_imports_are_the_packages_of_non_static_on_demand_imports() {
+			String source = """
+					package com.example;
+					import java.util.*;
+					import com.example.repo.OwnerRepository;
+					import static java.lang.Math.*;
+					import com.example.model.*;
+					public class Report {
+					}
+					""";
+			assertEquals(List.of("java.util", "com.example.model"),
+					toList(parse(source).getJSONArray("wildcard_imports")));
+			assertEquals(List.of(), toList(parse(SERVICE_SOURCE).getJSONArray("wildcard_imports")));
+		}
+
+		@Test
+		void interface_wildcard_imports_are_reported_too() {
+			String source = """
+					package com.example;
+					import java.util.*;
+					public interface Auditable {
+					}
+					""";
+			assertEquals(List.of("java.util"), toList(parse(source).getJSONArray("wildcard_imports")));
 		}
 
 		@Test
@@ -146,11 +196,10 @@ class ParsedFileAssemblerTest {
 			assertEquals(1, env.getJSONArray("implements").length());
 		}
 
-		@Disabled("implemented interfaces are emitted as simple names; the schema defines them as fully-qualified names")
 		@Test
-		void enum_implements_are_fully_qualified() {
+		void enum_implements_are_reported_as_written() {
 			JSONObject env = parse(ENUM_SOURCE);
-			assertEquals("com.example.Displayable", env.getJSONArray("implements").getString(0));
+			assertEquals("Displayable", env.getJSONArray("implements").getString(0));
 		}
 
 		@Test
@@ -282,12 +331,58 @@ class ParsedFileAssemblerTest {
 			assertEquals("GET", http.getString("method"));
 		}
 
-		@Disabled("the HTTP path omits the class-level mapping; the schema defines it as the class and method paths combined")
 		@Test
 		void get_mapping_path_includes_class_level_mapping() {
 			JSONObject env = parse(CONTROLLER_SOURCE);
 			JSONObject http = findMethod(env, "getOwner").getJSONObject("http_metadata");
 			assertEquals("/owners/{id}", http.getString("path"));
+		}
+
+		@Test
+		void http_path_without_class_level_mapping_is_the_method_path() {
+			JSONObject env = parse("""
+					package com.example;
+					import org.springframework.web.bind.annotation.*;
+					@RestController
+					public class PingController {
+					    @GetMapping("/ping")
+					    public String ping() { return null; }
+					}
+					""");
+			assertEquals("/ping", findMethod(env, "ping").getJSONObject("http_metadata").getString("path"));
+		}
+
+		@Test
+		void http_path_joins_with_one_slash_at_the_seam() {
+			JSONObject env = parse("""
+					package com.example;
+					import org.springframework.web.bind.annotation.*;
+					@RestController
+					@RequestMapping(path = "/api/")
+					public class ApiController {
+					    @GetMapping("/items")
+					    public String items() { return null; }
+					    @GetMapping("details")
+					    public String details() { return null; }
+					}
+					""");
+			assertEquals("/api/items", findMethod(env, "items").getJSONObject("http_metadata").getString("path"));
+			assertEquals("/api/details", findMethod(env, "details").getJSONObject("http_metadata").getString("path"));
+		}
+
+		@Test
+		void http_path_uses_first_element_of_an_array_mapping() {
+			JSONObject env = parse("""
+					package com.example;
+					import org.springframework.web.bind.annotation.*;
+					@RestController
+					@RequestMapping({"/v1", "/v2"})
+					public class VersionedController {
+					    @GetMapping("/status")
+					    public String status() { return null; }
+					}
+					""");
+			assertEquals("/v1/status", findMethod(env, "status").getJSONObject("http_metadata").getString("path"));
 		}
 
 		@Test
@@ -298,7 +393,6 @@ class ParsedFileAssemblerTest {
 			assertEquals("POST", http.getString("method"));
 		}
 
-		@Disabled("the HTTP path omits the class-level mapping; the schema defines it as the class and method paths combined")
 		@Test
 		void post_mapping_path_includes_class_level_mapping() {
 			JSONObject env = parse(CONTROLLER_SOURCE);
