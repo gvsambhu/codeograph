@@ -38,12 +38,7 @@ def check_internal_consistency(graph: CodeographKnowledgeGraph) -> CheckResult:
             if parent_fqcn not in class_ids:
                 violations.append(f"Method '{n.id}' parent class '{parent_fqcn}' does not exist in graph")
 
-    # (d) every ADR-009 domain non-empty
-    # TODO: learner to verify domain mapping logic. As domains are computed in the rendering step,
-    # the invariant check might require a different approach or analyzing class package prefixes.
-    pass
-
-    # (e) unresolved_call edges have origin + target FQCN
+    # unresolved_call edges carry an origin and a target
     for edge in graph.edges:
         e = edge.root
         if e.kind == "calls_unresolved":
@@ -57,7 +52,7 @@ def check_internal_consistency(graph: CodeographKnowledgeGraph) -> CheckResult:
         category="graph",
         value=len(violations),
         threshold=MaxCountThreshold(pass_at_or_below=0),
-        rationale="FR-7a / ADR-017 — internal_consistency enforces five structural invariants across nodes and edges (ADR-017 Fork 3).",
+        rationale="FR-7a / ADR-032 — internal_consistency enforces four of ADR-032 Fork 3's five rules; the annotation-key rule is not yet run.",
         duration_ms=duration_ms,
         details={"violations": violations},
     )
