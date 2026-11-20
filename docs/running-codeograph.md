@@ -228,7 +228,7 @@ Useful flags:
 - `--max-classes-per-domain N` — overrides the default per-domain-group render budget (**default:
   3**). Classes beyond the cap are silently excluded from output by the ADR-009 selection ladder —
   if a repository interface or DTO you expected to see isn't in the rendered output, this is very
-  likely why. Raise it (e.g. `--max-classes-per-domain 20`) to render everything in a small corpus.
+  likely why. Raise it (e.g. `--max-classes-per-domain 20`) to render everything in a small corpus, or pass `0` to disable the cap so every class in every domain is rendered.
 - `--db-layer` — persistence-layer translation strategy override. Currently the only implemented
   value is `typeorm`; ADR-010 describes a fuller `typeorm_2tier`/`typeorm_only`/`raw_only` design
   but only the single TypeORM mode is wired up today.

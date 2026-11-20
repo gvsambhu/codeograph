@@ -112,11 +112,12 @@ class TypeScriptConfig(BaseModel):
 
     render_budget: int = Field(
         default=3,
-        ge=1,
+        ge=0,
         le=500,
         description=(
             "Per-domain-group class budget cap fed to ClassSelector (ADR-009).  "
-            "The three-tier selection ladder fires when a group exceeds this cap."
+            "The three-tier selection ladder fires when a group exceeds this cap.  "
+            "0 disables the cap: every class in every group is selected."
         ),
     )
 

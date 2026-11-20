@@ -87,6 +87,30 @@ class TestTakeAll:
         assert len(results[0].selected) == 10
 
 
+class TestCapOfZero:
+    """A cap of 0 disables the cap (FR-13 AC-2, ADR-009 Confirmation 9)."""
+
+    def test_every_class_in_every_group_is_taken(self):
+        # Both groups exceed the default cap of 3 by enough to reach the other two tiers.
+        orders = [_make_class_node(f"com.example.orders.O{i}", wmc=i, cbo=0) for i in range(5)]
+        users = [_make_class_node(f"com.example.users.U{i}", wmc=i, cbo=0) for i in range(9)]
+        results = ClassSelector(cap=0).select(_make_graph(orders + users))
+
+        assert [r.group_name for r in results] == ["orders", "users"]
+        assert [r.strategy for r in results] == ["take_all", "take_all"]
+        assert [len(r.selected) for r in results] == [5, 9]
+        assert all(r.excluded == () for r in results)
+        assert all(r.total_in_group == len(r.selected) for r in results)
+
+    def test_a_nonzero_cap_still_limits_the_same_groups(self):
+        orders = [_make_class_node(f"com.example.orders.O{i}", wmc=i, cbo=0) for i in range(5)]
+        users = [_make_class_node(f"com.example.users.U{i}", wmc=i, cbo=0) for i in range(9)]
+        results = ClassSelector(cap=3).select(_make_graph(orders + users))
+
+        assert [r.strategy for r in results] == ["top_n_v1", "stratified_threshold_v1"]
+        assert [len(r.selected) for r in results] == [3, 3]
+
+
 # ---------------------------------------------------------------------------
 # top_n_v1 tier (cap < n < 2*cap)
 # ---------------------------------------------------------------------------

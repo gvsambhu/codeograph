@@ -120,7 +120,7 @@ Key flags:
 | `--out DIR` | required | Destination for the rendered TypeScript project |
 | `--target` | `typescript` | Renderer target (`--list-targets` prints registered targets) |
 | `--db-layer` | `typeorm` | ORM mode. `typeorm` is the only value |
-| `--max-classes-per-domain N` | `3` | Per-domain class cap (stratified sampling, ADR-009) |
+| `--max-classes-per-domain N` | `3` | Per-domain class cap (stratified sampling, ADR-009); `0` disables the cap and renders every class |
 | `--no-scaffold` | off | Skip NestJS scaffold files (package.json, tsconfig, etc.) |
 | `--force` | off | Overwrite `--out` if non-empty |
 

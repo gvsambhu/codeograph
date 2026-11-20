@@ -93,7 +93,7 @@ def _list_targets_callback(ctx: click.Context, _param: click.Parameter, value: b
     "--max-classes-per-domain",
     default=None,
     type=int,
-    help="Override TypeScriptConfig.render_budget: max classes selected per domain group (FR-13).",
+    help="Maximum classes rendered per domain group (default 3). 0 renders every class.",
 )
 @click.option(
     "--no-scaffold",

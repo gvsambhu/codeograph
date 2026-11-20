@@ -3,7 +3,8 @@
 ADR-009 defines a three-tier strategy ladder applied *per domain group*:
 
 Tier 1 — take_all
-    ``n ≤ cap``  → include every class in the group as-is.
+    ``n ≤ cap``  → include every class in the group as-is.  A cap of ``0``
+    disables the cap: every group takes this tier whatever its size.
 
 Tier 2 — top_n_v1
     ``cap < n < 2·cap``  → sort by descending WMC (nulls last), take the top
@@ -84,6 +85,7 @@ class ClassSelector:
 
     Args:
         cap:      Per-group budget cap (maximum classes to select per group).
+                  ``0`` disables the cap — every class in every group is selected.
         grouping: A prepared or un-prepared ``DomainGrouping`` strategy.
                   ``select()`` calls ``grouping.prepare()`` before grouping.
     """
@@ -155,7 +157,7 @@ class ClassSelector:
         n = len(members)
         cap = self._cap
 
-        if n <= cap:
+        if cap == 0 or n <= cap:
             return SelectionResult(
                 selected=tuple(m.id for m in members),
                 excluded=(),
