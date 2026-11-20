@@ -8,7 +8,6 @@ import com.github.javaparser.ast.body.ConstructorDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
 import org.json.JSONObject;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -126,10 +125,60 @@ class ComplexityCalculatorTest {
 	 * Logical operator sequence: a && b && c counts as ONE run for cognitive.
 	 * Cognitive: 1+0 (if) + 1 (one && run) = 2.
 	 */
-	@Disabled("Cognitive complexity does not count && / || runs inside an if condition: the score is 1, the definition gives 2")
 	@Test
 	void logical_operator_run_cognitive() {
 		assertEquals(2, ComplexityCalculator.computeCognitive(parseMethod(LOGICAL_RUN_METHOD)));
+	}
+
+	/**
+	 * Cognitive: if (+1), else-if (+1), and the {@code &&} run in the else-if
+	 * condition (+1) = 3. The condition's operators add no nesting increment.
+	 */
+	@Test
+	void logical_operator_run_in_else_if_condition_cognitive() {
+		MethodDeclaration m = parseMethod("""
+				public String f(boolean a, boolean b, boolean c, boolean d) {
+				    if (a) {
+				        return "x";
+				    } else if (b && c && d) {
+				        return "y";
+				    }
+				    return "z";
+				}
+				""");
+		assertEquals(3, ComplexityCalculator.computeCognitive(m));
+	}
+
+	/**
+	 * Mixed operators: {@code a && b || c} is an {@code &&} run and an {@code ||}
+	 * run. Cognitive: if (+1) + 2 = 3.
+	 */
+	@Test
+	void mixed_logical_operators_in_if_condition_cognitive() {
+		MethodDeclaration m = parseMethod("""
+				public boolean f(boolean a, boolean b, boolean c) {
+				    if (a && b || c) {
+				        return true;
+				    }
+				    return false;
+				}
+				""");
+		assertEquals(3, ComplexityCalculator.computeCognitive(m));
+	}
+
+	/**
+	 * The cognitive complexity specification's own example: {@code a && b && c ||
+	 * d || e && f} is an {@code &&} run, an {@code ||} run and a second {@code &&}
+	 * run = 3, outside any if.
+	 */
+	@Test
+	void logical_operator_runs_follow_the_specification_example() {
+		MethodDeclaration m = parseMethod("""
+				public boolean f(boolean a, boolean b, boolean c, boolean d, boolean e, boolean f) {
+				    return a && b && c || d || e && f;
+				}
+				""");
+		assertEquals(3, ComplexityCalculator.computeCognitive(m));
 	}
 
 	/**
