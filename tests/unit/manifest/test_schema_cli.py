@@ -36,19 +36,43 @@ class TestFreshnessGate:
         assert res.returncode == 0
 
     def test_check_exits_nonzero_when_schema_stale(self, tmp_path: Path) -> None:
+        target = tmp_path / "manifest.schema.json"
+        target.write_text("{}", encoding="utf-8")
+        res = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "codeograph.manifest.schema_cli",
+                "--check",
+                "--schema-path",
+                str(target),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert res.returncode != 0
+        assert "stale" in res.stderr
+
+    def test_generate_writes_matching_schema(self, tmp_path: Path) -> None:
         from codeograph.manifest.schema_cli import GENERATED_SCHEMA_PATH
 
-        original_content = GENERATED_SCHEMA_PATH.read_text(encoding="utf-8")
-        try:
-            GENERATED_SCHEMA_PATH.write_text("{}", encoding="utf-8")
-            res = subprocess.run(
-                [sys.executable, "-m", "codeograph.manifest.schema_cli", "--check"],
-                capture_output=True,
-                text=True,
-            )
-            assert res.returncode != 0
-        finally:
-            GENERATED_SCHEMA_PATH.write_text(original_content, encoding="utf-8")
+        target = tmp_path / "manifest.schema.json"
+        res = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "codeograph.manifest.schema_cli",
+                "--generate",
+                "--schema-path",
+                str(target),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert res.returncode == 0
+        generated = json.loads(target.read_text(encoding="utf-8"))
+        committed = json.loads(GENERATED_SCHEMA_PATH.read_text(encoding="utf-8"))
+        assert generated == committed
 
 
 # ---------------------------------------------------------------------------
