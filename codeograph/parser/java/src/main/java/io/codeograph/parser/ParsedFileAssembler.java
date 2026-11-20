@@ -527,6 +527,8 @@ final class ParsedFileAssembler {
 			}
 		}
 
+		String classPath = classMappingPath(decl);
+
 		// --- Regular methods ---
 		for (MethodDeclaration method : decl.getMethods()) {
 			JSONObject mObj = new JSONObject();
@@ -569,7 +571,7 @@ final class ParsedFileAssembler {
 			}
 			mObj.put("response_status", responseStatus);
 
-			mObj.put("http_metadata", buildHttpMetadata(annotationList, method.getAnnotations()));
+			mObj.put("http_metadata", buildHttpMetadata(annotationList, method.getAnnotations(), classPath));
 
 			if (method.getBody().isPresent()) {
 				mObj.put("cyclomatic_complexity", ComplexityCalculator.computeCyclomatic(method));
@@ -773,11 +775,13 @@ final class ParsedFileAssembler {
 	// -------------------------------------------------------------------------
 
 	/**
-	 * Extract HTTP mapping metadata from method-level mapping annotations.
+	 * Extract HTTP mapping metadata from method-level mapping annotations. The path
+	 * combines the class-level {@code @RequestMapping} path with the method's.
 	 *
 	 * Returns {@link JSONObject#NULL} if no mapping annotation is present.
 	 */
-	private static Object buildHttpMetadata(List<String> annotationNames, NodeList<AnnotationExpr> annotations) {
+	private static Object buildHttpMetadata(List<String> annotationNames, NodeList<AnnotationExpr> annotations,
+			String classPath) {
 		String httpMethod = null;
 		String annotKey = null;
 
@@ -809,36 +813,88 @@ final class ParsedFileAssembler {
 			if (!annotKey.equals(ann.getNameAsString()))
 				continue;
 
-			if (ann.isSingleMemberAnnotationExpr()) {
-				path = ann.asSingleMemberAnnotationExpr().getMemberValue().toString().replaceAll("^\"|\"$", "");
-			} else if (ann.isNormalAnnotationExpr()) {
+			path = mappingPath(ann);
+			if (ann.isNormalAnnotationExpr()) {
 				for (MemberValuePair pair : ann.asNormalAnnotationExpr().getPairs()) {
-					String raw = pair.getValue().toString().replaceAll("^\"|\"$", "");
-					switch (pair.getNameAsString()) {
-						case "value", "path" -> path = raw;
-						case "method" -> {
-							String m = pair.getValue().toString();
-							if (m.contains("GET"))
-								httpMethod = "GET";
-							else if (m.contains("POST"))
-								httpMethod = "POST";
-							else if (m.contains("PUT"))
-								httpMethod = "PUT";
-							else if (m.contains("DELETE"))
-								httpMethod = "DELETE";
-							else if (m.contains("PATCH"))
-								httpMethod = "PATCH";
-						}
+					if ("method".equals(pair.getNameAsString())) {
+						String m = pair.getValue().toString();
+						if (m.contains("GET"))
+							httpMethod = "GET";
+						else if (m.contains("POST"))
+							httpMethod = "POST";
+						else if (m.contains("PUT"))
+							httpMethod = "PUT";
+						else if (m.contains("DELETE"))
+							httpMethod = "DELETE";
+						else if (m.contains("PATCH"))
+							httpMethod = "PATCH";
 					}
 				}
 			}
 			break;
 		}
 
+		path = joinPaths(classPath, path);
+
 		JSONObject meta = new JSONObject();
 		meta.put("method", httpMethod != null ? httpMethod : JSONObject.NULL);
 		meta.put("path", path);
 		return meta;
+	}
+
+	/**
+	 * The class's {@code @RequestMapping} path, or an empty string if it has none.
+	 */
+	private static String classMappingPath(ClassOrInterfaceDeclaration decl) {
+		for (AnnotationExpr ann : decl.getAnnotations()) {
+			if ("RequestMapping".equals(ann.getNameAsString())) {
+				return mappingPath(ann);
+			}
+		}
+		return "";
+	}
+
+	/**
+	 * The path a mapping annotation declares: its {@code value} or {@code path},
+	 * the first element if that is an array; an empty string if it names none.
+	 */
+	private static String mappingPath(AnnotationExpr ann) {
+		Expression value = null;
+		if (ann.isSingleMemberAnnotationExpr()) {
+			value = ann.asSingleMemberAnnotationExpr().getMemberValue();
+		} else if (ann.isNormalAnnotationExpr()) {
+			for (MemberValuePair pair : ann.asNormalAnnotationExpr().getPairs()) {
+				if ("value".equals(pair.getNameAsString()) || "path".equals(pair.getNameAsString())) {
+					value = pair.getValue();
+				}
+			}
+		}
+		if (value instanceof ArrayInitializerExpr array) {
+			value = array.getValues().isEmpty() ? null : array.getValues().get(0);
+		}
+		if (value == null) {
+			return "";
+		}
+		return value.toString().replaceAll("^\"|\"$", "");
+	}
+
+	/**
+	 * Joins a class path and a method path with exactly one {@code /} at the seam.
+	 * Either part may be empty, in which case the other is returned unchanged.
+	 */
+	private static String joinPaths(String classPath, String methodPath) {
+		if (classPath.isEmpty()) {
+			return methodPath;
+		}
+		if (methodPath.isEmpty()) {
+			return classPath;
+		}
+		boolean classSlash = classPath.endsWith("/");
+		boolean methodSlash = methodPath.startsWith("/");
+		if (classSlash && methodSlash) {
+			return classPath + methodPath.substring(1);
+		}
+		return classSlash || methodSlash ? classPath + methodPath : classPath + "/" + methodPath;
 	}
 
 	// -------------------------------------------------------------------------

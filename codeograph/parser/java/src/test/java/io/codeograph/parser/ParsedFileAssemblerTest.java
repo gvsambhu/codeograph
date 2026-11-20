@@ -282,12 +282,58 @@ class ParsedFileAssemblerTest {
 			assertEquals("GET", http.getString("method"));
 		}
 
-		@Disabled("the HTTP path omits the class-level mapping; the schema defines it as the class and method paths combined")
 		@Test
 		void get_mapping_path_includes_class_level_mapping() {
 			JSONObject env = parse(CONTROLLER_SOURCE);
 			JSONObject http = findMethod(env, "getOwner").getJSONObject("http_metadata");
 			assertEquals("/owners/{id}", http.getString("path"));
+		}
+
+		@Test
+		void http_path_without_class_level_mapping_is_the_method_path() {
+			JSONObject env = parse("""
+					package com.example;
+					import org.springframework.web.bind.annotation.*;
+					@RestController
+					public class PingController {
+					    @GetMapping("/ping")
+					    public String ping() { return null; }
+					}
+					""");
+			assertEquals("/ping", findMethod(env, "ping").getJSONObject("http_metadata").getString("path"));
+		}
+
+		@Test
+		void http_path_joins_with_one_slash_at_the_seam() {
+			JSONObject env = parse("""
+					package com.example;
+					import org.springframework.web.bind.annotation.*;
+					@RestController
+					@RequestMapping(path = "/api/")
+					public class ApiController {
+					    @GetMapping("/items")
+					    public String items() { return null; }
+					    @GetMapping("details")
+					    public String details() { return null; }
+					}
+					""");
+			assertEquals("/api/items", findMethod(env, "items").getJSONObject("http_metadata").getString("path"));
+			assertEquals("/api/details", findMethod(env, "details").getJSONObject("http_metadata").getString("path"));
+		}
+
+		@Test
+		void http_path_uses_first_element_of_an_array_mapping() {
+			JSONObject env = parse("""
+					package com.example;
+					import org.springframework.web.bind.annotation.*;
+					@RestController
+					@RequestMapping({"/v1", "/v2"})
+					public class VersionedController {
+					    @GetMapping("/status")
+					    public String status() { return null; }
+					}
+					""");
+			assertEquals("/v1/status", findMethod(env, "status").getJSONObject("http_metadata").getString("path"));
 		}
 
 		@Test
@@ -298,7 +344,6 @@ class ParsedFileAssemblerTest {
 			assertEquals("POST", http.getString("method"));
 		}
 
-		@Disabled("the HTTP path omits the class-level mapping; the schema defines it as the class and method paths combined")
 		@Test
 		void post_mapping_path_includes_class_level_mapping() {
 			JSONObject env = parse(CONTROLLER_SOURCE);
