@@ -190,6 +190,8 @@ class TestSecurityFeaturePolicy:
 
         assert captured, "Expected _call_llm to be called"
         assert "security_hint" in captured[0]
+        assert "// TODO: replace this stub with a real Guard implementation." in captured[0]["security_hint"]
+        assert "TODO(learner)" not in captured[0]["security_hint"]
 
     def test_silent_skip_no_hint(self):
         renderer = _make_renderer(TypeScriptConfig(security_feature_policy="silent_skip"))

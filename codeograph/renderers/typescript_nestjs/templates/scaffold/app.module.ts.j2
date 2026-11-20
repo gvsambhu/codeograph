@@ -18,7 +18,7 @@ import { {{ group.module_class }} } from './{{ group.name }}/{{ group.name }}.mo
       database: process.env.DB_FILE ?? './app.db',
 {% endif %}
       autoLoadEntities: true,
-      // TODO(learner): set synchronize: false in production; use migrations instead.
+      // TODO: set synchronize: false in production and use migrations instead.
       synchronize: true,
     }),
 {% for group in domain_groups %}

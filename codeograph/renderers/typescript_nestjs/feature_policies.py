@@ -53,7 +53,7 @@ def dispatch_feature_policies(
                 f"This class carries Spring Security annotation(s): "
                 f"{', '.join(sorted(security_hits))}. "
                 f"Emit a NestJS @UseGuards() decorator stub with a "
-                f"// TODO(learner): replace with a real Guard implementation."
+                f"// TODO: replace this stub with a real Guard implementation."
             )
 
     # --- WebFlux policy ---
