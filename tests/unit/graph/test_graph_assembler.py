@@ -907,6 +907,62 @@ class TestCoupling:
         a = _class_pf(cbo=7)
         assert self._cbo([a]) == 7
 
+    @staticmethod
+    def _hitz_montazeri_design(
+        calls_in_c: list[str], b_methods: list[MethodFact], c_declares_a: bool = True
+    ) -> list[ParsedFile]:
+        """Classes A, B and C of Hitz & Montazeri (1996), Fig. 1, p. 3, shaped as the parser emits them.
+
+        The classes sit in one package and C imports the other two, so a call on
+        a field or a class name resolves to its class. ``referenced_types`` lists
+        the types a class declares or uses. With ``c_declares_a`` false, C holds no
+        A: its only route to A is a call.
+        """
+
+        def pf(name: str, **kwargs: object) -> ParsedFile:
+            return _class_pf(id=f"hm.{name}", name=name, source_file=f"{name}.java", **kwargs)
+
+        a = pf("A", cbo=0, referenced_types=[], methods=[_method(id="hm.A#g()", name="g")])
+        b = pf("B", cbo=1, referenced_types=["A"], methods=b_methods)
+        declared = ["A", "B"] if c_declares_a else ["B"]
+        c = pf(
+            "C",
+            cbo=len(declared),
+            imports=["hm.A", "hm.B"],
+            referenced_types=declared,
+            fields=[_field(id=f"hm.C.{n.lower()}", name=n.lower(), type=n) for n in declared],
+            methods=[_method(id="hm.C#m()", name="m", calls=calls_in_c)],
+        )
+        return [a, b, c]
+
+    def test_hitz_montazeri_left_design_cbo_of_c_is_2(self):
+        # The left design reaches g() through b.f(), which violates the Law of Demeter.
+        files = self._hitz_montazeri_design(
+            calls_in_c=["a.g()", "b.f().g()", "b.f()"],
+            b_methods=[_method(id="hm.B#f()", name="f", return_type="A")],
+        )
+        assert self._cbo(files, "hm.C") == 2
+
+    def test_hitz_montazeri_right_design_cbo_of_c_is_2(self):
+        # The right design adds applyG() to B and calls it instead; the paper states the same value.
+        files = self._hitz_montazeri_design(
+            calls_in_c=["a.g()", "b.applyG()"],
+            b_methods=[
+                _method(id="hm.B#f()", name="f", return_type="A"),
+                _method(id="hm.B#applyG()", name="applyG", calls=["f().g()", "f()"]),
+            ],
+        )
+        assert self._cbo(files, "hm.C") == 2
+
+    def test_a_call_target_adds_the_class_a_declared_type_does_not_name(self):
+        # "Method M of class C uses methods of classes A and B": here C holds only a B,
+        # so A is counted through the call to its g() and through nothing else.
+        b_methods = [_method(id="hm.B#f()", name="f", return_type="A")]
+        without_call = self._hitz_montazeri_design(["b.f()"], b_methods, c_declares_a=False)
+        with_call = self._hitz_montazeri_design(["A.g()", "b.f()"], b_methods, c_declares_a=False)
+        assert self._cbo(without_call, "hm.C") == 1
+        assert self._cbo(with_call, "hm.C") == 2
+
 
 # ---------------------------------------------------------------------------
 # Full assemble() integration
