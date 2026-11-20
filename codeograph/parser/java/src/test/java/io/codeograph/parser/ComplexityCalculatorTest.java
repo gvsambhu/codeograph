@@ -10,6 +10,9 @@ import org.json.JSONObject;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
@@ -298,6 +301,191 @@ class ComplexityCalculatorTest {
 	}
 
 	/**
+	 * A type that appears only as a locally declared variable counts: Owner = 1.
+	 * String is a staple the per-file count leaves out; a {@code var} variable and
+	 * the primitive name no class. {@code referenced_types} filters nothing but
+	 * those: it keeps String, and the graph stage decides what the JDK is.
+	 */
+	@Test
+	void cbo_counts_local_variable_types() {
+		JSONObject env = parse("""
+				package com.example;
+				public class OwnerReport {
+				    public void run() {
+				        Owner owner = null;
+				        String label = "x";
+				        var inferred = label;
+				        int count = 0;
+				    }
+				}
+				""");
+		assertEquals(1, env.getInt("cbo"));
+		assertEquals(List.of("Owner", "String"), referencedTypes(env));
+	}
+
+	/**
+	 * A type that appears only in a throws clause counts: OwnerNotFoundException =
+	 * 1, on a method and on a constructor (ConfigError = 2). {@code Exception} is a
+	 * java.lang class: the per-file count leaves it out, {@code referenced_types}
+	 * keeps it for the graph stage to drop.
+	 */
+	@Test
+	void cbo_counts_throws_types() {
+		JSONObject env = parse("""
+				package com.example;
+				public class OwnerLoader {
+				    public OwnerLoader() throws ConfigError {}
+				    public void load() throws OwnerNotFoundException, Exception {}
+				}
+				""");
+		assertEquals(2, env.getInt("cbo"));
+		assertEquals(List.of("ConfigError", "Exception", "OwnerNotFoundException"), referencedTypes(env));
+	}
+
+	/**
+	 * The same type named in several places counts once; arrays count as the
+	 * element type.
+	 */
+	@Test
+	void cbo_counts_a_repeated_type_once() {
+		JSONObject env = parse("""
+				package com.example;
+				public class Shelf {
+				    private Owner[] owners;
+				    public Owner first() { Owner o = null; return o; }
+				    public void put(Owner o) throws Owner {}
+				}
+				""");
+		assertEquals(1, env.getInt("cbo"));
+	}
+
+	/**
+	 * A type counts every class it names: type arguments recursively, wildcard
+	 * bounds, and array element types. The per-file count leaves out the staples
+	 * (Map, String, List, Set): Pet, Owner and Vet remain = 3.
+	 */
+	@Test
+	void cbo_counts_classes_named_in_type_arguments() {
+		JSONObject env = parse("""
+				package com.example;
+				public class Clinic {
+				    private Map<String, List<Pet>> index;
+				    private Set<? extends Owner> owners;
+				    private List<? super Vet> sink;
+				    private Pet[][] grid;
+				}
+				""");
+		assertEquals(List.of("List", "Map", "Owner", "Pet", "Set", "String", "Vet"), referencedTypes(env));
+		assertEquals(3, env.getInt("cbo"));
+	}
+
+	/**
+	 * Type arguments count in a return type, a parameter, a local and a throws
+	 * clause.
+	 */
+	@Test
+	void type_arguments_count_in_every_source() {
+		JSONObject env = parse("""
+				package com.example;
+				public class Clinic {
+				    public List<Pet> pets(Optional<Owner> owner) throws Failure<Vet> {
+				        Map<String, Visit> visits = null;
+				        return null;
+				    }
+				}
+				""");
+		assertEquals(List.of("Failure", "List", "Map", "Optional", "Owner", "Pet", "String", "Vet", "Visit"),
+				referencedTypes(env));
+	}
+
+	/**
+	 * A class's own type parameter and a generic method's or constructor's are not
+	 * classes: as a field, a return, a local, a parameter and in throws, T and E
+	 * leave only the real classes behind.
+	 */
+	@Test
+	void type_parameters_are_not_counted() {
+		JSONObject env = parse("""
+				package com.example;
+				public class Repo<T> {
+				    private T value;
+				    private List<T> items;
+				    public <C> Repo(C seed) throws C { }
+				    public T find(Long id) { T found = null; return found; }
+				    public <E extends Exception> void check(E problem) throws E { E again = problem; }
+				}
+				""");
+		assertEquals(List.of("List", "Long"), referencedTypes(env));
+	}
+
+	/**
+	 * A type parameter shadows a class only where it is in scope: the {@code T} of
+	 * one method does not hide a class named T used by another.
+	 */
+	@Test
+	void a_type_parameter_hides_a_name_only_in_its_own_scope() {
+		JSONObject env = parse("""
+				package com.example;
+				public class Mixed {
+				    public <T> void generic(T item) { }
+				    public void plain(T item) { }
+				}
+				""");
+		assertEquals(List.of("T"), referencedTypes(env));
+	}
+
+	/**
+	 * A type the class declares itself, written without its outer type, is reported
+	 * qualified with the class's name so the graph stage can recognise it as the
+	 * class itself; written qualified it is left as it is. The per-file count does
+	 * not count it either.
+	 */
+	@Test
+	void own_nested_types_are_reported_qualified_with_the_outer_name() {
+		JSONObject env = parse("""
+				package com.example;
+				public class OrderService {
+				    private Helper helper;
+				    public Node first() { Helper local = null; Deep d = null; Helper.Deep e = null; return null; }
+				    static class Helper { class Deep { } }
+				    class Node { }
+				}
+				""");
+		assertEquals(
+				List.of("OrderService.Deep", "OrderService.Helper", "OrderService.Helper.Deep", "OrderService.Node"),
+				referencedTypes(env));
+		assertEquals(0, env.getInt("cbo"));
+	}
+
+	/**
+	 * The whole declaration is read, nested members included, and every kind of
+	 * local variable counts: a nested class's field, a parameter and its throws
+	 * clause, a catch parameter, a pattern variable and a lambda parameter with a
+	 * written type.
+	 */
+	@Test
+	void references_are_collected_from_the_whole_declaration() {
+		JSONObject env = parse("""
+				package com.example;
+				public class Outer {
+				    static class Inner {
+				        private Alpha alpha;
+				        void work(Beta beta) throws Gamma {
+				            try { run(); } catch (Delta | Epsilon failure) { }
+				            Runnable r = new Runnable() { Zeta zeta; public void run() { Eta eta = null; } };
+				        }
+				    }
+				    void test(Object o) {
+				        if (o instanceof Theta theta) { }
+				        java.util.function.Function<Iota, Kappa> f = (Iota i) -> null;
+				    }
+				}
+				""");
+		assertEquals(List.of("Alpha", "Beta", "Delta", "Epsilon", "Eta", "Gamma", "Iota", "Kappa", "Object", "Runnable",
+				"Theta", "Zeta", "java.util.function.Function"), referencedTypes(env));
+	}
+
+	/**
 	 * Switch statement — each non-default case label adds 1 to cyclomatic. Two case
 	 * labels (1, 2) → CC = 1 + 2 = 3.
 	 */
@@ -322,6 +510,12 @@ class ComplexityCalculatorTest {
 	private static JSONObject parse(String source) {
 		CompilationUnit cu = StaticJavaParser.parse(source);
 		return ParsedFileAssembler.buildEnvelope(cu, "test/Test.java");
+	}
+
+	private static List<String> referencedTypes(JSONObject env) {
+		List<String> names = new ArrayList<>();
+		env.getJSONArray("referenced_types").forEach(n -> names.add((String) n));
+		return names;
 	}
 
 	private static ConstructorDeclaration parseConstructor(String ctorSource) {

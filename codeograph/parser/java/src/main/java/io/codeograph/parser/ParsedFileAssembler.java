@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.SortedSet;
 import java.util.stream.Collectors;
 
 /**
@@ -168,6 +169,7 @@ final class ParsedFileAssembler {
 
 		// 12. Imports (intermediate-only — Python converts to DependsOnEdge)
 		obj.put("imports", extractImports(cu));
+		obj.put("wildcard_imports", extractWildcardImports(cu));
 
 		// 13. Fields
 		obj.put("fields", buildFields(decl, fqcn));
@@ -194,14 +196,20 @@ final class ParsedFileAssembler {
 		}
 		obj.put("wmc", wmcValue);
 
-		// CBO = distinct non-trivial type references. C&K (1994) IEEE TSE 20(6).
-		// Always computed — not in D-004-1's omission list.
-		obj.put("cbo", ComplexityCalculator.computeCbo(decl));
+		// CBO. C&K (1994) IEEE TSE 20(6). referenced_types is every class the file
+		// names, as written; the graph stage resolves the names, adds the call
+		// targets and sets the corpus-wide count (ADR-004 §3.4). "cbo" is this file's
+		// own count, which stands only where a class has no referenced_types. It is
+		// always computed: a class has no omission rule.
+		SortedSet<String> referencedTypes = ComplexityCalculator.referencedTypes(decl);
+		obj.put("cbo", ComplexityCalculator.computeCbo(decl, referencedTypes));
+		obj.put("referenced_types", new JSONArray(referencedTypes));
 
 		// LCOM4 = weakly connected components in method-field access graph.
 		// Hitz & Montazeri (1995). Reads accessed_fields from the finished methodsArr.
 		// Node set = non-static methods + constructors (Lcom4Calculator definition).
-		// D-004-1: null when the node set is empty (no non-static methods or ctors).
+		// Null when the node set is empty (no non-static methods or ctors): a class
+		// with nothing to relate has no cohesion value, rather than a guessed one.
 		long lcom4NodeCount = 0;
 		for (int i = 0; i < methodsArr.length(); i++) {
 			JSONObject m = methodsArr.getJSONObject(i);
@@ -251,6 +259,7 @@ final class ParsedFileAssembler {
 		obj.put("extends_interfaces", extendedInterfaces);
 
 		obj.put("imports", extractImports(cu));
+		obj.put("wildcard_imports", extractWildcardImports(cu));
 		obj.put("methods", buildMethods(decl, fqcn));
 
 		return obj;
@@ -287,6 +296,7 @@ final class ParsedFileAssembler {
 		obj.put("implements", implemented);
 
 		obj.put("imports", extractImports(cu));
+		obj.put("wildcard_imports", extractWildcardImports(cu));
 
 		// EnumDeclaration is not a ClassOrInterfaceDeclaration;
 		// buildFields/buildMethods
@@ -332,6 +342,7 @@ final class ParsedFileAssembler {
 		obj.put("implements", implemented);
 
 		obj.put("imports", extractImports(cu));
+		obj.put("wildcard_imports", extractWildcardImports(cu));
 
 		return obj;
 	}
@@ -373,6 +384,7 @@ final class ParsedFileAssembler {
 		obj.put("elements", elements);
 
 		obj.put("imports", extractImports(cu));
+		obj.put("wildcard_imports", extractWildcardImports(cu));
 
 		return obj;
 	}
@@ -580,9 +592,8 @@ final class ParsedFileAssembler {
 				mObj.put("cognitive_complexity", ComplexityCalculator.computeCognitive(method));
 				mObj.put("method_loc", ComplexityCalculator.computeMethodLoc(method));
 			} else {
-				// Bodyless method (interface default-less / abstract) — metrics omitted per
-				// D-004-1
-				// to avoid eval-weighting / class-selection skew (DC1R-10).
+				// Bodyless method (interface default-less / abstract) — metrics are omitted,
+				// not zero, so they do not skew eval weighting or class selection.
 				mObj.put("cyclomatic_complexity", JSONObject.NULL);
 				mObj.put("cognitive_complexity", JSONObject.NULL);
 				mObj.put("method_loc", JSONObject.NULL);
@@ -930,6 +941,17 @@ final class ParsedFileAssembler {
 	private static JSONArray extractImports(CompilationUnit cu) {
 		JSONArray arr = new JSONArray();
 		cu.getImports().forEach(imp -> arr.put(imp.getNameAsString()));
+		return arr;
+	}
+
+	/**
+	 * The package of every non-static on-demand import ({@code import java.util.*;}
+	 * gives {@code java.util}), in source order.
+	 */
+	private static JSONArray extractWildcardImports(CompilationUnit cu) {
+		JSONArray arr = new JSONArray();
+		cu.getImports().stream().filter(imp -> imp.isAsterisk() && !imp.isStatic())
+				.forEach(imp -> arr.put(imp.getNameAsString()));
 		return arr;
 	}
 

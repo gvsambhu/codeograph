@@ -716,6 +716,199 @@ class TestSupertypeNameResolution:
 
 
 # ---------------------------------------------------------------------------
+# CBO — set from the referenced types plus the resolved call targets
+# ---------------------------------------------------------------------------
+
+
+class TestCoupling:
+    """CBO counts the distinct classes a class references, other than itself and the JDK's."""
+
+    @staticmethod
+    def _cbo(files: list[ParsedFile], fqcn: str = "com.example.A") -> int | None:
+        graph = GraphAssembler().assemble([(pf, _build_fragment(pf)) for pf in files])
+        return cast(int | None, _node_named(graph, fqcn).cbo)
+
+    @staticmethod
+    def _callee(name: str, package: str = "com.example") -> ParsedFile:
+        return _class_pf(
+            id=f"{package}.{name}",
+            name=name,
+            methods=[_method(id=f"{package}.{name}#run()", name="run")],
+        )
+
+    def test_resolved_call_to_an_unreferenced_class_adds_one(self):
+        owner = _class_pf(id="com.example.Owner", name="Owner")
+        without_call = _class_pf(imports=["com.example.Owner"], referenced_types=["Owner"], cbo=1)
+        with_call = _class_pf(
+            imports=["com.example.Owner", "com.example.util.Util"],
+            referenced_types=["Owner"],
+            methods=[_method(id="com.example.A#doIt()", name="doIt", calls=["Util.run()"])],
+        )
+        util = self._callee("Util", "com.example.util")
+        assert self._cbo([without_call, owner]) == 1
+        assert self._cbo([with_call, owner, util]) == 2
+
+    def test_resolved_call_to_a_referenced_class_changes_nothing(self):
+        b = self._callee("B")
+        field = _field(id="com.example.A.b", name="b", type="B")
+        a = _class_pf(
+            imports=["com.example.B"],
+            fields=[field],
+            referenced_types=["B"],
+            methods=[_method(id="com.example.A#doIt()", name="doIt", calls=["b.run()"])],
+        )
+        assert self._cbo([a, b]) == 1
+
+    def test_names_resolving_to_one_class_count_once(self):
+        owner = _class_pf(id="com.example.Owner", name="Owner")
+        a = _class_pf(referenced_types=["Owner", "com.example.Owner"])
+        assert self._cbo([a, owner]) == 1
+
+    def test_unresolved_names_each_count(self):
+        # Neither is a JDK type, so each is counted as written.
+        a = _class_pf(referenced_types=["Foo", "Bar"])
+        assert self._cbo([a]) == 2
+
+    def test_jdk_classes_are_excluded(self):
+        a = _class_pf(imports=["java.io.IOException"], referenced_types=["IOException", "java.io.File"])
+        assert self._cbo([a]) == 0
+
+    def test_java_lang_types_named_without_a_package_are_excluded(self):
+        # A local StringBuilder and a throws NumberFormatException need no import.
+        a = _class_pf(referenced_types=["StringBuilder", "NumberFormatException", "Thread", "Runnable"])
+        assert self._cbo([a]) == 0
+
+    def test_a_type_imported_on_demand_from_the_jdk_is_excluded(self):
+        # import java.util.*;  →  Date, Iterator and Map.Entry are the JDK's.
+        a = _class_pf(wildcard_imports=["java.util"], referenced_types=["Date", "Iterator", "Map.Entry", "Owner"])
+        assert self._cbo([a]) == 1  # Owner only
+
+    def test_the_same_name_without_the_wildcard_import_counts(self):
+        # Date is not java.lang; with no import that names it, it is some other class.
+        a = _class_pf(referenced_types=["Date"])
+        assert self._cbo([a]) == 1
+
+    def test_an_on_demand_import_of_a_project_package_does_not_make_a_type_the_jdk(self):
+        a = _class_pf(wildcard_imports=["com.example.model"], referenced_types=["Owner"])
+        assert self._cbo([a]) == 1
+
+    def test_a_jdk_javax_package_is_excluded(self):
+        a = _class_pf(imports=["javax.sql.DataSource"], referenced_types=["DataSource", "javax.crypto.Cipher"])
+        assert self._cbo([a]) == 0
+
+    def test_a_javax_api_outside_the_jdk_counts(self):
+        a = _class_pf(
+            imports=["javax.persistence.EntityManager"],
+            referenced_types=["EntityManager", "javax.servlet.http.HttpServletRequest"],
+        )
+        assert self._cbo([a]) == 2
+
+    def test_a_project_class_named_like_a_jdk_type_counts(self):
+        record = _class_pf(id="com.example.Record", name="Record")
+        a = _class_pf(referenced_types=["Record"])
+        assert self._cbo([a, record]) == 1
+
+    def test_a_default_package_project_class_named_like_a_jdk_type_counts(self):
+        record = _class_pf(id="Record", name="Record", source_file="src/Record.java")
+        a = _class_pf(id="A", name="A", source_file="src/A.java", referenced_types=["Record"])
+        assert self._cbo([a, record], "A") == 1
+
+    def test_an_imported_project_class_named_like_a_jdk_type_counts(self):
+        date = _class_pf(id="com.example.util.Date", name="Date")
+        a = _class_pf(imports=["com.example.util.Date"], wildcard_imports=["java.util"], referenced_types=["Date"])
+        assert self._cbo([a, date]) == 1
+
+    def test_a_class_named_only_in_a_type_argument_is_counted(self):
+        pet = _class_pf(id="com.example.Pet", name="Pet")
+        owner = _class_pf(
+            id="com.example.Owner",
+            name="Owner",
+            imports=["java.util.List"],
+            fields=[_field(id="com.example.Owner.pets", name="pets", type="List<Pet>")],
+            referenced_types=["List", "Pet"],
+        )
+        graph = GraphAssembler().assemble([(p, _build_fragment(p)) for p in (owner, pet)])
+        assert _node_named(graph, "com.example.Owner").cbo == 1  # Pet; List is the JDK's
+        # The dependency edge is drawn from the same names.
+        assert any(
+            e.source == "com.example.Owner" and e.target == "com.example.Pet" for e in _edges_of(graph, DependsOnEdge)
+        )
+
+    def test_a_class_reached_only_through_an_on_demand_import_of_a_project_package_counts(self):
+        # java.io is imported on demand too, but only the project declares a Console: it wins,
+        # so the name is a corpus class and not java.io.Console.
+        console = _class_pf(id="com.example.tools.Console", name="Console")
+        a = _class_pf(wildcard_imports=["java.io", "com.example.tools"], referenced_types=["Console", "Owner"])
+        assert self._cbo([a, console]) == 2
+
+    def test_names_resolving_to_one_class_through_an_on_demand_import_count_once(self):
+        console = _class_pf(id="com.example.tools.Console", name="Console")
+        a = _class_pf(wildcard_imports=["com.example.tools"], referenced_types=["Console", "com.example.tools.Console"])
+        assert self._cbo([a, console]) == 1
+
+    def test_a_name_declared_in_two_on_demand_packages_is_left_as_written(self):
+        one = _class_pf(id="com.example.one.Base", name="Base")
+        two = _class_pf(id="com.example.two.Base", name="Base")
+        a = _class_pf(
+            wildcard_imports=["com.example.one", "com.example.two"],
+            referenced_types=["Base", "com.example.one.Base"],
+        )
+        # "Base" stays as written and is a class of its own to count; the qualified name is the other.
+        assert self._cbo([a, one, two]) == 2
+
+    def test_the_own_package_wins_over_an_on_demand_import(self):
+        own = _class_pf(id="com.example.Base", name="Base")
+        other = _class_pf(id="com.example.base.Base", name="Base")
+        a = _class_pf(wildcard_imports=["com.example.base"], referenced_types=["Base", "com.example.Base"])
+        assert self._cbo([a, own, other]) == 1
+
+    def test_an_explicit_import_wins_over_the_own_package_and_an_on_demand_import(self):
+        own = _class_pf(id="com.example.Base", name="Base")
+        other = _class_pf(id="com.example.base.Base", name="Base")
+        a = _class_pf(
+            imports=["org.other.Base"],
+            wildcard_imports=["com.example.base"],
+            referenced_types=["Base", "org.other.Base"],
+        )
+        assert self._cbo([a, own, other]) == 1
+
+    def test_an_unresolved_call_adds_no_class(self):
+        # `helper` is a local variable, so the call cannot be resolved even though Helper declares run().
+        helper = self._callee("Helper")
+        a = _class_pf(
+            referenced_types=["Owner"],
+            methods=[_method(id="com.example.A#doIt()", name="doIt", calls=["helper.run()"])],
+        )
+        assert self._cbo([a, helper]) == 1
+
+    def test_the_class_itself_is_excluded(self):
+        a = _class_pf(
+            referenced_types=["A"],
+            methods=[_method(id="com.example.A#outer()", name="outer", calls=["doIt()"])]
+            + [_method(id="com.example.A#doIt()", name="doIt")],
+        )
+        assert self._cbo([a]) == 0
+
+    def test_nested_jdk_type_is_excluded(self):
+        # Map.Entry resolves through its outer type to java.util.Map.Entry.
+        a = _class_pf(imports=["java.util.Map"], referenced_types=["Owner", "Map.Entry"])
+        assert self._cbo([a]) == 1  # Owner only
+
+    def test_a_class_does_not_count_its_own_nested_type(self):
+        order = _class_pf(id="com.example.Order", name="Order", referenced_types=["Order.Builder", "Address"])
+        assert self._cbo([order], "com.example.Order") == 1  # Address only
+
+    def test_another_class_counts_a_nested_type(self):
+        order = _class_pf(id="com.example.Order", name="Order")
+        a = _class_pf(imports=["com.example.Order"], referenced_types=["Order.Builder"])
+        assert self._cbo([a, order]) == 1
+
+    def test_no_referenced_types_keeps_the_parsers_count(self):
+        a = _class_pf(cbo=7)
+        assert self._cbo([a]) == 7
+
+
+# ---------------------------------------------------------------------------
 # Full assemble() integration
 # ---------------------------------------------------------------------------
 

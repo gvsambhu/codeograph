@@ -51,6 +51,10 @@ class TypeNameResolver:
         """:param corpus_type_ids: FQCN of every type declared in the corpus."""
         self._corpus_type_ids = corpus_type_ids
 
+    def declares(self, fqcn: str) -> bool:
+        """True if the corpus declares the type ``fqcn`` (a resolved name)."""
+        return fqcn in self._corpus_type_ids
+
     def resolve(
         self, name: str, package: str, import_map: dict[str, str], wildcard_packages: Sequence[str] = ()
     ) -> str:

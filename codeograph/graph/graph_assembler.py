@@ -1,12 +1,18 @@
 """
 GraphAssembler — merges per-file CodeographKnowledgeGraph fragments into a
-single corpus-wide graph and adds cross-file edges.
+single corpus-wide graph, adds cross-file edges, and sets the node fields that
+need the whole corpus.
 
 Sits between GraphBuilder (per-file) and GraphWriter (serialization).
 
+Node fields set here, because one file cannot know them:
+  superclass / implements / extends_interfaces — resolved to FQCNs
+  cbo                                          — the corpus-wide coupling count
+
 Cross-file edges added here:
   DependsOnEdge     — type-level dependencies from imports, field types,
-                      param types, return types, superclass, implements
+                      param types, return types (type arguments included),
+                      superclass, implements
   CallsResolvedEdge — method calls where the callee exists in the corpus;
                       promoted from CallsUnresolvedEdge
   RelationEdge      — JPA @OneToMany / @ManyToOne / @OneToOne / @ManyToMany
@@ -20,6 +26,7 @@ import logging
 from collections import defaultdict
 from typing import Any
 
+from codeograph.graph.coupling_counter import CouplingCounter
 from codeograph.graph.models.graph_schema import (
     CallsResolvedEdge,
     Cardinality,
@@ -57,7 +64,9 @@ _COLLECTION_WRAPPERS = ("List<", "Set<", "Collection<", "Optional<")
 
 class GraphAssembler:
     """
-    Merges per-file graph fragments and adds corpus-wide cross-file edges.
+    Merges per-file graph fragments, adds corpus-wide cross-file edges, and
+    rewrites the node fields that need the whole corpus (resolved supertype
+    names, CBO).
 
     Stateless between calls — all working state is local to assemble().
     A single instance can be reused across corpus runs.
@@ -133,6 +142,9 @@ class GraphAssembler:
             method_index,
             import_maps,
         )
+
+        # Step 4b — CBO needs the resolved calls, so it is set here, once, for every class
+        all_nodes = CouplingCounter(resolver).apply(all_nodes, [pf for pf, _ in corpus], import_maps, all_edges)
 
         # Step 5 — safety dedup and return
         return CodeographKnowledgeGraph(
@@ -232,9 +244,9 @@ class GraphAssembler:
         """
         class_fqcn → {simple_name: fqcn}
 
-        Built from parsed_file["imports"] for each file. Used by all three
-        cross-file edge builders to resolve simple type names to FQCNs without
-        re-reading the source.
+        Built from parsed_file["imports"] for each file. Used by the cross-file
+        edge builders, the type-name resolver and the coupling counter to resolve
+        simple type names to FQCNs without re-reading the source.
 
         Example for OwnerService:
           "Owner"            → "com.example.model.Owner"

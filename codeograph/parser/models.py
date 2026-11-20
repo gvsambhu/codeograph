@@ -204,7 +204,8 @@ class ParsedFile(_ParsedFileBase, total=False):
     entry_point: bool
     fqcn_resolved: bool
     wmc: int | None  # Weighted Methods per Class; M7
-    cbo: int | None  # Coupling Between Objects; M7
+    cbo: int | None  # Coupling Between Objects, from this file alone; the graph stage recounts it
+    referenced_types: list[str]  # every class the file names, as written, type arguments included; input to CBO
     lcom4: int | None  # Lack of Cohesion of Methods 4; M7
 
     # --- interface-only ---

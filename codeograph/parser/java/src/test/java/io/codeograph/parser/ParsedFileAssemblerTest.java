@@ -144,6 +144,37 @@ class ParsedFileAssemblerTest {
 			assertTrue(imports.contains("org.springframework.stereotype.Service"));
 		}
 
+		/**
+		 * Each non-static on-demand import is reported by its package, in source order;
+		 * single-type and static imports are not.
+		 */
+		@Test
+		void wildcard_imports_are_the_packages_of_non_static_on_demand_imports() {
+			String source = """
+					package com.example;
+					import java.util.*;
+					import com.example.repo.OwnerRepository;
+					import static java.lang.Math.*;
+					import com.example.model.*;
+					public class Report {
+					}
+					""";
+			assertEquals(List.of("java.util", "com.example.model"),
+					toList(parse(source).getJSONArray("wildcard_imports")));
+			assertEquals(List.of(), toList(parse(SERVICE_SOURCE).getJSONArray("wildcard_imports")));
+		}
+
+		@Test
+		void interface_wildcard_imports_are_reported_too() {
+			String source = """
+					package com.example;
+					import java.util.*;
+					public interface Auditable {
+					}
+					""";
+			assertEquals(List.of("java.util"), toList(parse(source).getJSONArray("wildcard_imports")));
+		}
+
 		@Test
 		void interface_kind_and_extends() {
 			JSONObject env = parse(INTERFACE_SOURCE);
