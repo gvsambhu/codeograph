@@ -51,6 +51,13 @@ def _restore_codeograph_logger_state():
     logger.propagate = propagate
 
 
+@pytest.fixture(autouse=True)
+def _isolate_codeograph_cache_dir(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Isolate the cache and telemetry directory per test into a temporary path."""
+    cache_dir = tmp_path / "cache"
+    monkeypatch.setenv("CODEOGRAPH_CACHE_DIR", str(cache_dir))
+
+
 def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption(
         "--update-goldens",
