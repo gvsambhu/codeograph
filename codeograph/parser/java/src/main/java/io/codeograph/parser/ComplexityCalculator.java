@@ -1,5 +1,6 @@
 package io.codeograph.parser;
 
+import com.github.javaparser.JavaToken;
 import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.ConstructorDeclaration;
@@ -24,7 +25,7 @@ import java.util.Set;
  * <ul>
  * <li>Cyclomatic complexity — McCabe (1976), IEEE TSE 2(4), 308–320.</li>
  * <li>Cognitive complexity — Campbell / SonarSource (2018) white paper.</li>
- * <li>Method LOC — physical line count (begin to end inclusive).</li>
+ * <li>Method LOC — SonarSource S138: body lines holding a code token.</li>
  * <li>CBO — Chidamber & Kemerer (1994), IEEE TSE 20(6), 476–493.</li>
  * </ul>
  */
@@ -155,16 +156,34 @@ final class ComplexityCalculator {
 	// -------------------------------------------------------------------------
 
 	/**
-	 * Physical lines of code for a method (begin to end inclusive). Includes blank
-	 * lines and comments — coarse size proxy.
+	 * Method lines of code, counted as SonarSource rule S138 counts them: the
+	 * distinct lines of the body block, its opening and closing brace lines
+	 * included, that hold at least one code token. Blank lines and comment-only
+	 * lines are not counted; the signature and annotations are not part of the
+	 * body. A token spanning several lines (a text block) counts its first line.
 	 */
 	static int computeMethodLoc(MethodDeclaration method) {
-		return method.getRange().map(r -> r.end.line - r.begin.line + 1).orElse(0);
+		return method.getBody().map(ComplexityCalculator::countCodeLines).orElse(0);
 	}
 
 	/** Overload for constructors. */
 	static int computeMethodLoc(ConstructorDeclaration ctor) {
-		return ctor.getRange().map(r -> r.end.line - r.begin.line + 1).orElse(0);
+		return countCodeLines(ctor.getBody());
+	}
+
+	/**
+	 * Distinct begin lines of the block's tokens, skipping whitespace and comments.
+	 */
+	private static int countCodeLines(BlockStmt body) {
+		Set<Integer> lines = new HashSet<>();
+		body.getTokenRange().ifPresent(range -> {
+			for (JavaToken token : range) {
+				if (!token.getCategory().isWhitespaceOrComment()) {
+					token.getRange().ifPresent(r -> lines.add(r.begin.line));
+				}
+			}
+		});
+		return lines.size();
 	}
 
 	// -------------------------------------------------------------------------

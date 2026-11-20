@@ -21,9 +21,9 @@ import static org.junit.jupiter.api.Assertions.*;
  * methods array with {@code is_synthesised: true} and the expected signature.
  *
  * <p>
- * All assertions are left as TODOs for the learner (Issue #2). Tests will
- * compile and run green (no-op synthesizer) until the learner implements
- * {@link LombokSynthesizer#synthesize}.
+ * A synthesised member has no source text, so it reports {@code method_loc} 0
+ * and cyclomatic complexity 1; the last section pins both for each kind of
+ * synthesised member.
  */
 class LombokSynthesizerTest {
 
@@ -199,6 +199,58 @@ class LombokSynthesizerTest {
 		JSONObject builderMethod = findMethod(env, "builder");
 		assertTrue(toList(builderMethod.getJSONArray("modifiers")).contains("static"));
 		assertTrue(builderMethod.getBoolean("is_synthesised"));
+	}
+
+	// -------------------------------------------------------------------------
+	// Metrics of synthesised members
+	// -------------------------------------------------------------------------
+
+	@Test
+	void synthesised_getter_has_zero_lines_and_complexity_one() {
+		JSONObject env = parse("""
+				package com.example;
+				import lombok.Getter;
+				@Getter
+				public class Product {
+				    private String name;
+				}
+				""");
+		JSONObject getter = findMethod(env, "getName");
+		assertTrue(getter.getBoolean("is_synthesised"));
+		assertEquals(0, getter.getInt("method_loc"));
+		assertEquals(1, getter.getInt("cyclomatic_complexity"));
+	}
+
+	@Test
+	void synthesised_builder_entry_point_has_zero_lines_and_complexity_one() {
+		JSONObject env = parse("""
+				package com.example;
+				import lombok.Builder;
+				@Builder
+				public class Product {
+				    private String name;
+				}
+				""");
+		JSONObject builder = findMethod(env, "builder");
+		assertTrue(builder.getBoolean("is_synthesised"));
+		assertEquals(0, builder.getInt("method_loc"));
+		assertEquals(1, builder.getInt("cyclomatic_complexity"));
+	}
+
+	@Test
+	void synthesised_constructor_has_zero_lines_and_complexity_one() {
+		JSONObject env = parse("""
+				package com.example;
+				import lombok.AllArgsConstructor;
+				@AllArgsConstructor
+				public class Product {
+				    private String name;
+				}
+				""");
+		JSONObject ctor = findConstructor(env);
+		assertTrue(ctor.getBoolean("is_synthesised"));
+		assertEquals(0, ctor.getInt("method_loc"));
+		assertEquals(1, ctor.getInt("cyclomatic_complexity"));
 	}
 
 	// -------------------------------------------------------------------------

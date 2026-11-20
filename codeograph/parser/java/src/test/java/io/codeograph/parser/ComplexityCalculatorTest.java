@@ -4,6 +4,7 @@ import com.github.javaparser.ParserConfiguration;
 import com.github.javaparser.StaticJavaParser;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
+import com.github.javaparser.ast.body.ConstructorDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
 import org.json.JSONObject;
 import org.junit.jupiter.api.BeforeAll;
@@ -41,7 +42,7 @@ class ComplexityCalculatorTest {
 				""");
 		assertEquals(1, ComplexityCalculator.computeCyclomatic(m));
 		assertEquals(0, ComplexityCalculator.computeCognitive(m));
-		// TODO: assertEquals(3, ComplexityCalculator.computeMethodLoc(m));
+		assertEquals(3, ComplexityCalculator.computeMethodLoc(m));
 	}
 
 	/**
@@ -131,8 +132,12 @@ class ComplexityCalculatorTest {
 		assertEquals(2, ComplexityCalculator.computeCognitive(parseMethod(LOGICAL_RUN_METHOD)));
 	}
 
+	/**
+	 * Body lines holding a code token: the brace line, {@code int x = 1;} and the
+	 * closing brace = 3. The two comment-only lines are not counted.
+	 */
 	@Test
-	void method_loc_counts_physical_lines() {
+	void method_loc_excludes_comment_only_lines() {
 		MethodDeclaration m = parseMethod("""
 				public void fiveLines() {
 				    // line 2
@@ -140,7 +145,74 @@ class ComplexityCalculatorTest {
 				    // line 4
 				}
 				""");
-		// TODO: assertEquals(5, ComplexityCalculator.computeMethodLoc(m));
+		assertEquals(3, ComplexityCalculator.computeMethodLoc(m));
+	}
+
+	/**
+	 * Annotations, a two-line signature, blank lines and comment-only lines.
+	 * Counted: the line that ends the signature and opens the body (1), {@code int
+	 * s = a + b;} (2), {@code return s;} (3), the closing brace (4) = 4. Not
+	 * counted: the two annotation lines, the first two signature lines, the blank
+	 * lines, the line comment and the two lines of the block comment.
+	 */
+	@Test
+	void method_loc_counts_only_body_lines_with_code() {
+		MethodDeclaration m = parseMethod("""
+				@Override
+				@Deprecated
+				public int compute(
+				        int a,
+				        int b) {
+				    // comment only
+
+				    int s = a + b; // a trailing comment does not change the line
+
+				    /* block
+				       comment */
+				    return s;
+				}
+				""");
+		assertEquals(4, ComplexityCalculator.computeMethodLoc(m));
+	}
+
+	/**
+	 * Same rule for a constructor: brace line (1), {@code this.a = a;} (2),
+	 * {@code this.b = b;} (3), closing brace (4) = 4. The second signature line,
+	 * the blank line and the comment-only line are not counted.
+	 */
+	@Test
+	void constructor_loc_counts_only_body_lines_with_code() {
+		ConstructorDeclaration c = parseConstructor("""
+				public _Wrap_(int a,
+				              int b) {
+
+				    // set up
+				    this.a = a;
+				    this.b = b;
+				}
+				""");
+		assertEquals(4, ComplexityCalculator.computeMethodLoc(c));
+	}
+
+	/** A body written on one line counts 1: the line holds code tokens. */
+	@Test
+	void method_loc_single_line_body_is_one() {
+		MethodDeclaration m = parseMethod("int f() { return x; }");
+		assertEquals(1, ComplexityCalculator.computeMethodLoc(m));
+	}
+
+	@Test
+	void method_loc_text_block_counts_lines_that_start_a_token() {
+		// Line 1 brace, line 2 starts the text block, line 3 is inside it (no token
+		// starts there), line 4 holds the {@code ;} token, line 5 the closing brace.
+		MethodDeclaration m = parseMethod("""
+				String f() {
+				    return \"\"\"
+				        a
+				        b\"\"\";
+				}
+				""");
+		assertEquals(4, ComplexityCalculator.computeMethodLoc(m));
 	}
 
 	/**
@@ -201,6 +273,13 @@ class ComplexityCalculatorTest {
 	private static JSONObject parse(String source) {
 		CompilationUnit cu = StaticJavaParser.parse(source);
 		return ParsedFileAssembler.buildEnvelope(cu, "test/Test.java");
+	}
+
+	private static ConstructorDeclaration parseConstructor(String ctorSource) {
+		String wrapped = "class _Wrap_ { " + ctorSource + " }";
+		CompilationUnit cu = StaticJavaParser.parse(wrapped);
+		return cu.getClassByName("_Wrap_").orElseThrow(() -> new IllegalStateException("wrapper class not found"))
+				.getConstructors().get(0);
 	}
 
 	private static MethodDeclaration parseMethod(String methodSource) {
