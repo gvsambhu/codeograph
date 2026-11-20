@@ -66,6 +66,16 @@ class TestScaffoldSqliteBranch:
         assert "host:" not in app_module
         assert "port:" not in app_module
 
+    @pytest.mark.parametrize("db_adapter", ["pg", "better-sqlite3"])
+    def test_rendered_scaffold_carries_no_learner_todo(self, db_adapter: str):
+        file_map = self._render_scaffold(db_adapter)
+        for path, content in file_map.items():
+            assert "TODO(learner)" not in content.decode(), f"{path} carries a TODO(learner) marker"
+
+    def test_app_module_tells_the_user_what_to_do_about_synchronize(self):
+        app_module = self._render_scaffold("pg")[PurePosixPath("src/app.module.ts")].decode()
+        assert "// TODO: set synchronize: false in production and use migrations instead." in app_module
+
     def test_sqlite_env_example_no_pg_vars(self):
         file_map = self._render_scaffold("better-sqlite3")
         env_example = file_map[PurePosixPath(".env.example")].decode()

@@ -1,4 +1,4 @@
-"""Tests for RendererRegistry (M2 — ADR-008 Fork 2).
+"""Tests for RendererRegistry (ADR-008).
 
 Tests registration, validation-at-decoration-time, and build() factory.
 The registry is reset between tests using RendererRegistry.clear() to
@@ -8,7 +8,7 @@ avoid cross-test contamination.
 from __future__ import annotations
 
 import pytest
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, ValidationError
 
 from codeograph.renderers.base import Renderer
 from codeograph.renderers.renderer_registry import RendererRegistry
@@ -20,6 +20,7 @@ from codeograph.renderers.renderer_registry import RendererRegistry
 
 class _MinimalConfig(BaseModel):
     value: str = "default"
+    count: int = Field(default=1, ge=1)
 
 
 class _MinimalRenderer(Renderer[_MinimalConfig]):
@@ -110,12 +111,14 @@ class TestBuild:
         assert isinstance(renderer, _MinimalRenderer)
 
     def test_build_invalid_config_raises_validation_error(self):
-        # TODO(learner): add a config field with strict validation and confirm
-        # that passing a bad value raises pydantic.ValidationError.
-        #
-        # Hint: add a field like `count: int = Field(ge=1)` to _MinimalConfig,
-        # then call build() with {"count": -1} and assert ValidationError is raised.
-        pass
+        RendererRegistry.register("minimal")(_MinimalRenderer)
+        with pytest.raises(ValidationError, match="count"):
+            RendererRegistry.build(
+                target="minimal",
+                raw_config={"count": -1},
+                provider=None,  # type: ignore[arg-type]
+                prompt_loader=None,  # type: ignore[arg-type]
+            )
 
     def test_build_applies_config_defaults(self):
         RendererRegistry.register("minimal")(_MinimalRenderer)
@@ -126,7 +129,8 @@ class TestBuild:
             prompt_loader=None,  # type: ignore[arg-type]
         )
         assert isinstance(renderer, _MinimalRenderer)
-        # TODO(learner): assert renderer._config.value == "default"
+        assert renderer._config.value == "default"
+        assert renderer._config.count == 1
 
 
 # ---------------------------------------------------------------------------

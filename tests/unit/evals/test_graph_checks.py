@@ -15,6 +15,7 @@ import pytest
 
 from codeograph.graph.models.graph_schema import (
     CallsResolvedEdge,
+    CallsUnresolvedEdge,
     ClassNode,
     CodeographKnowledgeGraph,
     DependsOnEdge,
@@ -70,6 +71,10 @@ def _depends_on_edge(source: str, target: str) -> Edge:
 
 def _calls_resolved_edge(source: str, target: str) -> Edge:
     return Edge(root=CallsResolvedEdge(source=source, target=target, kind="calls_resolved", call_count=1))
+
+
+def _calls_unresolved_edge(source: str, target: str) -> Edge:
+    return Edge(root=CallsUnresolvedEdge(source=source, target=target, kind="calls_unresolved"))
 
 
 def _empty_graph() -> CodeographKnowledgeGraph:
@@ -220,6 +225,49 @@ class TestInternalConsistency:
         result = check_internal_consistency(graph)
         assert result.value is not None
         assert result.value >= 1
+
+    def test_each_rule_is_violated_once_and_counted_once(self):
+        from codeograph.evals.checks.graph.internal_consistency import check_internal_consistency
+
+        graph = CodeographKnowledgeGraph(
+            nodes=[
+                # (a) a node id repeated within its kind
+                _class_node("com.example.Dup"),
+                _class_node("com.example.Dup"),
+                # (b) a class id without a package part
+                _class_node("NoPackage"),
+                # (c) a method whose parent class is not in the graph
+                _method_node("com.example.Orphan#run()"),
+            ],
+            edges=[
+                # (e) an unresolved call that names no target
+                _calls_unresolved_edge("com.example.Dup#run()", ""),
+            ],
+        )
+
+        result = check_internal_consistency(graph)
+
+        assert result.value == 4
+        assert result.result == "fail"
+        violations = result.details["violations"]
+        assert len(violations) == 4
+        assert any("Duplicate node id" in v for v in violations)
+        assert any("does not reference a valid package" in v for v in violations)
+        assert any("parent class" in v for v in violations)
+        assert any("missing origin or target" in v for v in violations)
+
+    def test_clean_graph_with_every_rule_satisfied_has_no_violations(self):
+        from codeograph.evals.checks.graph.internal_consistency import check_internal_consistency
+
+        graph = CodeographKnowledgeGraph(
+            nodes=[_class_node("com.example.Foo"), _method_node("com.example.Foo#bar()")],
+            edges=[_calls_unresolved_edge("com.example.Foo#bar()", "orderRepository.findById(orderId)")],
+        )
+
+        result = check_internal_consistency(graph)
+
+        assert result.value == 0
+        assert result.details["violations"] == []
 
     def test_violations_listed_in_details(self):
         from codeograph.evals.checks.graph.internal_consistency import check_internal_consistency

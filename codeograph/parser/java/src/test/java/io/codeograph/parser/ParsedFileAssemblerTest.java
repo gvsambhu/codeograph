@@ -6,6 +6,7 @@ import com.github.javaparser.ast.CompilationUnit;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
@@ -83,81 +84,95 @@ class ParsedFileAssemblerTest {
 		@Test
 		void class_kind_id_name() {
 			JSONObject env = parse(SERVICE_SOURCE);
-			// TODO: assertEquals("class", env.getString("kind"));
-			// TODO: assertEquals("com.example.OwnerService", env.getString("id"));
-			// TODO: assertEquals("OwnerService", env.getString("name"));
-			// TODO: assertEquals("ast", env.getString("extraction_mode"));
+			assertEquals("class", env.getString("kind"));
+			assertEquals("com.example.OwnerService", env.getString("id"));
+			assertEquals("OwnerService", env.getString("name"));
+			assertEquals("ast", env.getString("extraction_mode"));
 		}
 
 		@Test
 		void class_stereotype_and_annotation() {
 			JSONObject env = parse(SERVICE_SOURCE);
-			// TODO: assertEquals("Service", env.getString("stereotype"));
-			// TODO:
-			// assertTrue(toList(env.getJSONArray("annotations")).contains("Service"));
+			assertEquals("Service", env.getString("stereotype"));
+			assertTrue(toList(env.getJSONArray("annotations")).contains("Service"));
 		}
 
 		@Test
 		void class_superclass_and_implements() {
 			JSONObject env = parse(SERVICE_SOURCE);
-			// TODO: assertEquals("BaseService", env.getString("superclass"));
-			// TODO: assertEquals(1, env.getJSONArray("implements").length());
-			// TODO: assertEquals("Auditable", env.getJSONArray("implements").getString(0));
+			assertEquals(1, env.getJSONArray("implements").length());
+		}
+
+		@Disabled("superclass is emitted as a simple name; the schema defines it as a fully-qualified name")
+		@Test
+		void class_superclass_is_fully_qualified() {
+			JSONObject env = parse(SERVICE_SOURCE);
+			assertEquals("com.example.BaseService", env.getString("superclass"));
+		}
+
+		@Disabled("implemented interfaces are emitted as simple names; the schema defines them as fully-qualified names")
+		@Test
+		void class_implements_are_fully_qualified() {
+			JSONObject env = parse(SERVICE_SOURCE);
+			assertEquals("com.example.Auditable", env.getJSONArray("implements").getString(0));
 		}
 
 		@Test
 		void class_imports() {
 			JSONObject env = parse(SERVICE_SOURCE);
-			// TODO: List<String> imports = toList(env.getJSONArray("imports"));
-			// TODO: assertTrue(imports.contains("com.example.repo.OwnerRepository"));
-			// TODO: assertTrue(imports.contains("org.springframework.stereotype.Service"));
+			List<String> imports = toList(env.getJSONArray("imports"));
+			assertTrue(imports.contains("com.example.repo.OwnerRepository"));
+			assertTrue(imports.contains("org.springframework.stereotype.Service"));
 		}
 
 		@Test
 		void interface_kind_and_extends() {
 			JSONObject env = parse(INTERFACE_SOURCE);
-			// TODO: assertEquals("interface", env.getString("kind"));
-			// TODO: assertEquals(2, env.getJSONArray("extends_interfaces").length());
+			assertEquals("interface", env.getString("kind"));
+			assertEquals(2, env.getJSONArray("extends_interfaces").length());
 		}
 
 		@Test
 		void enum_kind_and_constants() {
 			JSONObject env = parse(ENUM_SOURCE);
-			// TODO: assertEquals("enum", env.getString("kind"));
-			// TODO: assertEquals(3, env.getJSONArray("constants").length());
-			// TODO: assertEquals("ACTIVE", env.getJSONArray("constants").getString(0));
+			assertEquals("enum", env.getString("kind"));
+			assertEquals(3, env.getJSONArray("constants").length());
+			assertEquals("ACTIVE", env.getJSONArray("constants").getString(0));
 		}
 
 		@Test
 		void enum_implements() {
 			JSONObject env = parse(ENUM_SOURCE);
-			// TODO: assertEquals(1, env.getJSONArray("implements").length());
-			// TODO: assertEquals("Displayable",
-			// env.getJSONArray("implements").getString(0));
+			assertEquals(1, env.getJSONArray("implements").length());
+		}
+
+		@Disabled("implemented interfaces are emitted as simple names; the schema defines them as fully-qualified names")
+		@Test
+		void enum_implements_are_fully_qualified() {
+			JSONObject env = parse(ENUM_SOURCE);
+			assertEquals("com.example.Displayable", env.getJSONArray("implements").getString(0));
 		}
 
 		@Test
 		void record_kind_and_components() {
 			JSONObject env = parse(RECORD_SOURCE);
-			// TODO: assertEquals("record", env.getString("kind"));
-			// TODO: assertEquals(2, env.getJSONArray("components").length());
-			// TODO: assertEquals("page",
-			// env.getJSONArray("components").getJSONObject(0).getString("name"));
-			// TODO: assertEquals("int",
-			// env.getJSONArray("components").getJSONObject(0).getString("type"));
+			assertEquals("record", env.getString("kind"));
+			assertEquals(2, env.getJSONArray("components").length());
+			assertEquals("page", env.getJSONArray("components").getJSONObject(0).getString("name"));
+			assertEquals("int", env.getJSONArray("components").getJSONObject(0).getString("type"));
 		}
 
 		@Test
 		void annotation_type_kind_and_elements() {
 			JSONObject env = parse(ANNOTATION_TYPE_SOURCE);
-			// TODO: assertEquals("annotation_type", env.getString("kind"));
-			// TODO: assertEquals(2, env.getJSONArray("elements").length());
-			// TODO: JSONObject elem0 = env.getJSONArray("elements").getJSONObject(0);
-			// TODO: assertEquals("value", elem0.getString("name"));
-			// TODO: assertEquals("int", elem0.getString("type"));
-			// TODO: assertTrue(elem0.isNull("default_value"));
-			// TODO: JSONObject elem1 = env.getJSONArray("elements").getJSONObject(1);
-			// TODO: assertEquals("\"v1\"", elem1.getString("default_value"));
+			assertEquals("annotation_type", env.getString("kind"));
+			assertEquals(2, env.getJSONArray("elements").length());
+			JSONObject elem0 = env.getJSONArray("elements").getJSONObject(0);
+			assertEquals("value", elem0.getString("name"));
+			assertEquals("int", elem0.getString("type"));
+			assertTrue(elem0.isNull("default_value"));
+			JSONObject elem1 = env.getJSONArray("elements").getJSONObject(1);
+			assertEquals("\"v1\"", elem1.getString("default_value"));
 		}
 
 		@Test
@@ -166,7 +181,7 @@ class ParsedFileAssemblerTest {
 					package com.example;
 					public class PlainClass {}
 					""");
-			// TODO: assertTrue(env.isNull("stereotype"));
+			assertTrue(env.isNull("stereotype"));
 		}
 	}
 
@@ -222,10 +237,9 @@ class ParsedFileAssemblerTest {
 		void id_field_flags() {
 			JSONObject env = parse(ENTITY_SOURCE);
 			JSONObject idField = findField(env, "id");
-			// TODO: assertTrue(idField.getBoolean("is_id"));
-			// TODO: assertFalse(idField.getBoolean("is_autowired"));
-			// TODO: assertEquals("GenerationType.IDENTITY",
-			// idField.getString("generation"));
+			assertTrue(idField.getBoolean("is_id"));
+			assertFalse(idField.getBoolean("is_autowired"));
+			assertEquals("GenerationType.IDENTITY", idField.getString("generation"));
 		}
 
 		@Test
@@ -233,32 +247,31 @@ class ParsedFileAssemblerTest {
 			JSONObject env = parse(ENTITY_SOURCE);
 			JSONObject field = findField(env, "firstName");
 			JSONObject col = field.getJSONObject("column");
-			// TODO: assertEquals("first_name", col.getString("name"));
-			// TODO: assertFalse(col.getBoolean("nullable"));
-			// TODO: assertEquals(50, col.getInt("length"));
+			assertEquals("first_name", col.getString("name"));
+			assertFalse(col.getBoolean("nullable"));
+			assertEquals(50, col.getInt("length"));
 		}
 
 		@Test
 		void constraint_annotation_on_field() {
 			JSONObject env = parse(ENTITY_SOURCE);
 			JSONObject field = findField(env, "firstName");
-			// TODO:
-			// assertTrue(toList(field.getJSONArray("constraints")).contains("NotBlank"));
+			assertTrue(toList(field.getJSONArray("constraints")).contains("NotBlank"));
 		}
 
 		@Test
 		void autowired_field_injection_type_and_qualifier() {
 			JSONObject env = parse(ENTITY_SOURCE);
 			JSONObject field = findField(env, "ownerRepo");
-			// TODO: assertTrue(field.getBoolean("is_autowired"));
-			// TODO: assertEquals("field", field.getString("injection_type"));
-			// TODO: assertEquals("primaryRepo", field.getString("qualifier"));
+			assertTrue(field.getBoolean("is_autowired"));
+			assertEquals("field", field.getString("injection_type"));
+			assertEquals("primaryRepo", field.getString("qualifier"));
 		}
 
 		@Test
 		void table_name_from_entity_annotation() {
 			JSONObject env = parse(ENTITY_SOURCE);
-			// TODO: assertEquals("owners", env.getString("table_name"));
+			assertEquals("owners", env.getString("table_name"));
 		}
 
 		@Test
@@ -266,8 +279,15 @@ class ParsedFileAssemblerTest {
 			JSONObject env = parse(CONTROLLER_SOURCE);
 			JSONObject method = findMethod(env, "getOwner");
 			JSONObject http = method.getJSONObject("http_metadata");
-			// TODO: assertEquals("GET", http.getString("method"));
-			// TODO: assertEquals("/{id}", http.getString("path"));
+			assertEquals("GET", http.getString("method"));
+		}
+
+		@Disabled("the HTTP path omits the class-level mapping; the schema defines it as the class and method paths combined")
+		@Test
+		void get_mapping_path_includes_class_level_mapping() {
+			JSONObject env = parse(CONTROLLER_SOURCE);
+			JSONObject http = findMethod(env, "getOwner").getJSONObject("http_metadata");
+			assertEquals("/owners/{id}", http.getString("path"));
 		}
 
 		@Test
@@ -275,8 +295,15 @@ class ParsedFileAssemblerTest {
 			JSONObject env = parse(CONTROLLER_SOURCE);
 			JSONObject method = findMethod(env, "createOwner");
 			JSONObject http = method.getJSONObject("http_metadata");
-			// TODO: assertEquals("POST", http.getString("method"));
-			// TODO: assertEquals("", http.getString("path"));
+			assertEquals("POST", http.getString("method"));
+		}
+
+		@Disabled("the HTTP path omits the class-level mapping; the schema defines it as the class and method paths combined")
+		@Test
+		void post_mapping_path_includes_class_level_mapping() {
+			JSONObject env = parse(CONTROLLER_SOURCE);
+			JSONObject http = findMethod(env, "createOwner").getJSONObject("http_metadata");
+			assertEquals("/owners", http.getString("path"));
 		}
 
 		@Test
@@ -285,8 +312,8 @@ class ParsedFileAssemblerTest {
 			JSONObject method = findMethod(env, "getOwner");
 			JSONObject param = method.getJSONArray("parameters").getJSONObject(0);
 			JSONObject binding = param.getJSONObject("binding");
-			// TODO: assertEquals("path", binding.getString("kind"));
-			// TODO: assertEquals("Long", param.getString("type"));
+			assertEquals("path", binding.getString("kind"));
+			assertEquals("Long", param.getString("type"));
 		}
 
 		@Test
@@ -294,16 +321,16 @@ class ParsedFileAssemblerTest {
 			JSONObject env = parse(CONTROLLER_SOURCE);
 			JSONObject method = findMethod(env, "createOwner");
 			JSONObject param = method.getJSONArray("parameters").getJSONObject(0);
-			// TODO: assertTrue(param.getBoolean("validate"));
+			assertTrue(param.getBoolean("validate"));
 			JSONObject binding = param.getJSONObject("binding");
-			// TODO: assertEquals("body", binding.getString("kind"));
+			assertEquals("body", binding.getString("kind"));
 		}
 
 		@Test
 		void response_body_flag() {
 			JSONObject env = parse(CONTROLLER_SOURCE);
 			JSONObject method = findMethod(env, "createOwner");
-			// TODO: assertTrue(method.getBoolean("response_body"));
+			assertTrue(method.getBoolean("response_body"));
 		}
 
 		@Test
@@ -316,7 +343,7 @@ class ParsedFileAssemblerTest {
 					}
 					""");
 			JSONObject method = findMethod(env, "doWork");
-			// TODO: assertTrue(method.isNull("http_metadata"));
+			assertTrue(method.isNull("http_metadata"));
 		}
 
 		@Test

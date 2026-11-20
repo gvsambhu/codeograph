@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import tempfile
 from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING, Any, cast
@@ -190,6 +191,8 @@ class TestSecurityFeaturePolicy:
 
         assert captured, "Expected _call_llm to be called"
         assert "security_hint" in captured[0]
+        assert "// TODO: replace this stub with a real Guard implementation." in captured[0]["security_hint"]
+        assert "TODO(learner)" not in captured[0]["security_hint"]
 
     def test_silent_skip_no_hint(self):
         renderer = _make_renderer(TypeScriptConfig(security_feature_policy="silent_skip"))
@@ -383,3 +386,84 @@ class TestRenderErrorHandling:
         result = dispatch_feature_policies(secured_node, {}, config)
 
         assert result == "security", f"Expected refuse reason 'security', got {result!r}"
+
+
+# ---------------------------------------------------------------------------
+# FR-13 AC-2 / ADR-009 Confirmation 9 — --max-classes-per-domain 0 disables the cap
+# ---------------------------------------------------------------------------
+
+
+class TestMaxClassesPerDomainZero:
+    """``render --max-classes-per-domain 0`` takes every class in every domain."""
+
+    ORDERS = 5
+    USERS = 9
+
+    def _corpus(self, tmp_path: Path) -> Path:
+        """A run-output directory whose two domains both exceed the default cap of 3."""
+        from codeograph.graph.models.graph_schema import CodeographKnowledgeGraph, Node
+
+        nodes = [
+            Node(root=_make_class_node(f"com.example.{domain}.{domain.title()}{i}", stereotype=None))
+            for domain, count in (("orders", self.ORDERS), ("users", self.USERS))
+            for i in range(count)
+        ]
+        from_dir = tmp_path / "from"
+        from_dir.mkdir()
+        graph = CodeographKnowledgeGraph(nodes=nodes, edges=[])
+        (from_dir / "graph.json").write_text(graph.model_dump_json(exclude_none=True), encoding="utf-8")
+        (from_dir / "llm-annotations.json").write_text("[]", encoding="utf-8")
+        manifest = {
+            "schema_version": "2.0.0",
+            "codeograph_version": "test",
+            "source_path": str(from_dir),
+            "corpus_id": "test",
+            "run_id": "2026-06-08T00-00-00Z-000000",
+            "llm_skipped": False,
+            "artefacts": {
+                "graph": {"path": "graph.json", "schema_version": "1.0.0", "sha256": "a" * 64},
+                "llm_annotations": {"path": "llm-annotations.json", "schema_version": "1.0.0", "sha256": "a" * 64},
+            },
+        }
+        (from_dir / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8", newline="")
+        return from_dir
+
+    def _render(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, extra_args: list[str]) -> Path:
+        from click.testing import CliRunner
+
+        from codeograph.cli.render import render_cli
+
+        monkeypatch.setenv("CODEOGRAPH_CACHE_DIR", str(tmp_path / "cache"))
+        from_dir = self._corpus(tmp_path)
+        out_dir = tmp_path / "out"
+        canned_ts = "export class Rendered {}\n"
+        # No network: the provider is never asked for a completion because the render call is stubbed.
+        with (
+            patch("codeograph.llm.resolver.LlmProviderResolver.resolve", return_value=None),
+            patch.object(TypeScriptRenderer, "_call_llm", new=AsyncMock(return_value=canned_ts)),
+        ):
+            result = CliRunner().invoke(
+                render_cli, ["--from", str(from_dir), "--out", str(out_dir), "--force", *extra_args]
+            )
+        assert result.exit_code == 0, result.output
+        return out_dir
+
+    @staticmethod
+    def _module_header(out_dir: Path, domain: str) -> str:
+        return (out_dir / "src" / domain / f"{domain}.module.ts").read_text(encoding="utf-8")
+
+    def test_every_domain_is_taken_whole(self, tmp_path, monkeypatch):
+        out_dir = self._render(tmp_path, monkeypatch, ["--max-classes-per-domain", "0"])
+
+        for domain, count in (("orders", self.ORDERS), ("users", self.USERS)):
+            header = self._module_header(out_dir, domain)
+            assert "Selection strategy: take_all" in header
+            assert f"Classes selected for this module: {count}" in header
+            rendered = [p for p in (out_dir / "src" / domain).glob("*.ts") if not p.name.endswith(".module.ts")]
+            assert len(rendered) == count
+
+    def test_default_cap_limits_the_same_corpus(self, tmp_path, monkeypatch):
+        out_dir = self._render(tmp_path, monkeypatch, [])
+
+        assert "Selection strategy: top_n_v1" in self._module_header(out_dir, "orders")
+        assert "Selection strategy: stratified_threshold_v1" in self._module_header(out_dir, "users")

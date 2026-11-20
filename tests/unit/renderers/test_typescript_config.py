@@ -44,7 +44,10 @@ class TestTypeScriptConfigValidation:
 
     def test_render_budget_below_minimum_raises(self):
         with pytest.raises(ValidationError, match="greater_than_equal|ge"):
-            TypeScriptConfig(render_budget=0)
+            TypeScriptConfig(render_budget=-1)
+
+    def test_render_budget_zero_disables_the_cap(self):
+        assert TypeScriptConfig(render_budget=0).render_budget == 0
 
     def test_render_budget_above_maximum_raises(self):
         with pytest.raises(ValidationError, match="less_than_equal|le"):

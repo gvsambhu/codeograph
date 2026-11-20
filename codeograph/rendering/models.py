@@ -19,7 +19,7 @@ class SelectionResult:
         strategy:       Which tier was applied: ``"take_all"``,
                         ``"top_n_v1"``, or ``"stratified_threshold_v1"``.
         group_name:     The domain-group label this result covers.
-        cap:            The per-group budget cap that was applied.
+        cap:            The per-group budget cap that was applied (``0`` = no cap).
         total_in_group: Total classes in the group before selection.
         metrics_missing_count: Classes without CBO/WMC metrics (placed in
                         mid-bucket for stratified; listed for observability).

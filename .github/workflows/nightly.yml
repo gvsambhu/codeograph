@@ -32,14 +32,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          # Every branch and tag, with full history. On a scheduled run the
+          # action adds no commit range, so gitleaks scans all of it.
           fetch-depth: 0
       - name: Run gitleaks
+        # The action takes no `args` input; its own command already redacts.
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_VERSION: "8.30.1"
-        with:
-          args: detect --source . --no-banner --redact
       - if: failure()
         run: |
           echo "::error::Full-history gitleaks scan detected secrets — see CONTRIBUTING.md 'Responding to a gitleaks finding'"
