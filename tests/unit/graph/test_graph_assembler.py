@@ -8,7 +8,7 @@ public assemble() method using minimal two-file corpora.
 
 from __future__ import annotations
 
-from typing import cast
+from typing import Any, cast
 
 from codeograph.graph.graph_assembler import GraphAssembler
 from codeograph.graph.graph_builder import GraphBuilder
@@ -255,6 +255,57 @@ class TestAddDepEdges:
         dep_edges = _edges_of(graph, DependsOnEdge)
         assert any(e.source == "com.example.Impl" and e.target == "com.example.IFoo" for e in dep_edges)
 
+    @staticmethod
+    def _targets_of_a(a: ParsedFile, *others: ParsedFile) -> set[str]:
+        graph = GraphAssembler().assemble([(pf, _build_fragment(pf)) for pf in (a, *others)])
+        return {e.target for e in _edges_of(graph, DependsOnEdge) if e.source == a["id"]}
+
+    def test_same_package_field_type_gives_an_edge_without_an_import(self):
+        a = _class_pf(fields=[_field(id="com.example.A.address", name="address", type="Address")])
+        address = _class_pf(id="com.example.Address", name="Address")
+        assert self._targets_of_a(a, address) == {"com.example.Address"}
+
+    def test_type_argument_of_a_field_gives_an_edge(self):
+        a = _class_pf(fields=[_field(id="com.example.A.pets", name="pets", type="List<Pet>")])
+        pet = _class_pf(id="com.example.Pet", name="Pet")
+        assert self._targets_of_a(a, pet) == {"com.example.Pet"}
+
+    def test_nested_type_arguments_and_wildcard_bounds_give_edges(self):
+        a = _class_pf(
+            imports=["com.example.model.Owner"],
+            fields=[
+                _field(id="com.example.A.index", name="index", type="Map<String, List<Pet>>"),
+                _field(id="com.example.A.owners", name="owners", type="Set<? extends Owner>"),
+            ],
+        )
+        pet = _class_pf(id="com.example.Pet", name="Pet")
+        owner = _class_pf(id="com.example.model.Owner", name="Owner")
+        assert self._targets_of_a(a, pet, owner) == {"com.example.Pet", "com.example.model.Owner"}
+
+    def test_array_element_type_gives_an_edge(self):
+        a = _class_pf(fields=[_field(id="com.example.A.pets", name="pets", type="Pet[]")])
+        pet = _class_pf(id="com.example.Pet", name="Pet")
+        assert self._targets_of_a(a, pet) == {"com.example.Pet"}
+
+    def test_return_and_parameter_types_resolve_in_the_same_way(self):
+        a = _class_pf(
+            methods=[
+                _method(
+                    id="com.example.A#find(Optional<Owner>)",
+                    name="find",
+                    return_type="List<Pet>",
+                    parameters=[{"name": "owner", "type": "Optional<Owner>"}],
+                )
+            ],
+        )
+        pet = _class_pf(id="com.example.Pet", name="Pet")
+        owner = _class_pf(id="com.example.Owner", name="Owner")
+        assert self._targets_of_a(a, pet, owner) == {"com.example.Pet", "com.example.Owner"}
+
+    def test_edge_to_a_class_outside_the_corpus_is_not_drawn(self):
+        a = _class_pf(fields=[_field(id="com.example.A.pets", name="pets", type="List<Pet>")])
+        assert self._targets_of_a(a) == set()
+
 
 # ---------------------------------------------------------------------------
 # RelationEdge tests
@@ -453,6 +504,215 @@ class TestConvertUnresolvedToResolved:
         assert not any(e.target == "com.example.B#nonExistentMethod()" for e in resolved)
         unresolved = _edges_of(graph, CallsUnresolvedEdge)
         assert any("nonExistentMethod" in e.target for e in unresolved)
+
+
+# ---------------------------------------------------------------------------
+# Superclass and interface names — resolved on the graph nodes
+# ---------------------------------------------------------------------------
+
+
+def _node_named(graph: CodeographKnowledgeGraph, fqcn: str) -> Any:
+    return next(n.root for n in graph.nodes if n.root.id == fqcn)
+
+
+class TestSupertypeNameResolution:
+    """The parser reports supertypes as written; the assembled node carries FQCNs."""
+
+    def test_explicit_import_resolves_superclass_and_interfaces(self):
+        child = _class_pf(
+            id="com.example.web.Child",
+            name="Child",
+            imports=["com.example.base.Base", "com.example.base.Auditable"],
+            superclass="Base",
+            implements=["Auditable"],
+        )
+        base = _class_pf(id="com.example.base.Base", name="Base")
+        graph = GraphAssembler().assemble([(p, _build_fragment(p)) for p in (child, base)])
+        node = _node_named(graph, "com.example.web.Child")
+        assert node.superclass == "com.example.base.Base"
+        assert node.implements == ["com.example.base.Auditable"]
+
+    def test_same_package_class_resolves_without_an_import(self):
+        child = _class_pf(id="com.example.Child", name="Child", superclass="Base")
+        base = _class_pf(id="com.example.Base", name="Base")
+        graph = GraphAssembler().assemble([(p, _build_fragment(p)) for p in (child, base)])
+        assert _node_named(graph, "com.example.Child").superclass == "com.example.Base"
+        # The dependency edge follows the same rule as the node field.
+        assert any(
+            e.source == "com.example.Child" and e.target == "com.example.Base" for e in _edges_of(graph, DependsOnEdge)
+        )
+
+    def test_unresolvable_name_stays_as_written(self):
+        # Neither imported explicitly nor declared in the corpus: a wildcard-imported
+        # or java.lang type.
+        child = _class_pf(id="com.example.Child", name="Child", superclass="Exception", implements=["Runnable"])
+        graph = GraphAssembler().assemble([(child, _build_fragment(child))])
+        node = _node_named(graph, "com.example.Child")
+        assert node.superclass == "Exception"
+        assert node.implements == ["Runnable"]
+
+    def test_qualified_name_passes_through(self):
+        child = _class_pf(
+            id="com.example.Child",
+            name="Child",
+            superclass="org.other.Base",
+            implements=["java.io.Serializable"],
+        )
+        graph = GraphAssembler().assemble([(child, _build_fragment(child))])
+        node = _node_named(graph, "com.example.Child")
+        assert node.superclass == "org.other.Base"
+        assert node.implements == ["java.io.Serializable"]
+
+    def test_explicit_import_wins_over_same_package_class(self):
+        child = _class_pf(
+            id="com.example.Child",
+            name="Child",
+            imports=["org.other.Base"],
+            superclass="Base",
+        )
+        local_base = _class_pf(id="com.example.Base", name="Base")
+        graph = GraphAssembler().assemble([(p, _build_fragment(p)) for p in (child, local_base)])
+        assert _node_named(graph, "com.example.Child").superclass == "org.other.Base"
+
+    def test_nested_jdk_type_resolves_through_its_outer_type(self):
+        child = _class_pf(
+            id="com.example.Child",
+            name="Child",
+            imports=["java.util.Map"],
+            implements=["Map.Entry"],
+        )
+        graph = GraphAssembler().assemble([(child, _build_fragment(child))])
+        assert _node_named(graph, "com.example.Child").implements == ["java.util.Map.Entry"]
+
+    def test_nested_project_type_resolves_through_its_outer_type(self):
+        child = _class_pf(
+            id="com.example.web.Child",
+            name="Child",
+            imports=["com.example.model.Outer"],
+            superclass="Outer.Inner",
+        )
+        outer = _class_pf(id="com.example.model.Outer", name="Outer")
+        graph = GraphAssembler().assemble([(p, _build_fragment(p)) for p in (child, outer)])
+        assert _node_named(graph, "com.example.web.Child").superclass == "com.example.model.Outer.Inner"
+
+    def test_nested_type_of_a_same_package_class_resolves(self):
+        child = _class_pf(id="com.example.Child", name="Child", superclass="Outer.Inner")
+        outer = _class_pf(id="com.example.Outer", name="Outer")
+        graph = GraphAssembler().assemble([(p, _build_fragment(p)) for p in (child, outer)])
+        assert _node_named(graph, "com.example.Child").superclass == "com.example.Outer.Inner"
+
+    def test_nested_type_with_an_unresolved_outer_type_stays_as_written(self):
+        child = _class_pf(id="com.example.Child", name="Child", superclass="Unknown.Inner")
+        graph = GraphAssembler().assemble([(child, _build_fragment(child))])
+        assert _node_named(graph, "com.example.Child").superclass == "Unknown.Inner"
+
+    def test_package_qualified_name_with_a_lowercase_first_segment_is_unchanged(self):
+        # An import of an unrelated Base must not capture a name that is already qualified.
+        child = _class_pf(
+            id="com.example.Child",
+            name="Child",
+            imports=["org.other.Base"],
+            superclass="com.other.Base",
+        )
+        graph = GraphAssembler().assemble([(child, _build_fragment(child))])
+        assert _node_named(graph, "com.example.Child").superclass == "com.other.Base"
+
+    def test_supertype_reached_through_an_on_demand_import_of_a_project_package_resolves(self):
+        child = _class_pf(
+            id="com.example.web.Child",
+            name="Child",
+            wildcard_imports=["com.example.base"],
+            superclass="Base",
+            implements=["Auditable"],
+        )
+        base = _class_pf(id="com.example.base.Base", name="Base")
+        auditable = _class_pf(id="com.example.base.Auditable", name="Auditable")
+        graph = GraphAssembler().assemble([(p, _build_fragment(p)) for p in (child, base, auditable)])
+        node = _node_named(graph, "com.example.web.Child")
+        assert node.superclass == "com.example.base.Base"
+        assert node.implements == ["com.example.base.Auditable"]
+        targets = {e.target for e in _edges_of(graph, DependsOnEdge) if e.source == "com.example.web.Child"}
+        assert targets == {"com.example.base.Base", "com.example.base.Auditable"}
+
+    def test_field_type_reached_through_an_on_demand_import_draws_its_edge(self):
+        a = _class_pf(
+            wildcard_imports=["com.example.model"],
+            fields=[_field(id="com.example.A.pets", name="pets", type="List<Pet>")],
+        )
+        pet = _class_pf(id="com.example.model.Pet", name="Pet")
+        graph = GraphAssembler().assemble([(p, _build_fragment(p)) for p in (a, pet)])
+        targets = {e.target for e in _edges_of(graph, DependsOnEdge) if e.source == "com.example.A"}
+        assert targets == {"com.example.model.Pet"}
+
+    def test_a_name_declared_in_two_on_demand_packages_stays_as_written(self):
+        # Java rejects the ambiguity; the resolver does not guess.
+        child = _class_pf(
+            id="com.example.web.Child",
+            name="Child",
+            wildcard_imports=["com.example.one", "com.example.two"],
+            superclass="Base",
+        )
+        one = _class_pf(id="com.example.one.Base", name="Base")
+        two = _class_pf(id="com.example.two.Base", name="Base")
+        graph = GraphAssembler().assemble([(p, _build_fragment(p)) for p in (child, one, two)])
+        assert _node_named(graph, "com.example.web.Child").superclass == "Base"
+
+    def test_a_name_declared_in_only_one_of_two_on_demand_packages_resolves(self):
+        child = _class_pf(
+            id="com.example.web.Child",
+            name="Child",
+            wildcard_imports=["com.example.one", "com.example.two"],
+            superclass="Base",
+        )
+        two = _class_pf(id="com.example.two.Base", name="Base")
+        graph = GraphAssembler().assemble([(p, _build_fragment(p)) for p in (child, two)])
+        assert _node_named(graph, "com.example.web.Child").superclass == "com.example.two.Base"
+
+    def test_the_own_package_wins_over_an_on_demand_import(self):
+        child = _class_pf(
+            id="com.example.Child", name="Child", wildcard_imports=["com.example.base"], superclass="Base"
+        )
+        own = _class_pf(id="com.example.Base", name="Base")
+        other = _class_pf(id="com.example.base.Base", name="Base")
+        graph = GraphAssembler().assemble([(p, _build_fragment(p)) for p in (child, own, other)])
+        assert _node_named(graph, "com.example.Child").superclass == "com.example.Base"
+
+    def test_an_explicit_import_wins_over_the_own_package_and_an_on_demand_import(self):
+        child = _class_pf(
+            id="com.example.Child",
+            name="Child",
+            imports=["org.other.Base"],
+            wildcard_imports=["com.example.base"],
+            superclass="Base",
+        )
+        own = _class_pf(id="com.example.Base", name="Base")
+        other = _class_pf(id="com.example.base.Base", name="Base")
+        graph = GraphAssembler().assemble([(p, _build_fragment(p)) for p in (child, own, other)])
+        assert _node_named(graph, "com.example.Child").superclass == "org.other.Base"
+
+    def test_interface_extends_resolved(self):
+        iface = _class_pf(
+            kind="interface",
+            id="com.example.Repo",
+            name="Repo",
+            extends_interfaces=["Marker", "Serializable"],
+        )
+        marker = _class_pf(id="com.example.Marker", name="Marker")
+        graph = GraphAssembler().assemble([(p, _build_fragment(p)) for p in (iface, marker)])
+        node = _node_named(graph, "com.example.Repo")
+        assert node.extends_interfaces == ["com.example.Marker", "Serializable"]
+
+    def test_enum_implements_resolved(self):
+        enum = _class_pf(
+            kind="enum",
+            id="com.example.Status",
+            name="Status",
+            constants=["ACTIVE"],
+            implements=["Displayable"],
+        )
+        shown = _class_pf(id="com.example.Displayable", name="Displayable")
+        graph = GraphAssembler().assemble([(p, _build_fragment(p)) for p in (enum, shown)])
+        assert _node_named(graph, "com.example.Status").implements == ["com.example.Displayable"]
 
 
 # ---------------------------------------------------------------------------

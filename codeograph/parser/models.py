@@ -185,6 +185,9 @@ class ParsedFile(_ParsedFileBase, total=False):
     line_range: list[int]  # [begin_line, end_line]; base keeps it optional
     # because regex fallback may not know the range
 
+    # --- from the JavaParser sidecar only; the regex fallback does not emit it ---
+    wildcard_imports: list[str]  # package of each non-static on-demand import ("java.util" for java.util.*)
+
     # --- present for class, interface, enum, annotation_type ---
     modifiers: list[str]
 

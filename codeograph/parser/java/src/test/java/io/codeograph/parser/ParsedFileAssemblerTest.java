@@ -6,7 +6,6 @@ import com.github.javaparser.ast.CompilationUnit;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
@@ -103,18 +102,38 @@ class ParsedFileAssemblerTest {
 			assertEquals(1, env.getJSONArray("implements").length());
 		}
 
-		@Disabled("superclass is emitted as a simple name; the schema defines it as a fully-qualified name")
+		/**
+		 * The parser reports the superclass as written; the graph stage resolves it.
+		 */
 		@Test
-		void class_superclass_is_fully_qualified() {
+		void class_superclass_is_reported_as_written() {
 			JSONObject env = parse(SERVICE_SOURCE);
-			assertEquals("com.example.BaseService", env.getString("superclass"));
+			assertEquals("BaseService", env.getString("superclass"));
 		}
 
-		@Disabled("implemented interfaces are emitted as simple names; the schema defines them as fully-qualified names")
 		@Test
-		void class_implements_are_fully_qualified() {
+		void class_implements_are_reported_as_written() {
 			JSONObject env = parse(SERVICE_SOURCE);
-			assertEquals("com.example.Auditable", env.getJSONArray("implements").getString(0));
+			assertEquals("Auditable", env.getJSONArray("implements").getString(0));
+		}
+
+		/** A qualifier written in the source is kept; type arguments are not. */
+		@Test
+		void qualified_supertypes_keep_their_qualifier() {
+			JSONObject env = parse("""
+					package com.example;
+					public class Report extends org.example.Base<String> implements java.io.Serializable {
+					}
+					""");
+			assertEquals("org.example.Base", env.getString("superclass"));
+			assertEquals("java.io.Serializable", env.getJSONArray("implements").getString(0));
+		}
+
+		@Test
+		void interface_extends_are_reported_as_written() {
+			JSONObject env = parse(INTERFACE_SOURCE);
+			assertEquals("Serializable", env.getJSONArray("extends_interfaces").getString(0));
+			assertEquals("Cloneable", env.getJSONArray("extends_interfaces").getString(1));
 		}
 
 		@Test
@@ -146,11 +165,10 @@ class ParsedFileAssemblerTest {
 			assertEquals(1, env.getJSONArray("implements").length());
 		}
 
-		@Disabled("implemented interfaces are emitted as simple names; the schema defines them as fully-qualified names")
 		@Test
-		void enum_implements_are_fully_qualified() {
+		void enum_implements_are_reported_as_written() {
 			JSONObject env = parse(ENUM_SOURCE);
-			assertEquals("com.example.Displayable", env.getJSONArray("implements").getString(0));
+			assertEquals("Displayable", env.getJSONArray("implements").getString(0));
 		}
 
 		@Test

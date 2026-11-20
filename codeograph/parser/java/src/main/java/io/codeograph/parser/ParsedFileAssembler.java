@@ -121,14 +121,16 @@ final class ParsedFileAssembler {
 				.orElse(null);
 		obj.put("stereotype", stereotype != null ? stereotype : JSONObject.NULL);
 
-		// 7. Superclass (simple name — FQCN resolution requires symbol solver, out of
-		// v1)
-		String superclass = decl.getExtendedTypes().isEmpty() ? null : decl.getExtendedTypes().get(0).getNameAsString();
+		// 7. Superclass, as written in the source (with its qualifier if it has one).
+		// The graph stage resolves it against the corpus.
+		String superclass = decl.getExtendedTypes().isEmpty()
+				? null
+				: decl.getExtendedTypes().get(0).getNameWithScope();
 		obj.put("superclass", superclass != null ? superclass : JSONObject.NULL);
 
-		// 8. Implemented interfaces (simple names)
+		// 8. Implemented interfaces, as written
 		JSONArray implemented = new JSONArray();
-		decl.getImplementedTypes().forEach(t -> implemented.put(t.getNameAsString()));
+		decl.getImplementedTypes().forEach(t -> implemented.put(t.getNameWithScope()));
 		obj.put("implements", implemented);
 
 		// 9. Inner class flag
@@ -245,7 +247,7 @@ final class ParsedFileAssembler {
 		obj.put("annotations", extractAnnotationNames(decl.getAnnotations()));
 
 		JSONArray extendedInterfaces = new JSONArray();
-		decl.getExtendedTypes().forEach(t -> extendedInterfaces.put(t.getNameAsString()));
+		decl.getExtendedTypes().forEach(t -> extendedInterfaces.put(t.getNameWithScope()));
 		obj.put("extends_interfaces", extendedInterfaces);
 
 		obj.put("imports", extractImports(cu));
@@ -281,7 +283,7 @@ final class ParsedFileAssembler {
 		obj.put("constants", constants);
 
 		JSONArray implemented = new JSONArray();
-		decl.getImplementedTypes().forEach(t -> implemented.put(t.getNameAsString()));
+		decl.getImplementedTypes().forEach(t -> implemented.put(t.getNameWithScope()));
 		obj.put("implements", implemented);
 
 		obj.put("imports", extractImports(cu));
@@ -326,7 +328,7 @@ final class ParsedFileAssembler {
 		obj.put("components", components);
 
 		JSONArray implemented = new JSONArray();
-		decl.getImplementedTypes().forEach(t -> implemented.put(t.getNameAsString()));
+		decl.getImplementedTypes().forEach(t -> implemented.put(t.getNameWithScope()));
 		obj.put("implements", implemented);
 
 		obj.put("imports", extractImports(cu));
