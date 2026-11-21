@@ -85,9 +85,9 @@ tests/
 
 ## LLM Features
 
-Codeograph includes an LLM enrichment pipeline (Passes 1 and 2) that adds semantic understanding alongside the deterministic AST graph, kept in its own file:
+Codeograph includes an LLM enrichment pipeline (Passes 1 and 2) that adds semantic understanding alongside the deterministic AST graph, kept in files of its own:
 
-- **Annotated Graph Output:** Detailed per-node semantics (Pass 1) stored in `llm-annotations.json`; corpus-level synthesis (Pass 2) stored in `corpus-synthesis.json`.
+- **Separate LLM Artefacts:** Detailed per-node semantics (Pass 1) stored in `llm-annotations.json`; corpus-level synthesis (Pass 2) stored in `corpus-synthesis.json`.
 - **Response Cache:** A local SQLite cache (`cache.db`) stores responses. You can manage the cache using the `codeograph cache` CLI (e.g., `codeograph cache stats` or `codeograph cache purge`).
 - **Telemetry:** Every LLM call is recorded as a structured JSONL row in the `telemetry/` output folder, carrying token usage, latency, and cache-hit details.
 
@@ -178,7 +178,7 @@ The run manifest (`manifest.json`) is written once at the terminal checkpoint, a
 
 - **TypeScript/NestJS renderer only.** The Go renderer (ADR-011) is planned — scope SC-009 in the [Roadmap](ROADMAP.md).
 - **Providers: Anthropic, OpenRouter, and any OpenAI-compatible endpoint; Ollama and Bedrock not scheduled.** All run through a LangChain-based provider abstraction (`AnthropicProvider`, `OpenRouterProvider`, `OpenAICompatibleProvider` with a configurable `base_url`). `Ollama` and `Bedrock` are wired in the resolver but raise `NotImplementedError`. A single model (default `claude-sonnet-4-6`) serves all stages by default; per-stage model overrides (`llm_model_fast` / `deep` / `render`, used by Pass 1 / Pass 2 / rendering) are configurable, but there is no curated *differential* per-stage mapping, and none is scheduled.
-- **Sync LLM calls; no Batch API.** All LLM calls are synchronous with prompt caching. The Anthropic Batch API (50% discount) is not scheduled.
+- **Sync LLM calls; no Batch API.** All LLM calls are synchronous. The Anthropic Batch API (50% discount) is not scheduled.
 - **CI runs on Linux only.** Local tests pass on Windows/macOS; the automated CI infrastructure runs on `ubuntu-latest`. Multi-OS CI is not scheduled; it would be added on contributor demand.
 - **No live-LLM tests.** The test suite uses a deterministic `MockLlmProvider`. No tests make live API calls; the 80% line coverage gate applies to `codeograph/`.
 - **Eval covers two committed corpora.** `spring-rest-sample` and `spring-blog-api` are the baseline corpora; `codeograph eval report` provides cross-corpus comparison. Additional corpora can be added to `examples/` per `CONTRIBUTING.md`.
