@@ -1,7 +1,7 @@
 ---
 status: accepted
 date: 2026-04-30
-deciders: learner
+decision-makers: gvsambhu
 consulted: AI design advisor
 informed: future contributors
 ---
