@@ -29,14 +29,25 @@ T = TypeVar("T", bound=BaseModel)
 class _CountingProvider(LlmProvider):
     """Counts the calls that reach it; each reports ``spend`` total tokens (half in, half out)."""
 
-    def __init__(self, spend: int, prompt_tokens: int = 100, error: Exception | None = None) -> None:
+    def __init__(
+        self,
+        spend: int,
+        prompt_tokens: int = 100,
+        error: Exception | None = None,
+        count_barrier: threading.Barrier | None = None,
+        overlap_barrier: threading.Barrier | None = None,
+    ) -> None:
         self.spend = spend
         self.prompt_tokens = prompt_tokens
         self.error = error
+        self.count_barrier = count_barrier
+        self.overlap_barrier = overlap_barrier
         self.calls = 0
         self._lock = threading.Lock()
 
     def count_tokens(self, messages: list[Message]) -> int:
+        if self.count_barrier is not None:
+            self.count_barrier.wait(timeout=5)
         return self.prompt_tokens
 
     def resolve_model(self, tier: Tier, override_model: str | None = None) -> str:
@@ -53,6 +64,9 @@ class _CountingProvider(LlmProvider):
     ) -> LlmResult[T]:
         with self._lock:
             self.calls += 1
+            number = self.calls
+        if self.overlap_barrier is not None and number <= self.overlap_barrier.parties:
+            self.overlap_barrier.wait(timeout=5)
         if self.error is not None:
             raise self.error
         usage = TokenUsage(input_tokens=self.spend // 2, output_tokens=self.spend - self.spend // 2, cached_tokens=0)
@@ -150,9 +164,13 @@ def test_a_failed_call_counts_its_reservation_as_spent() -> None:
 
 
 def test_concurrent_callers_never_commit_more_than_the_ceiling() -> None:
-    # Each call is projected at 1,100 and uses 1,000. Ten threads race on a 5,000-token ceiling:
-    # at most four can be admitted (4 x 1,100 = 4,400; a fifth would project 5,500).
-    inner = _CountingProvider(spend=1_000)
+    # All ten pre-checks leave token counting together. The four admitted calls then wait inside the
+    # provider, so they are provably in flight together; without reservations all ten would enter it.
+    inner = _CountingProvider(
+        spend=1_000,
+        count_barrier=threading.Barrier(10),
+        overlap_barrier=threading.Barrier(4),
+    )
     provider = CeilingLlmProvider(inner, max_tokens=5_000)
     start = threading.Barrier(10)
 

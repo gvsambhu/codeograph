@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 from typing import TypeVar
 
@@ -109,7 +108,7 @@ def test_render_stops_at_a_ceiling_keeps_its_files_and_exits_1(tmp_path: Path) -
 def test_other_per_class_failures_still_skip_only_that_class(tmp_path: Path) -> None:
     from codeograph.llm.errors import LlmBadInputError
 
-    class _OneBadClass(_CeilingOnCallProvider):
+    class _OneBadClassProvider(_CeilingOnCallProvider):
         def complete_structured(self, *args, **kwargs):  # type: ignore[no-untyped-def]
             if self.calls == 1:
                 self.calls += 1
@@ -118,7 +117,26 @@ def test_other_per_class_failures_still_skip_only_that_class(tmp_path: Path) -> 
 
     run_dir = _run_output(tmp_path)
 
-    result = _render(tmp_path, run_dir, _OneBadClass(ceiling_on=None))
+    full_dir = tmp_path / "full"
+    full_result = _render(full_dir, run_dir, _CeilingOnCallProvider(ceiling_on=None))
+    assert full_result.exit_code == 0, full_result.output
+    full_root = full_dir / "ts-out"
+    full_files = {
+        path.relative_to(full_root): path.read_text(encoding="utf-8")
+        for path in full_root.rglob("*.ts")
+        if not path.name.endswith(".module.ts")
+    }
+    failing_files = {path for path, content in full_files.items() if "// call 2\n" in content}
+    assert len(failing_files) == 1
+
+    result = _render(tmp_path, run_dir, _OneBadClassProvider(ceiling_on=None))
 
     assert result.exit_code == 0, result.output
-    assert re.search(r"Done\. Wrote \d+ file", result.output)
+    output_root = tmp_path / "ts-out"
+    actual_files = {
+        path.relative_to(output_root): path.read_text(encoding="utf-8")
+        for path in output_root.rglob("*.ts")
+        if not path.name.endswith(".module.ts")
+    }
+    expected_files = {path: content for path, content in full_files.items() if path not in failing_files}
+    assert actual_files == expected_files, "only the failing class is absent; every later class is rendered"
