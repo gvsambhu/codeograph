@@ -1,10 +1,10 @@
 """TypeScriptConfig — Pydantic config class for the NestJS renderer (ADR-010).
 
-Consumed by ``TypeScriptRenderer`` (M7) and validated by ``RendererRegistry.build()``
+Consumed by ``TypeScriptRenderer`` and validated by ``RendererRegistry.build()``
 before the renderer is instantiated.  All fields have conservative defaults that
 match the "happy path" for a standard Spring Boot → NestJS migration.
 
-Field design follows the decisions recorded in the DC3 kickoff (2026-05-28):
+Field design follows the decisions recorded on 2026-05-28:
     - db_layer: TypeORM (latest stable, pg driver) — Q1 answer
     - render_strategy: decouple rendering from LLM execution — Q2 answer
     - domain_mapping: manual opt-in, empty = PackagePrefixGrouping default — Q5 answer
@@ -36,7 +36,7 @@ UnsupportedFeaturePolicy = Literal["stub_todo", "silent_skip"]
 - ``stub_todo``: Emit valid TS with a greppable ``// TODO: Spring <FEATURE>`` stub (default).
 - ``silent_skip``: Render the closest NestJS equivalent silently; no TODO comment.
 
-Note: ``"refuse"`` was removed in the 2026-05-28 fixup round.  Unlike
+Note: ``"refuse"`` was removed in the 2026-05-28 follow-up correction.  Unlike
 ``security_feature_policy`` and ``webflux_policy`` — which have concrete
 class-level signals (@PreAuthorize, Mono<>/Flux<> return types) — there is
 no robust deterministic detector for generic "unsupported Spring features"

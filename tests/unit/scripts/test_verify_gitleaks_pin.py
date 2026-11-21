@@ -1,8 +1,4 @@
-"""Unit tests for the gitleaks version pin-parity verifier script.
-
-Scaffolding is AI-generated; the assertion bodies are learner-write per the
-DC5 M12 spec. Each test has a ``# TODO(learner):`` marker.
-"""
+"""Unit tests for the gitleaks version pin-parity verifier script."""
 
 from __future__ import annotations
 

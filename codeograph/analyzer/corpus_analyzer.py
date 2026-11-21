@@ -1,5 +1,5 @@
 """
-CorpusAnalyzer — orchestrates the full DC1 AST pipeline for a corpus.
+CorpusAnalyzer — orchestrates the full AST pipeline for a corpus.
 
 Pipeline sequence (ADR-003, ADR-006, ADR-007):
 
@@ -10,7 +10,7 @@ Pipeline sequence (ADR-003, ADR-006, ADR-007):
         └── GraphAssembler.assemble(fragments) → CodeographKnowledgeGraph (merged)
         └── GraphWriter.write(graph, out_dir)  → GraphArtefact
 
-DC1 scope — AST-only mode.  LLM enrichment (Pass 1 / Pass 2) is a DC2
+AST-only mode.  LLM enrichment (Pass 1 / Pass 2) is a separate
 concern and is not wired here.  The `--ast-only` flag at the CLI is the
 signal that this pipeline is in use; the flag is accepted but has no effect
 on CorpusAnalyzer's behaviour in v1 since there is no LLM stage to skip.
@@ -49,7 +49,7 @@ logger = logging.getLogger(__name__)
 
 class CorpusAnalyzer:
     """
-    Runs the DC1 AST pipeline for a fully-acquired corpus.
+    Runs the AST pipeline for a fully-acquired corpus.
 
     Stateless after construction — the same instance can be reused across
     multiple analyze() calls (e.g. in tests).  All four collaborators are

@@ -151,7 +151,7 @@ class GraphWriter:
                 if field in node and isinstance(node[field], list):
                     node[field] = sorted(v for v in node[field] if v is not None)
 
-            # Sort constraints inside parameters list of method nodes (DC1-L3)
+            # Sort constraints inside parameters list of method nodes
             if "parameters" in node and isinstance(node["parameters"], list):
                 for param in node["parameters"]:
                     if "constraints" in param and isinstance(param["constraints"], list):

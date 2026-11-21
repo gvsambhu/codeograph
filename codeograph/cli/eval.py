@@ -1,4 +1,4 @@
-"""CLI subcommands for evaluation (M7).
+"""CLI subcommands for evaluation.
 
 Command surface (ADR-017 Fork 5 + Fork 7):
 

@@ -12,7 +12,7 @@ __all__ = ["CompileCheck"]
 class CompileCheck:
     """Declarative description of one compile / typecheck command (ADR-008 Fork 3).
 
-    The eval framework (DC4) iterates ``renderer.compile_checks()``,
+    The eval framework iterates ``renderer.compile_checks()``,
     preflights ``required_tools`` via ``shutil.which``, runs each command
     with ``subprocess.run``, and records pass / skip / fail in the scorecard.
 

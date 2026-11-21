@@ -47,7 +47,7 @@ def dispatch_feature_policies(
     security_hits = _SPRING_SECURITY_ANNOTATIONS & class_annotations
     if security_hits:
         if config.security_feature_policy == "refuse":
-            return "security"  # DC3-05: named refuse reason
+            return "security"  # named refuse reason
         elif config.security_feature_policy == "stub_todo":
             hints["security_hint"] = (
                 f"This class carries Spring Security annotation(s): "
@@ -72,10 +72,10 @@ def dispatch_feature_policies(
 
     if uses_webflux:
         if config.webflux_policy == "refuse":
-            return "webflux_refuse"  # DC3-05: named refuse reason
+            return "webflux_refuse"  # named refuse reason
         if config.webflux_policy == "translate_mono_only":
             if uses_flux:
-                return "webflux_flux_only"  # DC3-05: named refuse reason
+                return "webflux_flux_only"  # named refuse reason
             hints["webflux_hint"] = (
                 "This class uses Spring WebFlux reactive return types. "
                 "Translate Mono<T> to Promise<T> and render async NestJS methods. "

@@ -270,9 +270,9 @@ class TestRoleFileSuffix:
 
 
 # ---------------------------------------------------------------------------
-# DC3-03 — per-class LLM failure must not abort the whole group
-# DC3-04 — duplicate path within a group must raise a loud ValueError
-# DC3-05 — refused class must record the named refuse reason (ADR-010 D-010-2)
+# Per-class LLM failure must not abort the whole group
+# Duplicate path within a group must raise a loud ValueError
+# Refused class must record the named refuse reason (ADR-010 D-010-2)
 # ---------------------------------------------------------------------------
 
 
@@ -289,7 +289,7 @@ class TestRenderErrorHandling:
         semaphore = asyncio.Semaphore(5)
         return asyncio.run(renderer._render_group(result, annotations, node_map, semaphore))
 
-    # -- DC3-03 ----------------------------------------------------------------
+    # -- per-class failure ----------------------------------------------------------------
 
     def test_llm_error_skips_failed_class_others_still_render(self):
         """One LLM error must not abort the group — the surviving class still renders."""
@@ -321,7 +321,7 @@ class TestRenderErrorHandling:
         assert any("order-service" in str(p) for p in file_map), "Successful class must appear in file_map"
         assert not any("payment-service" in str(p) for p in file_map), "Failed class must be absent from file_map"
 
-    # -- DC3-04 ----------------------------------------------------------------
+    # -- duplicate path ----------------------------------------------------------------
 
     def test_duplicate_intra_group_path_raises_value_error(self):
         """Two classes in the same group that resolve to the same path raise ValueError."""
@@ -347,7 +347,7 @@ class TestRenderErrorHandling:
             with pytest.raises(ValueError, match="Duplicate render output path"):
                 self._render_group_sync(renderer, result, {}, node_map)
 
-    # -- DC3-05 ----------------------------------------------------------------
+    # -- refuse reason ----------------------------------------------------------------
 
     def test_security_refuse_excludes_class_from_output(self):
         """A class refused by security_feature_policy must not appear in the file map."""

@@ -1,4 +1,4 @@
-"""Unit tests for codeograph/config/yaml_source.py (DC1 coverage gap)."""
+"""Unit tests for codeograph/config/yaml_source.py."""
 
 from __future__ import annotations
 

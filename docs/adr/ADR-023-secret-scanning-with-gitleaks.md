@@ -1,7 +1,7 @@
 ---
 status: accepted
 date: 2026-06-06
-deciders: learner
+decision-makers: gvsambhu
 consulted: AI design advisor
 informed: future contributors
 ---
@@ -559,19 +559,19 @@ An admin bypass mechanism is explicitly deferred. The v1.1 trigger is "a real fa
 
 ## Amendments
 
-### 2026-06-22 — D-023-1: Pre-commit framing correction (DC5-DDL)
+### 2026-06-22 — D-023-1: Pre-commit framing correction
 
-**Decision:** D-023-1 = A (locked 2026-06-22 via DC5 decision pass).
+**Decision:** D-023-1 = A (locked 2026-06-22 in a decision pass).
 
 **Correction to Fork 1 Decision Outcome:**
 
-The Fork 1 Decision Outcome and the pyproject.toml sketch both treated `.pre-commit-config.yaml` and the `pre-commit` Python framework as new introductions in DC5, including a `# NEW` annotation and an explicit "add `pre-commit` to dev deps" step.
+The Fork 1 Decision Outcome and the pyproject.toml sketch both treated `.pre-commit-config.yaml` and the `pre-commit` Python framework as new introductions, including a `# NEW` annotation and an explicit "add `pre-commit` to dev deps" step.
 
-**This framing is incorrect.** The `pre-commit` framework has been present since DC2. The existing `.pre-commit-config.yaml` already contains two hooks: the ADR-014 prompt-hash and gen-constants freshness gates. The `pre-commit` package is already in `[project.optional-dependencies] dev`.
+**This framing is incorrect.** The `pre-commit` framework has been present since the LLM-enrichment work. The existing `.pre-commit-config.yaml` already contains two hooks: the ADR-014 prompt-hash and gen-constants freshness gates. The `pre-commit` package is already in `[project.optional-dependencies] dev`.
 
-**Corrected Fork 1 scope:** the DC5 action is to **add the gitleaks `repo` entry to the existing `.pre-commit-config.yaml`** — not to bootstrap the pre-commit framework. The Decision Outcome's "add `pre-commit` to dev deps" step and the `# NEW` annotation in the pyproject example are removed from the design intent; they were already satisfied before DC5.
+**Corrected Fork 1 scope:** the action is to **add the gitleaks `repo` entry to the existing `.pre-commit-config.yaml`** — not to bootstrap the pre-commit framework. The Decision Outcome's "add `pre-commit` to dev deps" step and the `# NEW` annotation in the pyproject example are removed from the design intent; they were already satisfied before this ADR.
 
-**Cascade:** The DC5 M8 implementation plan must **not** overwrite the existing `.pre-commit-config.yaml`; it must append the gitleaks hook entry. Overwriting would clobber the two existing hooks. This is the learner's dev fix (DC5-04).
+**Cascade:** The implementation plan must **not** overwrite the existing `.pre-commit-config.yaml`; it must append the gitleaks hook entry. Overwriting would clobber the two existing hooks. This is a development fix.
 
 > **Errata — 2026-08-05.** As first written, this amendment said the config held *four* hooks, counting two additional origin-hygiene hooks. That count was wrong on the date of the amendment: those two hooks had been moved out of the committed config on 2026-06-12, ten days earlier, and the config held two. The figures above are corrected to two. **The decision and its cascade are unaffected** — append the gitleaks entry, do not overwrite, do not bootstrap the framework — and Confirmation #2 was never affected, as it tests for the gitleaks entry specifically rather than counting entries.
 
@@ -601,3 +601,5 @@ tag or a pull-request ref, is covered by the scheduled scan (checked whenever th
 changes).
 
 No reversal of Fork 4; its scope is stated.
+
+### 2026-11-21 — process labels and private references replaced by plain descriptions; no decision changed.

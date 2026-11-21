@@ -1,7 +1,7 @@
 ---
 status: accepted
 date: 2026-06-07
-deciders: learner
+decision-makers: gvsambhu
 consulted: AI design advisor
 informed: future contributors
 ---
@@ -426,7 +426,7 @@ change any Fork 1–5 decision or the manifest shape. The decision status remain
     terminal write). Equivalently: at no point during a run does an on-disk manifest violate the
     §Invariants (integration test).
 
-### 2026-06-23 — DC5 reconciliation: committed-schema path is git-root-relative (DC5R-03)
+### 2026-06-23 — Reconciliation: committed-schema path is git-root-relative
 
 The §Validation discipline section and Confirmation #8 reference the committed JSON Schema as
 `codeograph/_generated/manifest.schema.json`. Read package-relative (as the surrounding ADR text reads),
@@ -471,3 +471,5 @@ manifest and the version bump.
 
 No reversal of any prior decision; a deferral is discharged on the trigger Fork 5 named, and the `2.x`
 line evolves additively as designed.
+
+### 2026-11-21 — process labels and private references replaced by plain descriptions; no decision changed.

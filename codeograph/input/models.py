@@ -3,7 +3,7 @@ Input acquisition data models.
 
 These dataclasses represent the *acquired* corpus — what was fetched, where it
 lives on disk, and what modules were discovered inside it.  They are the
-contract between M4 (input) and M6 (parser).
+contract between the input and parser stages.
 
 Note: BuildTool is duplicated here (also in codeograph/graph/models/ as a
 generated schema enum).  The input layer must not import from generated models

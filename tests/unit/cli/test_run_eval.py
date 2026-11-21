@@ -1,8 +1,8 @@
-"""Unit tests for the ``codeograph run --eval`` wiring (DC4-A fix).
+"""Unit tests for the ``codeograph run --eval`` wiring.
 
 Verifies that:
   1. ``evaluate_corpus`` is called with in-memory context params so no
-     manifest is needed on disk before eval runs (the DC4-A bug).
+     manifest is needed on disk before eval runs.
   2. The scorecards returned by eval reach the single terminal manifest
      write — no second manifest write, no missing scorecards pointer.
 """
@@ -97,7 +97,7 @@ def test_run_eval_exits_zero(tmp_path: Path):
 
 
 def test_run_eval_calls_evaluate_corpus_with_graph_sha256(tmp_path: Path):
-    """evaluate_corpus must receive graph_sha256 in-memory (DC4-A: no manifest on disk yet)."""
+    """evaluate_corpus must receive graph_sha256 in-memory (no manifest on disk yet)."""
     _, mock_eval, artefact, _ = _invoke_run(tmp_path, with_eval=True, scorecards=_fake_scorecards())
 
     mock_eval.assert_called_once()

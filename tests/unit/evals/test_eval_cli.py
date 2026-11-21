@@ -1,4 +1,4 @@
-"""Unit tests for eval CLI subcommands and llm_judge check (M7/M8 coverage)."""
+"""Unit tests for eval CLI subcommands and llm_judge check."""
 
 from __future__ import annotations
 

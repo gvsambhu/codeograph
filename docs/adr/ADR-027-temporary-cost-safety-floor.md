@@ -1,7 +1,7 @@
 ---
 status: accepted
 date: 2026-06-29
-deciders: learner
+decision-makers: gvsambhu
 consulted: AI design advisor
 informed: future contributors
 ---
@@ -135,7 +135,7 @@ source of truth for prices — and rendered with an explicit caption: *"estimate
 table, not a quote — actual cost depends on model, caching, and provider pricing; verify before
 relying."* The human-readable table in `docs/model-selection-and-cost.md` (§6) is kept in sync with
 that source and carries the same caveat; **the estimator reads the structured source, never parses
-the prose table.** The price-source file format is the learner's tech choice (e.g. `prices.toml`);
+the prose table.** The price-source file format is an open technology choice (e.g. `prices.toml`);
 a CI parity check (doc table vs structured source) is recommended — the same regenerate/compare
 pattern as the ADR-014 prompt-freshness and ADR-023 pin-parity gates — though for a temporary feature
 a lightweight check suffices. (External price *accuracy* cannot be CI-gated — that is inherently
@@ -315,7 +315,7 @@ discipline.
 ## Amendments
 
 **2026-06-29 — endpoint-aware price keying (1 decision).** Surfaced by the design review of the
-ADR-013 D-013-7 / ADR-001 D-001-5 provider expansion (reviewed jointly per guideline 06 §0.1). Fork 4
+ADR-013 D-013-7 / ADR-001 D-001-5 provider expansion (reviewed jointly). Fork 4
 assumed model id alone identifies a price — true when the v1 provider set was Anthropic + OpenRouter,
 but the generic OpenAI-compatible provider (D-013-7) makes the **same model id reachable on different
 hosts at different prices, or free**. Fork 4's pricing is amended to match; the locked decision
@@ -399,3 +399,5 @@ before any call, and takes the same estimate, gate and ceilings.
 
 Reverses the floor's temporary status — the removal contract and the `1.1.0` target are superseded —
 and extends Forks 1–4, unchanged, to every command that calls an LLM.
+
+### 2026-11-21 — process labels and private references replaced by plain descriptions; no decision changed.

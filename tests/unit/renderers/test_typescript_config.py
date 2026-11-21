@@ -1,4 +1,4 @@
-"""Tests for TypeScriptConfig (M5 — ADR-010).
+"""Tests for TypeScriptConfig (ADR-010).
 
 Verifies defaults, field validation, and extra='forbid' policy.
 """
@@ -60,7 +60,7 @@ class TestTypeScriptConfigValidation:
         assert cfg_high.render_budget == 500
 
     def test_invalid_unsupported_feature_policy_raises(self):
-        # "refuse" was removed from UnsupportedFeaturePolicy in the 2026-05-28 fixup
+        # "refuse" was removed from UnsupportedFeaturePolicy in the 2026-05-28 follow-up
         # (no deterministic class-level signal exists; see ADR-010 Amendments).
         with pytest.raises(ValidationError):
             TypeScriptConfig(unsupported_feature_policy="refuse")  # type: ignore[arg-type]

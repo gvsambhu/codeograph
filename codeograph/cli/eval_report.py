@@ -1,4 +1,4 @@
-"""CLI subcommand for cross-corpus evaluation reports (M6).
+"""CLI subcommand for cross-corpus evaluation reports.
 
 ADR-017 Fork 7: ``codeograph eval report <dir> [<dir> ...]``
 

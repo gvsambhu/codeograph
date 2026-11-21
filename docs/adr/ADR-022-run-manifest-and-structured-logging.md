@@ -1,7 +1,7 @@
 ---
 status: accepted
 date: 2026-06-06
-deciders: learner
+decision-makers: gvsambhu
 consulted: AI design advisor
 informed: future contributors
 ---
@@ -10,7 +10,7 @@ informed: future contributors
 
 ## Context and Problem Statement
 
-The manifest file (`<out>/manifest.json`) is the canonical run artefact — every other ADR consuming the output assumes a stable manifest shape. Six additive schema bumps have already shipped in v1 (`1.0` → `1.1` via DC2's `cache_stats`; → `1.3` via ADR-017 Fork 1's `scorecards`; → `1.4` via ADR-017 Fork 8's `compile_checks`; → `1.5` via the eval reproducibility `source_path` scalar; → `1.6` via the `golden_graph_agreement` `corpus_id` scalar; → `1.7` via the eval-correlation `run_id` scalar) without an explicit codified rule. The next contributor adding a field has no normative guidance, and the rapid cadence creates risk that a structural change slips in.
+The manifest file (`<out>/manifest.json`) is the canonical run artefact — every other ADR consuming the output assumes a stable manifest shape. Six additive schema bumps have already shipped in v1 (`1.0` → `1.1` via the `cache_stats`; → `1.3` via ADR-017 Fork 1's `scorecards`; → `1.4` via ADR-017 Fork 8's `compile_checks`; → `1.5` via the eval reproducibility `source_path` scalar; → `1.6` via the `golden_graph_agreement` `corpus_id` scalar; → `1.7` via the eval-correlation `run_id` scalar) without an explicit codified rule. The next contributor adding a field has no normative guidance, and the rapid cadence creates risk that a structural change slips in.
 
 Structured logging is similarly underspecified. FR-20 calls for `logs.jsonl` in a per-run directory; the implementation shipped a plaintext-only console pattern. ADR-015's telemetry JSONL handles per-LLM-call records; there is no parallel substrate for per-pipeline-event records (orchestrator INFO/WARN/ERROR lines, eval check execution traces, render progress, classifier decisions). Without one, eval framework lifecycle events, render progress, and the future LLM-judge invocations (v1.1 ADR-020) all reach stderr ad hoc and disappear when the terminal scrolls.
 
@@ -206,7 +206,7 @@ RUN_ID_PATTERN = r"^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}Z-[0-9a-f]{6}$"
 
 **Generation moment** — at pipeline start, in `codeograph run`'s orchestrator. Recorded on the first manifest write. Never regenerated.
 
-**Relationship to the shipped `run_id` field** — manifest schema `1.7.0` (shipped DC4) introduced `run_id: str | None` carrying UUID4 values. This ADR locks the new timestamp+suffix format going forward; the field type (`str | None`) is unchanged. This is a value-level format change, not a structural change, so it requires no `schema_version` bump under Fork 1. Existing committed manifests in `examples/` are refreshed to the new format as part of DC5 implementation.
+**Relationship to the shipped `run_id` field** — manifest schema `1.7.0` (shipped earlier) introduced `run_id: str | None` carrying UUID4 values. This ADR locks the new timestamp+suffix format going forward; the field type (`str | None`) is unchanged. This is a value-level format change, not a structural change, so it requires no `schema_version` bump under Fork 1. Existing committed manifests in `examples/` are refreshed to the new format as part of the manifest implementation.
 
 **`codeograph eval`** reads the existing manifest's `run_id` to correlate eval-emitted scorecards with the original run. Does NOT generate a new run id.
 
@@ -292,7 +292,7 @@ Per-JSONL-record schema:
 
 ### Fork 5 — Per-run directory layout: (a) formalize shipped co-located pattern
 
-The canonical layout matches what DC1–DC3 ship:
+The canonical layout matches what the graph, enrichment and renderer stages ship:
 
 ```
 <out>/                                       ← passed via `--out`; one per run
@@ -730,13 +730,12 @@ and CLI) — **remain in force and are not affected.** This ADR's `status` there
 consult ADR-025 for the current manifest schema, and this ADR for the logging substrate. Explicit
 reversal: ADR-025 reverses Fork 1's "v1 ships `1.x.x` only" for the manifest schema (now `2.0.0`).
 
-### 2026-06-23 — DC5 reconciliation-gate clarifications
+### 2026-06-23 — Reconciliation-gate clarifications
 
-Five corrections surfaced by the DC5 reconciliation gate (guideline 08; `reconciliation-dc5.md`,
-DC5R-01…05). Each is a **documentation correction where the shipped code is design-correct** — no
+Five corrections surfaced by the reconciliation gate that checks the shipped code against the ADRs. Each is a **documentation correction where the shipped code is design-correct** — no
 behaviour change and no decision reversal. The `status` remains `accepted`.
 
-**1. Fork 7 read path — the `strict=False` wording was wrong (DC5R-01).** The Fork 7 `read()` sketch and
+**1. Fork 7 read path — the `strict=False` wording was wrong.** The Fork 7 `read()` sketch and
 Confirmation #2 state that `Manifest.model_validate(raw, strict=False)` "succeeds and drops unknown
 fields." It does not: with `model_config = ConfigDict(extra="forbid")`, `strict=False` controls *type
 coercion only*, and the call **raises `ValidationError`** on an unknown field. The shipped
@@ -747,7 +746,7 @@ top-level fields via pre-filter + per-key DEBUG log, then validates; it does **n
 `strict=False`. **Confirmation #2 is corrected** to assert this pre-filter behaviour (an unknown field is
 dropped with a DEBUG record naming it; the filtered manifest validates), not the `strict=False` path.
 
-**2. `run_id` is the implemented manifest↔logs↔telemetry join key (DC5R-02; joint with ADR-015 / D-022-L1).**
+**2. `run_id` is the implemented manifest↔logs↔telemetry join key (joint with ADR-015 / D-022-L1).**
 Fork 4 (`LoggerAdapter` `run_id` injection) and Fork 5 (`telemetry/run-<run_id>-*.jsonl`) + Relationships
 ("cross-reference via `run_id`") assumed a shared `run_id` across the manifest, `logs.jsonl`, and
 telemetry. That key now exists: `TelemetryRecord` carries `run_id` and the telemetry schema is `1.1`
@@ -757,7 +756,7 @@ shipped sidecar is `telemetry/run-<run_id>.jsonl` (`codeograph/telemetry/session
 `run-<run_id>-*.jsonl`; the `-*` in the Fork 5 tree sketch was illustrative and is corrected to the
 single-file form.
 
-**3. The committed JSON Schema path is git-root-relative (DC5R-03; joint with ADR-025).** Fork 7's
+**3. The committed JSON Schema path is git-root-relative (joint with ADR-025).** Fork 7's
 references to `codeograph/_generated/manifest.schema.json` read as package-relative (every other path in
 this ADR is), which resolves to `<git-root>/codeograph/_generated/`. The shipped location is
 **`_generated/manifest.schema.json` relative to the git repository root**: `schema_cli.py` anchors it at
@@ -765,14 +764,14 @@ this ADR is), which resolves to `<git-root>/codeograph/_generated/`. The shipped
 of the `codeograph/` Python package. The CI freshness gate validates against that path. **Canonical
 address:** `<git-root>/_generated/manifest.schema.json`.
 
-**4. Manifest and graph schema-generation run in opposite directions (DC5R-04).** Fork 7 makes the
+**4. Manifest and graph schema-generation run in opposite directions.** Fork 7 makes the
 manifest **Pydantic → JSON Schema** (Pydantic is the source; `schema_cli.py` emits the committed schema).
 The graph and llm-annotations schemas remain **JSON Schema → Pydantic** via datamodel-codegen (ADR-006).
-After DC5 the two flows run in opposite directions and `codeograph/schema/` splits accordingly
+After this change the two flows run in opposite directions and `codeograph/schema/` splits accordingly
 (hand-authored graph + llm-annotations sources; the manifest's generated schema at `_generated/`). This
 asymmetry is **intentional** — a future reader should not "reconcile" it by reverting the manifest flip.
 
-**5. The Fork 2 `CacheStats` example is superseded (DC5R-05).** The Fork 2 decision-matrix illustration
+**5. The Fork 2 `CacheStats` example is superseded.** The Fork 2 decision-matrix illustration
 (`cache_stats: {pass1: {hits, misses, hit_rate}}`) and the locked five-field class with
 `saved_usd_est`/`incurred_usd_est` are **superseded by ADR-025 Fork 5**, under which the v1 block is
 `{calls, hits, hit_rate}` only. The `misses` field never shipped. Consult ADR-025 for the canonical
@@ -786,3 +785,4 @@ Confirmation #5 is amended to drop the requirement that 1000 calls to `generate_
 - Two calls in rapid succession differ (same-second collision is negligible at 24 bits).
 - Calls generated at distinct timestamps are unique.
 
+### 2026-11-21 — process labels and private references replaced by plain descriptions; no decision changed.

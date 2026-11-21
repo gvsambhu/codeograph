@@ -237,7 +237,7 @@ ADR-NNN-kebab-case-slug.md
 ### Template
 
 Each ADR follows MADR 4.0.0 with these sections:
-1. **YAML frontmatter** — `status`, `date` (the day it was last updated), `deciders`, `consulted`, `informed`
+1. **YAML frontmatter** — `status`, `date` (the day it was last updated), `decision-makers` (GitHub handles), `consulted`, `informed`
 2. **Context and Problem Statement**
 3. **Decision Drivers**
 4. **Considered Options** — one list per fork, with ✅ on the chosen option
@@ -255,7 +255,6 @@ Each ADR follows MADR 4.0.0 with these sections:
 - Several closely related decisions (forks) in one ADR, where MADR has one decision per ADR.
 - Consequences and Confirmation as top-level sections; Confirmation is required, as numbered checks a test
   can show.
-- `deciders:` (the MADR 3 key) rather than `decision-makers:`.
 - Revision history and Amendments: a proposed ADR is edited with a dated history line; an accepted one
   changes only by amendment or supersession.
 - *Constraint flagged for ADR-NNN* subsections in Decision Outcome, for an obligation one ADR places on

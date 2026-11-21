@@ -5,8 +5,8 @@ Format: ``YYYY-MM-DDTHH-MM-SSZ-<6 hex>`` — chronologically sortable
 same-second window (24 random bits), cross-OS filesystem-safe (no
 ``:``/``.``/``_``), and stdlib-only (``datetime`` + ``secrets``).
 
-Generation moment: at pipeline start, in ``codeograph run``'s orchestrator
-(M7). Recorded on the first manifest write; never regenerated mid-run.
+Generation moment: at pipeline start, in ``codeograph run``'s orchestrator.
+Recorded on the first manifest write; never regenerated mid-run.
 ``codeograph eval`` reads the existing manifest's ``run_id`` and does NOT
 generate a new one.
 """

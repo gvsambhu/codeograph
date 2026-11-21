@@ -115,7 +115,7 @@ class Renderer(ABC, Generic[C]):  # noqa: UP046 — ADR-008 uses Generic[C]; py3
         Default returns an empty list — the renderer opts out of eval.
         Override to return one or more :class:`CompileCheck` instances.
 
-        The eval framework (DC4) is responsible for invoking these; the renderer
+        The eval framework is responsible for invoking these; the renderer
         only declares *what* to run.  See ``CompileCheck`` in ``codeograph.renderers.models``
         for field semantics.
         """

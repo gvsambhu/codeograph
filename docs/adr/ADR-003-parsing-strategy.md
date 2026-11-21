@@ -1,7 +1,7 @@
 ---
 status: accepted
 date: 2026-04-21
-deciders: learner
+decision-makers: gvsambhu
 consulted: AI design advisor
 informed: future contributors
 ---
@@ -397,7 +397,7 @@ References:
 
 ## Amendments
 
-**2026-05-03 — Spring annotation coverage pinned (v1).** Section 9 added enumerating the 38 annotations Codeograph interprets in v1 across stereotypes, DI, HTTP class+method mapping, HTTP arg binding, REST exception flow, JPA core, JPA relations, transactions, Boot bootstrap, and basic validation. Deferred categories (security, async/scheduling, caching, profile/conditional, configuration binding, validation extended, test classes, JPA extended, HTTP arg extended, cross-cutting) called out explicitly with v1 behaviour: captured in `annotations[]` but not interpreted. Surfaced when planning DC1 parser implementation, where the gap between section 2's seed list and the real Spring Boot taxonomy would have forced ad-hoc decisions during dev. No reversal of any prior decision.
+**2026-05-03 — Spring annotation coverage pinned (v1).** Section 9 added enumerating the 38 annotations Codeograph interprets in v1 across stereotypes, DI, HTTP class+method mapping, HTTP arg binding, REST exception flow, JPA core, JPA relations, transactions, Boot bootstrap, and basic validation. Deferred categories (security, async/scheduling, caching, profile/conditional, configuration binding, validation extended, test classes, JPA extended, HTTP arg extended, cross-cutting) called out explicitly with v1 behaviour: captured in `annotations[]` but not interpreted. Surfaced when planning the parser implementation, where the gap between section 2's seed list and the real Spring Boot taxonomy would have forced ad-hoc decisions during dev. No reversal of any prior decision.
 
 **2026-06-14 — Design-review pass (4 decisions).** A design review found two genuinely-unmade failure forks and two undecided edge responses; this entry records the decisions. No prior locked fork is reversed.
 
@@ -421,3 +421,5 @@ References:
 * **Interpret-vs-capture criterion behind the "38".** The v1 interpreted set (pinned at 38 by the 2026-05-03 amendment) is the closure of a single criterion: an annotation is *interpreted* when it lifts to a structured graph field or edge in the ADR-006 schema; every other annotation is *captured* in `annotations[]` but not interpreted. The count is a consequence of that criterion over the v1 schema, not an arbitrary target.
 
 No reversal of any prior decision; clarification only.
+
+### 2026-11-21 — process labels and private references replaced by plain descriptions; no decision changed.

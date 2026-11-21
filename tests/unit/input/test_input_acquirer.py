@@ -1,4 +1,4 @@
-"""Unit tests for InputAcquirer and _detect_input_type (DC1 coverage gap).
+"""Unit tests for InputAcquirer and _detect_input_type.
 
 These tests cover the type-detection heuristic and the LocalAcquirer path
 using tmp_path — no external deps (no git, no network, no zip tooling).
