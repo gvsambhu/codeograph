@@ -27,8 +27,8 @@ source is only needed if you change the parser itself, and requires Maven — se
 [§8 Rebuilding the parser JAR](#8-rebuilding-the-parser-jar).
 
 - **Java 17+ required for full-fidelity parsing.** Without a working `java` on `PATH`
-  (or `JAVA_HOME` pointing at one), Codeograph does **not** fail the run — it silently falls back
-  to a regex-based extractor per file, which is markedly less accurate (no resolved types, no
+  (or `JAVA_HOME` pointing at one), Codeograph does **not** fail the run — it falls back,
+  with a warning per file, to a regex-based extractor, which is markedly less accurate (no resolved types, no
   complexity metrics, coarser stereotype detection). This is easy to miss: the run *succeeds*, but
   every node in `graph.json` reports `"extraction_mode": "regex_fallback"` instead of `"ast"`.
 - **Always check this after a run**, especially the first one in a new shell or CI environment.
@@ -220,9 +220,9 @@ provider aborts once the ceiling is hit, exactly as `run` does:
 export CODEOGRAPH_MAX_LLM_CALLS=50        # bash/WSL
 $env:CODEOGRAPH_MAX_LLM_CALLS = "50"      # PowerShell
 ```
-So the safety levers for `render` are: `CODEOGRAPH_MAX_LLM_CALLS` (hard ceiling, env-var only),
-`--max-classes-per-domain` (bounds how many classes get selected in the first place, below), and
-`CODEOGRAPH_LLM_CONCURRENCY`.
+So the safety levers for `render` are: `CODEOGRAPH_MAX_LLM_CALLS` (hard ceiling, environment variable or `config.yaml`),
+`--max-classes-per-domain` (bounds how many classes get selected in the first place, below; not at
+all when the cap is disabled with `0`), and `CODEOGRAPH_LLM_CONCURRENCY`.
 
 Useful flags:
 - `--max-classes-per-domain N` — overrides the default per-domain-group render budget (**default:
@@ -293,7 +293,7 @@ package with no further sub-packages (a small/flat example corpus is a common ca
 by package prefix has nothing to split on in that shape, so everything renders into a single
 `misc` domain module. If you want real per-domain grouping for a flat-package corpus, configure
 `ManualMappingGrouping` via `[render.typescript.domain_mapping]` in your config instead of relying
-on auto-detection.
+on auto-detection — that section is not read yet; see the README's [Known gaps](../README.md#known-gaps).
 
 ### 6.3 A render logs `WARNING ... Failed to render class '...'` but the run still finishes
 
@@ -331,6 +331,9 @@ context:
 
 Use `--non-interactive` alone for "never spend without a human present"; add `--yes` only once
 you've decided a given automated run is allowed to proceed unattended.
+
+`--non-interactive` does not abort yet — see the README's [Known gaps](../README.md#known-gaps). Until it does, bound an
+unattended run with `--max-llm-calls`.
 
 ---
 

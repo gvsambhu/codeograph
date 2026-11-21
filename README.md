@@ -28,13 +28,14 @@ pip install -e ".[dev]"
 codeograph run /path/to/java/project --out ./out
 ```
 
-Output (three files — always start from `manifest.json`):
+Output (always start from `manifest.json`):
 
 | File | Description |
 |---|---|
 | `out/manifest.json` | Entry point: run identity, `schema_version: "2.0.0"`, SHA-256 of every artefact, `llm_skipped` flag |
 | `out/graph.json` | Deterministic AST graph — nodes, edges, complexity metrics |
 | `out/llm-annotations.json` | LLM semantic enrichment (full run only; absent on `--ast-only`, indicated by `llm_skipped: true`) |
+| `out/logs.jsonl` | Structured run log |
 
 Input can be a local directory path, a git URL, or a `.zip` archive.
 
@@ -74,10 +75,10 @@ _generated/
   manifest.schema.json         committed JSON Schema (regenerated from Pydantic)
 docs/
   architecture.md              current architecture snapshot
-  adr/                         architecture decision records (ADR-001..027)
+  adr/                         architecture decision records (ADR-001..035)
 tests/
   fixtures/codeograph-corpus/  Tier 1 surgical fixture
-  goldens/tier1/               stored golden graphs (byte-equal regression)
+  golden/codeograph-corpus/    stored golden graph (byte-equal regression)
   ...                          unit tests mirror codeograph/ layout
 ```
 
@@ -96,7 +97,7 @@ The graph tells Codeograph what is there — nodes, edges, framework semantics, 
 To prevent accidental runaway API bills during large runs, Codeograph implements a pre-flight cost safety floor and middleware ceiling limits:
 
 - **Pre-flight Cost Estimate:** Before starting Pass 1, Codeograph parses the corpus (Pass 0), derives the expected call count (`class_count + 1`), queries a localized model pricing database (`prices.toml`), and prints an estimate of the total cost and calls. The figure is labelled as an estimate from a dated price table, not a quote — actual cost depends on the model, caching and the provider's current pricing.
-- **TTY Confirmation Gate:** If the estimated call count exceeds the default confirmation threshold (`100` calls, configurable via `--llm-call-confirm-threshold`), the pipeline prompts the user on an interactive terminal (TTY) or auto-aborts in non-TTY environments (CI/pipelines). You can override this using `--yes` / `-y` or `--non-interactive`.
+- **TTY Confirmation Gate:** If the estimated call count exceeds the default confirmation threshold (`100` calls, configurable via `--llm-call-confirm-threshold`), the pipeline prompts the user on an interactive terminal (TTY) or auto-aborts in non-TTY environments (CI/pipelines). `--yes` / `-y` proceeds without a prompt; `--non-interactive` never prompts and aborts above the threshold unless `--yes` is also given.
 - **Hard Ceilings:** You can configure hard limits using `--max-llm-calls N` or `--max-tokens-total M`. A middleware wrapper checks these ceilings mid-run and aborts execution immediately if either threshold is reached, displaying the partial progress manifest.
 
 > [!NOTE]
@@ -146,7 +147,7 @@ codeograph eval report ./run1 ./run2 ./run3
 | `--check <id>` | Run only the named check IDs |
 | `--skip-check <id>` | Skip named check IDs |
 
-The graph scorecard runs 6 deterministic checks (`structural_completeness`, `relationship_correctness`, `internal_consistency`, `schema_validity`, `reproducibility`, `golden_graph_agreement`); some of them measure less than their names say — see [Known gaps](#known-gaps). The code-quality scorecard runs 3 checks (compilation, feature coverage, llm_judge — the latter two are `skip`: llm_judge pending ADR-020 calibration, feature coverage for the reason under [Known gaps](#known-gaps)).
+The graph scorecard runs 6 deterministic checks (`structural_completeness`, `relationship_correctness`, `internal_consistency`, `schema_validity`, `reproducibility`, `golden_graph_agreement`); some of them measure less than their names say — see [Known gaps](#known-gaps). The code-quality scorecard runs 3 checks (compilation, feature coverage, llm_judge — the latter two are `skip`: llm_judge pending ADR-020 calibration, feature coverage for the reason under [Known gaps](#known-gaps); compilation does not run yet either, see [Known gaps](#known-gaps)).
 
 You can also run eval automatically as part of `codeograph run` using `--eval`:
 
@@ -158,7 +159,7 @@ codeograph run /path/to/project --out ./out --eval
 
 Codeograph emits logs via two channels simultaneously:
 
-- **Console (stderr):** Human-readable plaintext, default level `INFO`. Format: `[area] message`.
+- **Console (stderr):** Human-readable plaintext, default level `INFO`. Format: `<UTC timestamp> <LEVEL> [area] message`.
 - **File (`<out>/logs.jsonl`):** Structured JSONL at `DEBUG` level, always written during a `run`. Fields: `run_id`, `logger`, `context`, `level`, `ts`, `msg`.
 
 Log level is controlled via global flags (before the subcommand):
@@ -170,7 +171,7 @@ codeograph -qq run ...       # ERROR only
 codeograph --log-level DEBUG run ...   # explicit level (wins over -v/-q)
 ```
 
-The run manifest (`manifest.json`) is written once at the terminal checkpoint, after all passes complete. It records the `run_id`, artefact SHA-256s, schema version (`2.0.0`), and optional pointers to scorecards and compile-checks. The committed JSON Schema at `codeograph/_generated/manifest.schema.json` is the external validator contract; a CI gate keeps it in sync with the Pydantic source.
+The run manifest (`manifest.json`) is written once at the terminal checkpoint, after all passes complete. It records the `run_id`, artefact SHA-256s, schema version (`2.0.0`), and optional pointers to scorecards and compile-checks. The committed JSON Schema at `_generated/manifest.schema.json` is the external validator contract; a CI gate keeps it in sync with the Pydantic source.
 
 ## Limitations
 
@@ -180,7 +181,7 @@ The run manifest (`manifest.json`) is written once at the terminal checkpoint, a
 - **CI runs on Linux only.** Local tests pass on Windows/macOS; the automated CI infrastructure runs on `ubuntu-latest`. Multi-OS CI is not scheduled; it would be added on contributor demand.
 - **No live-LLM tests.** The test suite uses a deterministic `MockLlmProvider`. No tests make live API calls; the 80% line coverage gate applies to `codeograph/`.
 - **Eval covers two committed corpora.** `spring-rest-sample` and `spring-blog-api` are the baseline corpora; `codeograph eval report` provides cross-corpus comparison. Additional corpora can be added to `examples/` per `CONTRIBUTING.md`.
-- **`semantic_accuracy` and `llm_judge` checks are skipped.** The graph scorecard reserves these slots; calibration data and the LLM-judge harness are planned — scope SC-010 in the [Roadmap](ROADMAP.md) (ADR-020).
+- **`semantic_accuracy` and `llm_judge` checks are skipped.** The graph and code-quality scorecards reserve these slots; calibration data and the LLM-judge harness are planned — scope SC-010 in the [Roadmap](ROADMAP.md) (ADR-020).
 - **Coverage check means feature coverage, not test coverage.** The code-quality scorecard `coverage` check measures which Spring annotation categories from the ADR-010 audit were translated into TypeScript — not pytest line coverage.
 - **Per-run output is `<out>` itself.** There is no `--runs-dir` flag. Each `codeograph run` invocation owns its `--out` directory. To keep multiple run histories, use distinct `--out` paths (e.g. `--out ./runs/$(date -u +%Y-%m-%dT%H-%M-%SZ)/`).
 - **Manifest schema is strict-additive within `2.x`.** Field removal, rename, type-change, or required/optional flips require a `3.0.0` major bump and a superseding ADR. New fields land as minor bumps. External consumers can pin a `2.x` validator and rely on forward compatibility.
@@ -194,21 +195,23 @@ The limitations above are deliberate scope. These are different: places where th
 
 - **The graph is not byte-reproducible on runs with LLM enrichment enabled.** Corpus synthesis writes its project overview (`projectOverview`) into `graph.json` and rewrites the file outside the canonical form, so the graph differs from an enrichment-free run and the manifest's recorded hash no longer matches the file on disk. Runs with `--ast-only` are unaffected.
 - **A parser failure can change the graph.** When the Java parser times out on a file (30 s), crashes, or cannot start because Java is not available, that file is extracted by the regex fallback, with no retry. The same source can therefore produce a different graph on a slow or misconfigured machine. Each fallback is logged as a warning.
-- **No classpath resolution yet, for Maven or Gradle.** Method calls are resolved by a source-only heuristic (self-calls, static imports, field and parameter types); a call through a local variable stays unresolved and is emitted as `calls_unresolved`, never dropped. Symbol-solver resolution against the local Maven repository (ADR-003) is not yet implemented.
-- **Some graph-scorecard checks measure less than their names say.** `structural_completeness` reports the share of declarations extracted by the full parser rather than comparing the graph against the source; `relationship_correctness` checks only that resolved calls point at nodes that exist; `internal_consistency` runs four rules: the check that every annotation names a class in the graph (next entry) is not among them, and its unresolved-call rule checks only that an origin and a target are present; `reproducibility` re-runs extraction without enrichment and compares those runs with each other, not with the scored graph, so it does not detect the difference on LLM-enabled runs described above, and it skips for git and archive sources. The rationale text in the committed example scorecards overstates the first three.
+- **No classpath resolution yet, for Maven or Gradle.** Method calls are resolved by a source-only heuristic (self-calls, and calls on a class, field or parameter whose type is a project class — imported, in the caller's own package, or through a wildcard import); a call through a local variable, and every call after the first in a chain, stays unresolved and is emitted as `calls_unresolved`, never dropped. Symbol-solver resolution against the local Maven repository (ADR-003) is not yet implemented.
+- **Some graph-scorecard checks measure less than their names say.** `structural_completeness` reports the share of declarations extracted by the full parser rather than comparing the graph against the source; `relationship_correctness` checks only that resolved calls point at nodes that exist; `internal_consistency` runs four rules: the check that every annotation names a class in the graph (next entry) is not among them, and its unresolved-call rule checks only that an origin and a target are present; `reproducibility` re-runs extraction without enrichment and compares those runs with each other, not with the scored graph, so it does not detect the difference on LLM-enabled runs described above, and it skips for git and archive sources when evaluated after the run with `eval run`. The rationale text in the committed example scorecards overstates the first three.
 - **The annotations are not checked against the graph.** Every entry in `llm-annotations.json` should belong to a class in the graph, checked by the internal-consistency evaluation (ADR-006). No check reads the annotations yet, so an annotation for a class that is not in the graph goes unnoticed.
 - **Refused classes leave no placeholder.** A class refused by a feature policy, or whose render call fails, is left out of the rendered output; a refusal is logged at debug level only.
-- **Render policies and domain grouping cannot yet be set.** `codeograph render` reads only its command-line flags; the `[render.typescript]` configuration section is not read yet, so the defaults always apply — security and WebFlux classes refused, other unsupported features rendered as stub + TODO, package-prefix domain grouping. WebFlux classes are detected from the LLM's annotations rather than from the graph, so on a run with `--ast-only` none is detected and each is rendered instead of refused.
+- **Render policies and domain grouping cannot yet be set.** `codeograph render` reads only its command-line flags; the `[render.typescript]` configuration section is not read yet, so the defaults always apply — security and WebFlux classes refused, other unsupported features rendered as stub + TODO, package-prefix domain grouping. WebFlux classes are detected from the LLM's annotations rather than from the graph, so a class whose annotation is missing, or does not list its reactive return types, is rendered instead of refused.
 - **The feature-coverage check does not run yet.** The code-quality scorecard's `coverage` check needs a record of which features rendering translated, and rendering does not yet write one, so the check is always reported as skipped.
+- **Rendered code is not compile-checked yet.** The code-quality scorecard's `compilation` check looks for its compile record where the manifest no longer keeps it, and beside the run rather than the rendered project, so it is always reported as skipped; the CI evaluation does not run the TypeScript toolchain either.
 - **Telemetry records no per-call cost.** Each call's cost estimate is written as `0.0`, so the cost lines in `codeograph cache report` always read ~$0.00. The pre-flight estimate shown before a run is computed separately and is unaffected.
-- **`codeograph render` runs without the cost estimate and confirmation gate.** It shows no estimate, asks no confirmation and takes no ceiling flags. A call or token ceiling set by environment variable or config file does apply to it; without one, its LLM calls are bounded only by the per-domain class cap.
+- **`codeograph render` runs without the cost estimate and confirmation gate.** It shows no estimate, asks no confirmation and takes no ceiling flags. A call or token ceiling set by environment variable or config file does apply to it; without one, its LLM calls are bounded only by the per-domain class cap, and not at all when the cap is disabled with `0`.
 - **Cloning a git URL that needs credentials can wait for input.** `git clone` runs with prompting enabled, so for a private repository without stored credentials git may ask for a username and wait — in CI, a hang — instead of failing with an error that names the cause.
 - **`--non-interactive` does not abort at the confirmation gate.** Despite the description above, `--non-interactive` on its own lets a run above the call threshold go ahead without confirmation. In CI, pass `--max-llm-calls` to bound the spend; do not rely on `--non-interactive` to stop it.
-- **A call or token ceiling reached during Pass 1 does not stop the run at once.** The ceiling is counted as one more failed class, so the run continues until the failure limit is passed, and the abort then reports nothing about what completed. Treat the ceiling as an upper bound on calls that may overshoot, not as a stop.
 - **Prompt caching is not requested yet.** The cache marker that marks the shared prompt for the provider's reduced rate is not sent to Anthropic or, through OpenRouter, to an upstream that needs it, so only a provider that caches an identical prefix on its own gives the lower rate. The tool's own response cache is unaffected.
+- **The response cache does not tell OpenAI-compatible endpoints apart.** Two endpoints serving the same model id share cached responses, so a run against one can be answered from the other's. Use a separate `CODEOGRAPH_CACHE_DIR` per endpoint, or purge the cache when you switch.
 - **An empty or unrecognised project is not reported as a failure.** A directory with no Java file, or with Java files but no `pom.xml` or `build.gradle`, finishes with exit status 0, an empty graph and a manifest. Check the "Discovered … module(s) … Java file(s)" line after a run on a path you have not used before.
 - **The graph has no module nodes.** Modules are found and each class is linked to its module by a `contains` edge, but no node is written for the module itself, so a module's name and build system are not in `graph.json` and the edge's source is not among the nodes.
-- **Dependency edges are missing for references the file does not import explicitly.** A class that uses another class from its own package, through a wildcard import, or from a library gets no `depends_on`, `autowires` or `relation` edge and no unresolved marker. The example corpora's graphs hold none of these edges.
+- **Some dependency edges still miss references the file does not import by name.** `depends_on` edges follow a class in the file's own package and a project class reached through a wildcard import. JPA `relation` edges still need an explicit import, an `autowires` edge carries the field's type as written (`OrderRepository`, not its full name), and a library type gets no edge and no unresolved marker.
+- **A superclass or interface from outside the project can stay unqualified.** Project classes resolve to their full names, whether the file imports them, shares their package or imports their package with `*`. A JDK or library type the file does not import by name — `extends Exception`, or a type reached through `import org.example.*;` — keeps the name as written (`Exception`, not `java.lang.Exception`), though the graph schema describes these fields as fully qualified.
 - **A nested `.gitignore` is not read, and other-language source is skipped silently.** Only the project root's and each module root's ignore file applies, so a file ignored by one deeper in the tree is still analysed. A `src/main/kotlin` root is dropped without a log line or a record.
 - **Configuration files are read from the current working directory.** `.env` and `config.yaml` are looked up where the command runs, so running `codeograph run .` from inside the analysed project reads that project's own files. Run from a neutral directory, or pass settings through environment variables.
 
