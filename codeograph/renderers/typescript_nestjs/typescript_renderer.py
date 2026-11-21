@@ -37,11 +37,13 @@ import logging
 from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING, ClassVar
 
+from codeograph.llm.errors import LlmCeilingExceededError
 from codeograph.llm.models import CacheHint, Message, Tier
 from codeograph.llm.prompts.loader import PromptLoader
 from codeograph.llm.prompts.renderer import render as render_prompt
 from codeograph.renderers.base import Renderer
 from codeograph.renderers.models import CompileCheck
+from codeograph.renderers.render_stopped_error import RenderStoppedError
 from codeograph.renderers.renderer_registry import RendererRegistry
 from codeograph.renderers.typescript_nestjs.feature_policies import dispatch_feature_policies
 from codeograph.renderers.typescript_nestjs.helpers import (
@@ -94,6 +96,9 @@ class TypeScriptRenderer(Renderer[TypeScriptConfig]):  # noqa: UP046
         self._provider = provider
         self._prompts = prompt_loader
         self._concurrency = concurrency
+        # Per-run state: the spend-ceiling error that ended rendering, and how many classes were rendered.
+        self._ceiling: LlmCeilingExceededError | None = None
+        self._rendered = 0
 
         self._scaffold_emitter = ScaffoldEmitter(config)
 
@@ -148,6 +153,8 @@ class TypeScriptRenderer(Renderer[TypeScriptConfig]):  # noqa: UP046
     ) -> dict[PurePosixPath, bytes]:
         """Orchestrate selection → policy dispatch → LLM calls → scaffold."""
         file_map: dict[PurePosixPath, bytes] = {}
+        self._ceiling = None
+        self._rendered = 0
 
         # Build fqcn → node lookup (class/interface/record/enum, ADR-010) for fast access.
         node_map = self._build_node_map(graph)
@@ -179,6 +186,11 @@ class TypeScriptRenderer(Renderer[TypeScriptConfig]):  # noqa: UP046
                         "Two classes resolved to the same output file — check class names and stereotypes."
                     )
             file_map.update(gmap)
+
+        # A spend ceiling ends the run: hand back what was rendered, with how far it got (ADR-027).
+        if self._ceiling is not None:
+            total = sum(len(r.selected) for r in selection_results)
+            raise RenderStoppedError(self._ceiling, file_map, rendered=self._rendered, total=total)
 
         # Step 3 — emit scaffold if configured
         if self._config.include_scaffold:
@@ -222,7 +234,15 @@ class TypeScriptRenderer(Renderer[TypeScriptConfig]):  # noqa: UP046
             # abort the rest of the group (D-008-2).
             try:
                 async with semaphore:
+                    # Once a ceiling is reached no further class is started; running ones finish.
+                    if self._ceiling is not None:
+                        break
                     rendered = await self._render_class(class_node, result.group_name, annotations)
+            except LlmCeilingExceededError as exc:
+                # A ceiling is not a per-class failure: it stops the run (ADR-027 Fork 1).
+                if self._ceiling is None:
+                    self._ceiling = exc
+                break
             except Exception as exc:
                 logger.warning(
                     "Failed to render class '%s' in group '%s': %s — skipping.",
@@ -233,6 +253,7 @@ class TypeScriptRenderer(Renderer[TypeScriptConfig]):  # noqa: UP046
                 continue
 
             if rendered is not None:
+                self._rendered += 1
                 path, content = rendered
                 # DC3-04: intra-group duplicate — two classes in the same domain
                 # resolving to the same output path is always a bug, not a runtime error.

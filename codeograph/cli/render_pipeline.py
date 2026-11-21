@@ -31,6 +31,8 @@ class RenderResult:
 
     written: int
     warnings: list[str] = field(default_factory=list)
+    # Set when a spend ceiling ended rendering part-way: the bound and how many classes were rendered.
+    stop_reason: str | None = None
     run_id: str = ""
     sidecar_path: Path | None = None
 
@@ -73,6 +75,7 @@ class RenderPipeline:
         from codeograph.manifest.models import CompileChecksPointer
         from codeograph.manifest.run_id import generate_run_id
         from codeograph.renderers import RendererRegistry
+        from codeograph.renderers.render_stopped_error import RenderStoppedError
         from codeograph.telemetry.emitter import JsonlEmitter
 
         settings = self._settings
@@ -125,10 +128,17 @@ class RenderPipeline:
         except KeyError as exc:
             raise ValueError(str(exc)) from exc
 
-        file_map = renderer.render(graph, annotations)
+        stop_reason: str | None = None
+        try:
+            file_map = renderer.render(graph, annotations)
+        except RenderStoppedError as stopped:
+            # Keep what was rendered before the ceiling; the caller reports the stop.
+            file_map = dict(stopped.file_map)
+            stop_reason = str(stopped)
 
         # --- compile-checks sidecar (ADR-017 Fork 8) ------------------------
-        _compile_checks = renderer.compile_checks()
+        # A partial render declares no compile checks: the project is incomplete.
+        _compile_checks = renderer.compile_checks() if stop_reason is None else []
         _sidecar_rel_path: PurePosixPath | None = None
         _sidecar_sha256: str | None = None
 
@@ -203,6 +213,7 @@ class RenderPipeline:
         return RenderResult(
             written=written,
             warnings=warnings,
+            stop_reason=stop_reason,
             run_id=run_id,
             sidecar_path=sidecar_abs_path,
         )

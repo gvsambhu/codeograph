@@ -191,4 +191,9 @@ def render_cli(
     for warning in result.warnings:
         click.echo(warning, err=True)
 
+    if result.stop_reason is not None:
+        raise click.ClickException(
+            f"Render stopped: {result.stop_reason}. Kept {result.written} file(s) already written to {out_path}."
+        )
+
     click.echo(f"Done. Wrote {result.written} file(s) to {out_path}.")
