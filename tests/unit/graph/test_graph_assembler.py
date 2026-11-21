@@ -10,6 +10,8 @@ from __future__ import annotations
 
 from typing import Any, cast
 
+import pytest
+
 from codeograph.graph.graph_assembler import GraphAssembler
 from codeograph.graph.graph_builder import GraphBuilder
 from codeograph.graph.models.graph_schema import (
@@ -457,6 +459,93 @@ class TestConvertUnresolvedToResolved:
         resolved = _edges_of(graph, CallsResolvedEdge)
         assert any(e.target == "com.example.B#process()" for e in resolved)
 
+    @pytest.mark.parametrize(
+        ("call", "receiver_type", "callee_ids", "imports", "wildcard_imports", "expected_edge"),
+        [
+            pytest.param(
+                "b.process()",
+                "B",
+                ["com.example.B"],
+                [],
+                [],
+                ("calls_resolved", "com.example.B#process()"),
+                id="same-package-field",
+            ),
+            pytest.param(
+                "b.process()",
+                "B<String>",
+                ["com.example.tools.B"],
+                [],
+                ["com.example.tools"],
+                ("calls_resolved", "com.example.tools.B#process()"),
+                id="wildcard-imported-field",
+            ),
+            pytest.param(
+                "B.process()",
+                "B",
+                ["com.example.B"],
+                [],
+                [],
+                ("calls_resolved", "com.example.B#process()"),
+                id="same-package-static-call",
+            ),
+            pytest.param(
+                "arg.process()",
+                "B",
+                ["com.example.B"],
+                [],
+                [],
+                ("calls_resolved", "com.example.B#process()"),
+                id="same-package-parameter",
+            ),
+            pytest.param("b.length()", "String", [], [], [], ("calls_unresolved", "b.length()"), id="jdk-field"),
+            pytest.param(
+                "b.process()",
+                "B",
+                ["com.example.B", "com.example.tools.B", "com.example.imported.B"],
+                ["com.example.imported.B"],
+                ["com.example.tools"],
+                ("calls_resolved", "com.example.imported.B#process()"),
+                id="explicit-import-wins",
+            ),
+        ],
+    )
+    def test_call_receiver_type_resolution(
+        self,
+        call: str,
+        receiver_type: str,
+        callee_ids: list[str],
+        imports: list[str],
+        wildcard_imports: list[str],
+        expected_edge: tuple[str, str],
+    ) -> None:
+        parameters = []
+        if call.startswith("arg."):
+            parameters = [{"name": "arg", "type": receiver_type, "validate": False, "constraints": [], "binding": None}]
+        method_id = f"com.example.A#doIt({receiver_type if parameters else ''})"
+        caller = _class_pf(
+            imports=imports,
+            wildcard_imports=wildcard_imports,
+            fields=[_field(id="com.example.A.b", name="b", type=receiver_type)] if call.startswith("b.") else [],
+            methods=[_method(id=method_id, calls=[call], parameters=parameters)],
+        )
+        modifiers = ["public", "static"] if call.startswith("B.") else ["public"]
+        callees = [
+            _class_pf(
+                id=callee_id,
+                name="B",
+                methods=[_method(id=f"{callee_id}#process()", name="process", modifiers=modifiers)],
+            )
+            for callee_id in callee_ids
+        ]
+        graph = GraphAssembler().assemble([(pf, _build_fragment(pf)) for pf in [caller, *callees]])
+
+        assert [
+            (edge.root.kind, edge.root.target)
+            for edge in graph.edges
+            if edge.root.source == method_id and edge.root.kind in ("calls_resolved", "calls_unresolved")
+        ] == [expected_edge]
+
     def test_self_call_resolved(self):
         method_a = _method(
             id="com.example.A#outer()",
@@ -476,6 +565,35 @@ class TestConvertUnresolvedToResolved:
         graph = GraphAssembler().assemble(corpus)
         resolved = _edges_of(graph, CallsResolvedEdge)
         assert any(e.source == "com.example.A#outer()" and e.target == "com.example.A#doIt()" for e in resolved)
+
+    @pytest.mark.parametrize("suffix", ["", ".finish()"], ids=["plain-call", "chain"])
+    def test_resolved_first_hop_preserves_only_unresolved_chains(self, suffix: str) -> None:
+        call = f'b.process(normalize("))")){suffix}'
+        caller = _class_pf(
+            fields=[_field(id="com.example.A.b", name="b")],
+            methods=[_method(calls=[call])],
+        )
+        callee = _class_pf(
+            id="com.example.B",
+            name="B",
+            methods=[
+                _method(
+                    id="com.example.B#process(String)",
+                    name="process",
+                    return_type="B",
+                    parameters=[
+                        {"name": "value", "type": "String", "validate": False, "constraints": [], "binding": None}
+                    ],
+                ),
+            ],
+        )
+        graph = GraphAssembler().assemble([(pf, _build_fragment(pf)) for pf in (caller, callee)])
+
+        assert [(e.source, e.target) for e in _edges_of(graph, CallsResolvedEdge)] == [
+            ("com.example.A#doIt()", "com.example.B#process(String)"),
+        ]
+        unresolved = [(e.source, e.target, e.raw_call_expr) for e in _edges_of(graph, CallsUnresolvedEdge)]
+        assert unresolved == ([("com.example.A#doIt()", call, call)] if suffix else [])
 
     def test_local_variable_stays_unresolved(self):
         """Callee is a local variable — not in field or param index."""
