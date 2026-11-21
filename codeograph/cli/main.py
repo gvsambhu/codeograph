@@ -340,6 +340,8 @@ def run(
         else:
             click.echo("AST-only mode requested. Skipping LLM passes.")
 
+        source_path = str(corpus.corpus_root.resolve())
+
         # --- Eval (opt-in; runs before terminal write) ---------------------
         # Context is passed in-memory so run_evals needs no manifest on disk.
         # Returns scorecard pointers included in the single terminal write below.
@@ -353,6 +355,7 @@ def run(
                 run_id=run_id,
                 codeograph_version=__version__,
                 graph_sha256=graph_artefact.sha256,
+                source_path=source_path,
             )
 
         # --- Terminal manifest write — single write, scorecards included ----
@@ -360,7 +363,7 @@ def run(
         manifest = assembler.assemble(
             run_id=run_id,
             codeograph_version=__version__,
-            source_path=str(corpus.corpus_root.resolve()),
+            source_path=source_path,
             corpus_id=corpus_id,
             llm_skipped=ast_only,
             graph_artefact=graph_artefact,

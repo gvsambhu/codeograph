@@ -17,6 +17,7 @@ from codeograph.evals.models import (
     MinRatioThreshold,
     ScoreBandThreshold,
 )
+from codeograph.evals.path_display import display_path
 from codeograph.evals.runner import MissingOutputError, run_evals
 
 # ---------------------------------------------------------------------------
@@ -79,7 +80,7 @@ _GRAPH_CHECK_PATCHES = {
     "codeograph.evals.runner.check_golden_graph_agreement": lambda cid, sha: _make_pass_check("golden_graph_agreement"),
     "codeograph.evals.runner.check_internal_consistency": lambda g: _make_pass_check("internal_consistency"),
     "codeograph.evals.runner.check_relationship_correctness": lambda g: _make_pass_check("relationship_correctness"),
-    "codeograph.evals.runner.check_reproducibility": lambda od: _make_skip_check("reproducibility"),
+    "codeograph.evals.runner.check_reproducibility": lambda sp: _make_skip_check("reproducibility"),
     "codeograph.evals.runner.check_schema_validity": lambda g: _make_pass_check("schema_validity"),
     "codeograph.evals.runner.check_semantic_accuracy": lambda g: _make_skip_check("semantic_accuracy"),
     "codeograph.evals.runner.check_structural_completeness": lambda g: _make_pass_check("structural_completeness"),
@@ -270,3 +271,59 @@ def test_check_filter_runs_only_named_checks(tmp_path: Path):
     # All others must be explicit_skip
     others = [c for c in checks if c.id != "structural_completeness"]
     assert all(c.details.get("skip_reason") == "explicit_skip" for c in others)
+
+
+# ---------------------------------------------------------------------------
+# In-memory context and standalone source_path resolution
+# ---------------------------------------------------------------------------
+
+
+def test_run_evals_with_all_in_memory_context_needs_no_manifest_on_disk(tmp_path: Path):
+    """When all five context values are provided, run_evals executes without manifest.json on disk."""
+    _write_empty_graph(tmp_path)
+    assert not (tmp_path / "manifest.json").exists()
+
+    source_path = str(tmp_path / "nonexistent_source")
+    scorecards, pointers = run_evals(
+        tmp_path,
+        scorecard_kinds=["graph"],
+        corpus_id="test-corpus",
+        run_id="2026-06-08T00-00-00Z-000000",
+        codeograph_version="0.1.0",
+        graph_sha256="a" * 64,
+        source_path=source_path,
+    )
+
+    assert len(scorecards) == 1
+    repro = next(c for c in scorecards[0].checks if c.id == "reproducibility")
+    assert repro.result == "skip"
+    assert repro.details.get("skip_reason") == "source_path_unavailable"
+    assert repro.details["source_path"] == display_path(source_path)
+    assert "graph" in pointers
+
+
+def test_run_evals_standalone_reads_source_path_from_manifest(tmp_path: Path):
+    """When context params are absent, run_evals resolves source_path from manifest."""
+    source_path = str(tmp_path / "nonexistent_source")
+    manifest = {
+        "schema_version": "2.0.0",
+        "codeograph_version": "0.1.0",
+        "source_path": source_path,
+        "corpus_id": "test-corpus",
+        "run_id": "2026-06-08T00-00-00Z-000000",
+        "llm_skipped": False,
+        "artefacts": {
+            "graph": {"path": "graph.json", "schema_version": "1.0.0", "sha256": "a" * 64},
+        },
+    }
+    (tmp_path / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8", newline="")
+    _write_empty_graph(tmp_path)
+
+    scorecards, pointers = run_evals(tmp_path, scorecard_kinds=["graph"])
+
+    assert len(scorecards) == 1
+    repro = next(c for c in scorecards[0].checks if c.id == "reproducibility")
+    assert repro.result == "skip"
+    assert repro.details.get("skip_reason") == "source_path_unavailable"
+    assert repro.details["source_path"] == display_path(source_path)
+    assert "graph" in pointers

@@ -8,7 +8,6 @@ and are tested via skip-path unit tests only.
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import pytest
@@ -309,27 +308,20 @@ def test_schema_validity_passes_for_valid_graph():
 
 
 # ---------------------------------------------------------------------------
-# reproducibility — skip path (no source_path in manifest)
+# reproducibility — skip path (source_path empty or not on disk)
 # ---------------------------------------------------------------------------
 
 
 def test_reproducibility_skips_when_source_path_empty(tmp_path: Path):
     from codeograph.evals.checks.graph.reproducibility import check_reproducibility
 
-    manifest = {
-        "schema_version": "1.6.0",
-        "codeograph_version": "0.1.0",
-        "source_path": "",
-        "corpus_id": "test",
-        "artefacts": {
-            "graph": {"path": "graph.json", "schema_version": "1.0.0", "sha256": "a" * 64},
-            "llm_annotations": {"path": "llm-annotations.json", "schema_version": "1.0.0", "sha256": None},
-        },
-    }
-    (tmp_path / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
-    result = check_reproducibility(tmp_path)
+    result = check_reproducibility("")
     assert result.result == "skip"
     assert result.details["skip_reason"] == "source_path_unavailable"
+
+    result_nonexistent = check_reproducibility(str(tmp_path / "nonexistent"))
+    assert result_nonexistent.result == "skip"
+    assert result_nonexistent.details["skip_reason"] == "source_path_unavailable"
 
 
 # ---------------------------------------------------------------------------
