@@ -123,8 +123,8 @@ class NodeAnnotator:
 
         from codeograph.llm.errors import LlmCeilingExceededError, LlmError
 
-        # A spend ceiling ends the run: it is not one more failed class. Calls that finished are cached by
-        # the caching layer, so a re-run with a higher ceiling does not pay for them again.
+        # A spend ceiling ends the run: it is not one more failed class. Only successful results are cached;
+        # a re-run with a higher ceiling reuses them when the cache entry matches, avoiding another paid call.
         ceiling = next((r for r in all_results if isinstance(r, LlmCeilingExceededError)), None)
         if ceiling is not None:
             annotated = sum(1 for r in all_results if not isinstance(r, LlmError))

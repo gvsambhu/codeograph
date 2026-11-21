@@ -5,9 +5,9 @@ from __future__ import annotations
 from collections.abc import Iterable
 from typing import Any
 
-# Pass 1 makes one LLM call per class — the natural "oversized" unit is the class, not any individual
-# method (ADR-005). Method, field and module nodes carry no source_file/line_range worth annotating on
-# their own; their behaviour is folded into the class-level call's `methods[]` response.
+# Pass 1 annotates each enclosing type in one LLM call (ADR-005). Method and field nodes have source
+# ranges too, but are not annotated independently: their behaviour is folded into the enclosing type's
+# `methods[]` response. Module nodes are not separate annotation units either.
 SOURCE_BEARING_KINDS = frozenset({"class", "interface", "enum", "record", "annotation_type"})
 
 

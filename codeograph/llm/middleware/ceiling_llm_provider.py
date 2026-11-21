@@ -13,11 +13,11 @@ T = TypeVar("T", bound=BaseModel)
 class CeilingLlmProvider(LlmProvider):
     """LlmProvider wrapper that enforces maximum limit ceilings on calls/tokens.
 
-    Both ceilings are checked **before** a call is made (ADR-027 Fork 1: the run aborts when a bound
-    *would* be exceeded), so a refused call costs nothing. The token ceiling projects a call's spend as
-    its input tokens plus the output cap it runs under, and holds that projection against the budget while
-    the call is in flight, so concurrent calls cannot all pass the check. When the call returns, the
-    projection is replaced by the tokens it actually used. A result that was paid for is always returned.
+    Both ceilings are checked before the inner completion is invoked (ADR-027 Fork 1: the run aborts
+    when a bound *would* be exceeded). The token ceiling holds an estimated projection — ``count_tokens``
+    plus the output cap — against the budget while the call is in flight. A successful call replaces that
+    reservation with its reported usage; a failed call keeps the projection as conservative spend. A paid
+    result is always returned. Refusing a completion can still require a provider token-count request.
     """
 
     def __init__(
@@ -49,7 +49,7 @@ class CeilingLlmProvider(LlmProvider):
         override_model: str | None = None,
         max_tokens: int = 4096,
     ) -> LlmResult[T]:
-        """Refuse the call if it would pass a ceiling; otherwise make it and record what it used."""
+        """Reserve a call's estimated token spend, then record usage on success or the estimate on failure."""
 
         # Counting may call out to the provider, so it happens outside the lock.
         projected = self._inner.count_tokens(messages) + max_tokens if self._max_tokens is not None else 0
