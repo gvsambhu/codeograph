@@ -135,17 +135,18 @@ def test_a_call_whose_own_projection_exceeds_the_ceiling_is_refused_untouched() 
     assert provider._calls_count == 0
 
 
-def test_a_failed_call_releases_its_reservation() -> None:
+def test_a_failed_call_counts_its_reservation_as_spent() -> None:
     inner = _CountingProvider(spend=10, error=LlmError("boom"))
     provider = CeilingLlmProvider(inner, max_tokens=2_000)
 
-    for _ in range(5):
-        with pytest.raises(LlmError, match="boom"):
-            _call(provider)
+    with pytest.raises(LlmError, match="boom"):
+        _call(provider)
+    with pytest.raises(LlmCeilingExceededError, match="token ceiling of 2000"):
+        _call(provider)
 
-    assert inner.calls == 5, "failures must not use up the token budget"
+    assert inner.calls == 1, "the second call fits only if the failed call's spend is discarded"
     assert provider._tokens_reserved == 0
-    assert provider._tokens_count == 0
+    assert provider._tokens_count == 1_100
 
 
 def test_concurrent_callers_never_commit_more_than_the_ceiling() -> None:

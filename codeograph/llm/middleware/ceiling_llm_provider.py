@@ -78,9 +78,10 @@ class CeilingLlmProvider(LlmProvider):
                 max_tokens=max_tokens,
             )
         except BaseException:
-            # A failed call returns no usage; release its reservation so it does not starve later calls.
+            # A failed call returns no usage, so retain its full projection as the conservative spend.
             with self._lock:
                 self._tokens_reserved -= projected
+                self._tokens_count += projected
             raise
 
         with self._lock:
