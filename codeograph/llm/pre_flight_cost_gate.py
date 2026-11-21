@@ -40,12 +40,14 @@ class PreFlightCostGate:
         from codeograph.llm.confirmation_gate import ConfirmationGate
         from codeograph.llm.pre_flight_estimator import PreFlightEstimator
         from codeograph.llm.price_loader import PriceLoader
+        from codeograph.passes.pass1.annotatable_nodes import select_annotatable_nodes
 
         settings = self._settings
 
         with graph_artefact.path.open("r", encoding="utf-8") as fh:
             graph_data = json.load(fh)
-        node_count = len(graph_data.get("nodes", []))
+        # Pass 1 annotates only the source-bearing type nodes, not methods or fields; count the same nodes.
+        node_count = len(select_annotatable_nodes(graph_data.get("nodes", [])))
 
         # PriceLoader() defaults to prices.toml co-located with the llm package.
         estimator = PreFlightEstimator(PriceLoader())

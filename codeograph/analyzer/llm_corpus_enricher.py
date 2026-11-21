@@ -21,6 +21,7 @@ from codeograph.llm.resolver import LlmProviderResolver
 from codeograph.logging_config import RunIdLoggerAdapter
 from codeograph.manifest.artefact import GraphArtefact
 from codeograph.manifest.models import CacheStats
+from codeograph.passes.pass1.annotatable_nodes import select_annotatable_nodes
 from codeograph.passes.pass1.node_annotator import NodeAnnotator
 from codeograph.passes.pass1.node_source_loader import NodeSourceLoader
 from codeograph.passes.pass2.corpus_synthesizer import CorpusSynthesizer
@@ -28,12 +29,6 @@ from codeograph.telemetry.session_manager import TelemetrySessionManager
 from codeograph.telemetry.stats_aggregator import TelemetryStatsAggregator
 
 logger = logging.getLogger(__name__)
-
-# ADR-005: Pass 1 makes one LLM call per class — the natural "oversized" unit
-# is the class, not any individual method. Method/field/module nodes carry no
-# source_file/line_range worth annotating on their own; their behavior is
-# folded into the class-level call's `methods[]` response.
-_SOURCE_BEARING_KINDS = frozenset({"class", "interface", "enum", "record", "annotation_type"})
 
 
 class LlmCorpusEnricher:
@@ -106,7 +101,7 @@ class LlmCorpusEnricher:
         # Shallow-copy each node: source_code is a Pass-1-only input, never part of the
         # committed graph.schema.json — mutating the shared dicts would leak it into
         # graph_data, which Pass 2 later re-serializes to disk (extra='forbid' violation).
-        nodes = [dict(n) for n in graph_data.get("nodes", []) if n.get("kind") in _SOURCE_BEARING_KINDS]
+        nodes = [dict(n) for n in select_annotatable_nodes(graph_data.get("nodes", []))]
         NodeSourceLoader(corpus_root).load(nodes)
 
         try:

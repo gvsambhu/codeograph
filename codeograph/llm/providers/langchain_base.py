@@ -155,7 +155,10 @@ class LangChainLlmProvider(LlmProvider):
 
         # We use include_raw=True to get both the parsed Pydantic object AND the raw AIMessage
         # so we can extract token usage metadata.
-        chain = self._chat_for(model_name).with_structured_output(schema, include_raw=True)
+        # A copy of the shared chat object carries this call's output cap (the copy shares the underlying
+        # HTTP client, so it is cheap).
+        chat = self._chat_for(model_name).model_copy(update={"max_tokens": max_tokens})
+        chain = chat.with_structured_output(schema, include_raw=True)
 
         start = time.monotonic()
         try:

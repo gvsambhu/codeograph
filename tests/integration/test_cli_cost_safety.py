@@ -1,3 +1,4 @@
+import json
 import re
 from typing import Any
 from unittest.mock import patch
@@ -17,6 +18,9 @@ pytestmark = pytest.mark.slow
 
 
 class DynamicMockLlmProvider(LlmProvider):
+    def __init__(self) -> None:
+        self.calls = 0
+
     def resolve_model(self, tier: Tier, override_model: str | None = None) -> str:
         return override_model or "mock-model"
 
@@ -32,6 +36,7 @@ class DynamicMockLlmProvider(LlmProvider):
         override_model: str | None = None,
         max_tokens: int = 4096,
     ) -> LlmResult[Any]:
+        self.calls += 1
         if schema.__name__ == "NodeAnnotation":
             node_id = "unknown"
             user_content = messages[1].content
@@ -175,3 +180,44 @@ def test_cli_max_calls_ceiling(tmp_path):
         )
         assert result.exit_code != 0
         assert "ceiling" in result.output.lower()
+
+
+def test_cli_ceiling_during_pass_1_stops_the_run_and_reports_progress(tmp_path):
+    """A ceiling reached in Pass 1 ends the run at once: exit 1, the bound and K of N named, no Pass 2."""
+    from codeograph.llm.middleware.ceiling_llm_provider import CeilingLlmProvider
+
+    inner = DynamicMockLlmProvider()
+    provider = CeilingLlmProvider(inner, max_calls=3)
+
+    with patch("codeograph.llm.resolver.LlmProviderResolver.resolve", return_value=provider):
+        result = CliRunner().invoke(
+            cli,
+            ["run", "tests/fixtures/corpora/minimal_rest", "--out", str(tmp_path), "--max-llm-calls", "3", "--yes"],
+            env={"CODEOGRAPH_CACHE_DIR": str(tmp_path / "cache")},
+        )
+
+    assert result.exit_code == 1
+    assert "LLM call ceiling of 3 calls" in result.output
+    assert "annotated 3 of 6 classes" in result.output
+    assert inner.calls == 3, "no call is made once the ceiling is reached, and Pass 2 never starts"
+    assert "Running Pass 2" not in result.output
+    assert not (tmp_path / "manifest.json").exists()
+
+
+def test_cli_estimate_equals_the_calls_a_run_makes(tmp_path):
+    """The pre-flight call count counts the classes Pass 1 annotates (plus Pass 2), not every graph node."""
+    inner = DynamicMockLlmProvider()
+
+    with patch("codeograph.llm.resolver.LlmProviderResolver.resolve", return_value=inner):
+        result = CliRunner().invoke(
+            cli,
+            ["run", "tests/fixtures/corpora/minimal_rest", "--out", str(tmp_path), "--yes"],
+            env={"CODEOGRAPH_CACHE_DIR": str(tmp_path / "cache")},
+        )
+
+    assert result.exit_code == 0, result.output
+    match = re.search(r"\((\d+) calls", result.output)
+    assert match is not None, result.output
+    graph_nodes = json.loads((tmp_path / "graph.json").read_text(encoding="utf-8"))["nodes"]
+    assert len(graph_nodes) > inner.calls, "the fixture has method/field nodes the old count included"
+    assert int(match.group(1)) == inner.calls

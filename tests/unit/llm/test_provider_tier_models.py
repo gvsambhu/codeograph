@@ -139,3 +139,44 @@ def test_resolver_builds_every_provider_type(provider_type: ProviderType, expect
     assert isinstance(provider, expected_cls)
     assert provider.resolve_model(Tier.FAST) == "model-fast"
     assert provider.resolve_model(Tier.RENDER) == "model-render"
+
+
+@pytest.fixture
+def output_caps(monkeypatch: pytest.MonkeyPatch) -> list[int | None]:
+    """Record the output cap in the request each chat object would send for a call."""
+    seen: list[int | None] = []
+
+    def spy(self: BaseChatModel, schema: Any, **_: Any) -> RunnableLambda[Any, dict[str, Any]]:
+        def invoke(_msgs: Any) -> dict[str, Any]:
+            payload = self._get_request_payload([])  # type: ignore[attr-defined]
+            seen.append(payload.get("max_tokens", payload.get("max_completion_tokens")))
+            return {"parsed": _Out(text="ok"), "raw": AIMessage(content="")}
+
+        return RunnableLambda(invoke)
+
+    for cls in (ChatAnthropic, ChatOpenAI):
+        monkeypatch.setattr(cls, "with_structured_output", spy)
+    return seen
+
+
+@pytest.mark.parametrize("make", FACTORIES)
+def test_the_calls_output_cap_reaches_the_chat_model(make: Any, output_caps: list[int | None]) -> None:
+    provider = make()
+
+    provider.complete_structured(Tier.FAST, [Message(role="user", content="hi")], _Out, max_tokens=321)
+    provider.complete_structured(Tier.FAST, [Message(role="user", content="hi")], _Out, max_tokens=77)
+
+    assert output_caps == [321, 77]
+
+
+def test_one_calls_cap_does_not_change_the_shared_chat_object(output_caps: list[int | None]) -> None:
+    provider = _anthropic()
+    shared = provider._chat_for("model-fast")
+    assert isinstance(shared, ChatAnthropic)
+    before = shared.max_tokens
+
+    provider.complete_structured(Tier.FAST, [Message(role="user", content="hi")], _Out, max_tokens=5)
+
+    assert output_caps == [5]
+    assert provider._chat_for("model-fast") is shared
+    assert shared.max_tokens == before

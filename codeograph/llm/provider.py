@@ -1,10 +1,11 @@
+import threading
 from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor
 from typing import TypeVar
 
 from pydantic import BaseModel
 
-from codeograph.llm.errors import LlmError
+from codeograph.llm.errors import LlmCeilingExceededError, LlmError
 from codeograph.llm.models import LlmResult, Message, Tier
 
 T = TypeVar("T", bound=BaseModel)
@@ -47,12 +48,34 @@ class LlmProvider(ABC):
         max_concurrent: int = 5,
         override_model: str | None = None,
     ) -> list[LlmResult[T] | LlmError]:
-        """Default impl uses ThreadPoolExecutor. Provider-uniform."""
+        """Default impl uses ThreadPoolExecutor. Provider-uniform.
+
+        A spend ceiling ends the batch: the first task to catch ``LlmCeilingExceededError`` records it
+        and sets a shared stop flag. Every task checks that flag immediately before calling
+        ``complete_structured`` and returns the recorded error instead of calling when it is set. Calls
+        already running finish and keep their results; requests never passed to the provider are reported
+        as the same ceiling error (so a caller can tell "stopped" from "failed").
+        """
+        ceiling: list[LlmCeilingExceededError] = []
+        ceiling_lock = threading.Lock()
+        stop = threading.Event()
+
+        def run_request(msgs: list[Message], schema: type[T]) -> LlmResult[T] | LlmError:
+            if stop.is_set():
+                return ceiling[0]
+            try:
+                return self.complete_structured(tier, msgs, schema, override_model=override_model, max_tokens=4096)
+            except LlmCeilingExceededError as error:
+                with ceiling_lock:
+                    if not ceiling:
+                        ceiling.append(error)
+                    recorded = ceiling[0]
+                stop.set()
+                return recorded
+
         with ThreadPoolExecutor(max_workers=max_concurrent) as ex:
-            futures = [
-                ex.submit(self.complete_structured, tier, msgs, schema, override_model=override_model, max_tokens=4096)
-                for msgs, schema in requests
-            ]
+            futures = [ex.submit(run_request, msgs, schema) for msgs, schema in requests]
+
             results: list[LlmResult[T] | LlmError] = []
             for f in futures:
                 try:
