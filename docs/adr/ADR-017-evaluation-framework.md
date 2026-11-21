@@ -414,7 +414,7 @@ out/
 }
 ```
 
-**Write order at render time:** sidecar written first; manifest pointer + sha256 written after. Two-phase write matches DC2's `cache_stats` pattern.
+**Write order at render time:** sidecar written first; manifest pointer + sha256 written after. Two-phase write matches the `cache_stats` pattern.
 
 **Read order at eval time:** (1) read manifest; (2) for each selected target, read manifest's `compile_checks.<target>.path`; (3) verify sha256; (4) parse the sidecar's `checks` list; (5) run per Fork 6's execution policy.
 
@@ -799,3 +799,5 @@ check reads the golden from `tests/golden/<corpus>/graph.json`. The scorecard en
 chronologically-sortable, timestamp-derived identifier); `run_id` is the canonical correlation field
 and `run_timestamp` is redundant. No reversal of any prior decision; these are consistency
 corrections against later-locked ADRs (ADR-007, ADR-022, ADR-025).
+
+### 2026-11-21 — process labels and private references replaced by plain descriptions; no decision changed.

@@ -492,7 +492,7 @@ The same shape applies when a Go renderer is added: one new package under `codeo
 
 ### Open Questions / Future Work
 
-* Did the `Renderer[C]` generic parameter catch real bugs that opaque `Renderer` would not have? Review after DC3 ships.
+* Did the `Renderer[C]` generic parameter catch real bugs that opaque `Renderer` would not have? Review after the renderer ships.
 * Did `RendererRegistry` stay a focused class or accumulate orchestration responsibilities? Watch for god-class drift.
 * Did `include_scaffold: false` see real use, or did every consumer want the full scaffold? Inform v1.1 default.
 * Did the `CompileCheck.required_tools` preflight prevent crashes on machines without target tooling installed?
@@ -506,9 +506,9 @@ The same shape applies when a Go renderer is added: one new package under `codeo
 
 ## Amendments
 
-**2026-06-21 — DC3 design-review pass (5 decisions + 1 shared boundary).** A code-blind design review of ADR-008 (DC3 cluster, guideline 06) produced five locked decisions plus one cross-ADR boundary shared with ADR-009/010. No prior decision is reversed.
+**2026-06-21 — design-review pass (5 decisions + 1 shared boundary).** A code-blind design review of ADR-008 produced five locked decisions plus one cross-ADR boundary shared with ADR-009/010. No prior decision is reversed.
 
-1. **Renderer input contract — opaque dict + in-memory handoff (D-008-1).** Fork 1's `render()` input contract is settled: `annotations` is an **opaque `dict[str, object]` (untyped-by-design)**, not a typed `LlmAnnotations` model — this avoids a hard renderer→Pass-1 schema dependency (a typed model is the v1.1 path if renderer-side type safety is wanted). The renderer receives `(graph, annotations)` **in-memory**; reading them from a persisted manifest is a CLI/eval concern outside the renderer contract. **This also resolves ADR-010 finding #2** (the same input-contract question).
+1. **Renderer input contract — opaque dict + in-memory handoff (D-008-1).** Fork 1's `render()` input contract is settled: `annotations` is an **opaque `dict[str, object]` (untyped-by-design)**, not a typed `LlmAnnotations` model — this avoids a hard renderer→Pass-1 schema dependency (a typed model is the v1.1 path if renderer-side type safety is wanted). The renderer receives `(graph, annotations)` **in-memory**; reading them from a persisted manifest is a CLI/eval concern outside the renderer contract. **This also resolves the same input-contract question raised in ADR-010**.
 
 2. **Render-time partial-failure — skip + record (D-008-2).** When a class fails to render after retries, `render()` **omits that class's file, records it in the run manifest, and continues** — mirroring ADR-005 §5's per-call "skip + record + continue". Aborting the whole render throws away N−1 good files; a placeholder ships non-compiling output. Both rejected.
 
@@ -547,3 +547,5 @@ runtime — without naming a mechanism, so the CLI flag remains this ADR's choic
 * The registry can report its registered target names at runtime, and the CLI exposes that report.
 
 No reversal of any prior decision; an undesigned surface gains its design record.
+
+### 2026-11-21 — process labels and private references replaced by plain descriptions; no decision changed.

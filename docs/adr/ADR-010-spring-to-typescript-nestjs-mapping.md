@@ -986,7 +986,7 @@ The same nine-fork structure (DI / HTTP / persistence / exceptions / config / va
 
 ## Amendments
 
-### 2026-05-28 — Remove `unsupported_feature_policy="refuse"` (DC3 Fixup Round 01, Issue #6 Path B)
+### 2026-05-28 — Remove `unsupported_feature_policy="refuse"`
 
 **Change:** `UnsupportedFeaturePolicy` narrowed from `Literal["stub_todo", "silent_skip", "refuse"]` to `Literal["stub_todo", "silent_skip"]`. Passing `refuse` to `TypeScriptConfig` now raises a Pydantic `ValidationError`.
 
@@ -994,13 +994,13 @@ The same nine-fork structure (DI / HTTP / persistence / exceptions / config / va
 
 **Files changed:** `config.py` (Literal narrowed + docstring), `prompts/render_file/v1.md` (refuse bullet removed), `tests/renderers/test_typescript_config.py` (test now validates that `"refuse"` raises).
 
-**2026-06-21 — DC3 design-review pass (1 decision + 1 shared boundary + 1 cross-ref).** A code-blind design review of ADR-010 (DC3 cluster, guideline 06) produced one locked decision plus a shared boundary; the Spring→TS mapping decisions themselves (learner-zone) were not touched.
+**2026-06-21 — design-review pass (1 decision + 1 shared boundary + 1 cross-ref).** A code-blind design review of ADR-010 produced one locked decision plus a shared boundary; the Spring→TS mapping decisions themselves were not touched.
 
 1. **Refuse-reason precedence for multi-category classes (D-010-2).** When a class is both security-refused and webflux-refused, the audit log records **security first (most-severe-first)**. The outcome is identical (the class is refused either way) — this only fixes reason-attribution determinism. Fork 9's sub-rules are amended: precedence = security > webflux.
 
 **Shared boundary (D-010-1, cross-ADR 008/009/010).** Selection-tuning knobs (per-domain cap, domain grouping/mapping) are hosted on the renderer config (`TypeScriptConfig`) for v1, documented as **ADR-009 selection knobs hosted on the renderer config — not renderer concerns**; revisit (→ dedicated selection-config object) at the 2nd renderer (v1.1).
 
-**Cross-reference (D-008-1).** ADR-010 finding #2 (renderer input contract — typed vs opaque `annotations`) is resolved in **ADR-008's amendment of the same date**: `annotations` is an opaque `dict[str, object]` with an in-memory handoff.
+**Cross-reference (D-008-1).** ADR-010's renderer-input-contract finding (typed vs opaque `annotations`) is resolved in **ADR-008's amendment of the same date**: `annotations` is an opaque `dict[str, object]` with an in-memory handoff.
 
 **New Confirmation item (from this amendment):**
 * A class matching both security and webflux refusal records `security` as the refuse reason in the audit log (D-010-2).
@@ -1009,7 +1009,7 @@ No reversal of any prior decision; clarification only.
 
 ### 2026-08-12 — Remove `silent_skip` from both encounter policies; warn on the behaviour, not the preset (requirements-cascade)
 
-**Change 1 — `silent_skip` is removed from `unsupported_feature_policy`.** The 2026-05-28 fixup round
+**Change 1 — `silent_skip` is removed from `unsupported_feature_policy`.** The 2026-05-28 follow-up correction
 narrowed `UnsupportedFeaturePolicy` from three values to two by removing `refuse`. This amendment
 removes the second, leaving `stub_todo` as the only behaviour. Since a single-member policy is not a
 policy, **the field is removed with it** — an untranslatable feature always surfaces as a reviewable
@@ -1053,3 +1053,5 @@ run against any corpus pays full cost rather than hitting cache.
 **relocates** its permissive-mode warning from the preset to the behaviour. Fork 9's remaining
 decisions — the coverage matrix, `webflux_policy`, and `refuse` as the security default — are
 unchanged.
+
+### 2026-11-21 — process labels and private references replaced by plain descriptions; no decision changed.

@@ -421,7 +421,7 @@ The per-class render granularity locked in ADR-010 Fork 8 multiplies neatly with
 
 ## Amendments
 
-### 2026-05-28 — Document PackagePrefixGrouping mixed-vendor limitation (DC3 Fixup Round 01, Issue #7 Path B)
+### 2026-05-28 — Document PackagePrefixGrouping mixed-vendor limitation
 
 **Change:** `PackagePrefixGrouping` docstring updated to explain the shallow-LCP collapse problem on mixed-vendor codebases. `codeograph render` now emits a `stderr` warning when auto-grouping produces only 1 domain group from more than 5 rendered classes, and suggests `ManualMappingGrouping` as the escape hatch.
 
@@ -429,16 +429,16 @@ The per-class render granularity locked in ADR-010 Fork 8 multiplies neatly with
 
 **Escape hatch:** Users on mixed-vendor codebases should set `[render.typescript.domain_mapping]` explicitly in config to activate `ManualMappingGrouping`, which performs a longest-prefix match and is unaffected by vendor package heterogeneity.
 
-**Deferred:** The Path A heuristic (detect outlier packages, compute LCP within the dominant cluster) is tracked for a future design round. It requires a learner-defined outlier rule and belongs in a dedicated ADR amendment, not a fixup round.
+**Deferred:** The Path A heuristic (detect outlier packages, compute LCP within the dominant cluster) is tracked for a future design round. It requires an outlier rule still to be defined and belongs in a dedicated ADR amendment, not a follow-up correction.
 
 **Files changed:** `codeograph/rendering/domain_grouping.py` (docstring), `codeograph/cli/render.py` (stderr warning).
 
-**2026-06-21 — DC3 design-review pass (3 decisions + shared boundary + 2 doc-syncs).** A code-blind design review of ADR-009 (DC3 cluster, guideline 06) produced three locked decisions, one shared cross-ADR boundary, and two doc-syncs.
+**2026-06-21 — design-review pass (3 decisions + shared boundary + 2 doc-syncs).** A code-blind design review of ADR-009 produced three locked decisions, one shared cross-ADR boundary, and two doc-syncs.
 
-1. **Cap semantics — cost ceiling with stratified round-robin fill (D-009-1).** Fork 4's framing is **amended (not superseded)**: `--max-classes-per-domain` is a **cost/token ceiling** — its driver is cost control, born from a legacy uncapped run that burned tokens rendering classes (some purely representative) that did not need converting. The **fill algorithm is the stratified round-robin across High/Medium/Low complexity buckets** and is **kept**: at the default of **3 it yields one example per bucket** (one simple, one typical, one complex), which is precisely what lets a user judge whether the tool handles trivial *and* gnarly classes. The representativeness goal is **retained and recorded as validated-by-experience** — this **closes review finding #2 by grounding the premise rather than dropping it** (a small *random* sample is uninformative; a small *difficulty-stratified* sample is the whole point). FR-13 (cost/reproducibility default) and FR-14 (documented ordering = the round-robin) are both satisfied; `--max-classes-per-domain 0` still disables the cap for full runs. The cost story is three layers: this cap, free-tier/aggregator providers (ADR-013 D-013-1, OpenRouter), and this stratified fill that makes the capped sample maximally informative.
-   * **Code-verification follow-up (DC3 dev review):** the shipped selector must fill by **round-robin H/M/L**, not pure complexity-descending priority. If the shipped fill is priority-desc, it diverges from this decision and becomes a DC3 dev-review / reconciliation catch-up (restore the stratified round-robin) — flagged here so the lock is not silently contradicted by what shipped.
+1. **Cap semantics — cost ceiling with stratified round-robin fill (D-009-1).** Fork 4's framing is **amended (not superseded)**: `--max-classes-per-domain` is a **cost/token ceiling** — its driver is cost control, born from a legacy uncapped run that burned tokens rendering classes (some purely representative) that did not need converting. The **fill algorithm is the stratified round-robin across High/Medium/Low complexity buckets** and is **kept**: at the default of **3 it yields one example per bucket** (one simple, one typical, one complex), which is precisely what lets a user judge whether the tool handles trivial *and* gnarly classes. The representativeness goal is **retained and recorded as validated-by-experience** — this **closes that review finding by grounding the premise rather than dropping it** (a small *random* sample is uninformative; a small *difficulty-stratified* sample is the whole point). FR-13 (cost/reproducibility default) and FR-14 (documented ordering = the round-robin) are both satisfied; `--max-classes-per-domain 0` still disables the cap for full runs. The cost story is three layers: this cap, free-tier/aggregator providers (ADR-013 D-013-1, OpenRouter), and this stratified fill that makes the capped sample maximally informative.
+   * **Code-verification follow-up (development review):** the shipped selector must fill by **round-robin H/M/L**, not pure complexity-descending priority. If the shipped fill is priority-desc, it diverges from this decision and becomes a development-review / reconciliation catch-up (restore the stratified round-robin) — flagged here so the lock is not silently contradicted by what shipped.
 
-2. **Selection result shape — per-group list (D-009-2).** Fork 1 is amended to record the shipped **per-group `list[SelectionResult]`** (one result per domain group), not a whole-corpus domain-keyed dict. It composes with the renderer's per-class render loop and the per-group audit (refused / stub_todos). **Cross-cluster:** this is the shape ADR-017's eval framework (DC4) consumes — locked coherently with that downstream dependency.
+2. **Selection result shape — per-group list (D-009-2).** Fork 1 is amended to record the shipped **per-group `list[SelectionResult]`** (one result per domain group), not a whole-corpus domain-keyed dict. It composes with the renderer's per-class render loop and the per-group audit (refused / stub_todos). **Cross-cluster:** this is the shape ADR-017's eval framework consumes — locked coherently with that downstream dependency.
 
 3. **Null-metric bucketing (D-009-3).** Classes with null complexity metrics (`signatures_only` / `regex_fallback`, no CBO/WMC) are placed in the **MID bucket, sorted last**. This keeps an unmeasured class selectable without letting it masquerade as high- or low-complexity; sorted-last is the least-surprising tiebreak. Material because D-009-1 keeps the stratified fill live.
 
@@ -450,3 +450,5 @@ The per-class render granularity locked in ADR-010 Fork 8 multiplies neatly with
 * A null-metric class (`signatures_only`/`regex_fallback`) lands in the MID bucket, sorted last, and remains selectable (D-009-3).
 
 No prior decision reversed; Fork 4 is amended (cost-ceiling framing + validated representativeness), not superseded. Clarification only.
+
+### 2026-11-21 — process labels and private references replaced by plain descriptions; no decision changed.
