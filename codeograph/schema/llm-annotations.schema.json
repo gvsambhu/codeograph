@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/gvsambhu/codeograph/schemas/llm-annotations.schema.json",
   "title": "Codeograph LLM Annotations",
-  "description": "Non-deterministic LLM enrichment layer produced by the LLM passes (Pass 1 + Pass 2). Keyed by node ID from graph.json. Intentionally separate from graph.json so the deterministic graph can be sha256-verified independently. Not produced when --ast-only is used.",
+  "description": "Non-deterministic LLM enrichment layer produced by LLM Pass 1. Keyed by node ID from graph.json. Intentionally separate from graph.json so the deterministic graph can be sha256-verified independently. Not produced when --ast-only is used.",
   "$comment": "Skeleton: the NodeAnnotation fields are not defined yet.",
   "type": "object",
   "required": ["annotations"],
