@@ -6,6 +6,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pathspec
+
 from codeograph.input.source_discoverer import SourceDiscoverer
 
 
@@ -56,3 +58,41 @@ def test_module_name_multi_module_distinct_names(tmp_path: Path) -> None:
     assert name_web == "module-web"
     assert name_core != name_web  # distinct — the multi-module collision that the bug caused
     assert PARENT_ARTIFACT_ID not in (name_core, name_web)  # regression guard
+
+
+def test_source_packages_named_like_build_outputs_are_discovered_and_gitignore_still_applies(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "pom.xml").write_text("<project/>", encoding="utf-8")
+    expected: set[str] = set()
+    for directory in ("build", "out", "target"):
+        source = tmp_path / "src/main/java/com/acme" / directory / f"{directory.capitalize()}.java"
+        source.parent.mkdir(parents=True)
+        source.write_text(f"public class {directory.capitalize()} {{}}", encoding="utf-8")
+        expected.add(source.relative_to(tmp_path).as_posix())
+    ignored = tmp_path / "src/main/java/com/acme/ignored/Ignored.java"
+    ignored.parent.mkdir(parents=True)
+    ignored.write_text("public class Ignored {}", encoding="utf-8")
+    (tmp_path / ".gitignore").write_text("ignored/\n", encoding="utf-8")
+
+    modules = SourceDiscoverer().discover(tmp_path)
+
+    assert len(modules) == 1
+    assert {path.relative_to(tmp_path).as_posix() for path in modules[0].java_files} == expected
+
+
+def test_module_root_target_is_excluded(tmp_path: Path) -> None:
+    (tmp_path / "pom.xml").write_text("<project/>", encoding="utf-8")
+    source = tmp_path / "src/main/java/App.java"
+    source.parent.mkdir(parents=True)
+    source.write_text("public class App {}", encoding="utf-8")
+    generated = tmp_path / "target/generated/Generated.java"
+    generated.parent.mkdir(parents=True)
+    generated.write_text("public class Generated {}", encoding="utf-8")
+    discoverer = SourceDiscoverer()
+    corpus_filter = pathspec.PathSpec.from_lines("gitwildmatch", discoverer._load_corpus_patterns(tmp_path))
+    module_filter = discoverer._build_module_filter(tmp_path)
+
+    files = discoverer._list_java_files(tmp_path, tmp_path, tmp_path, corpus_filter, module_filter)
+
+    assert files == [source]
