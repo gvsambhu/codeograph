@@ -120,7 +120,7 @@ table mirrors.
 | Local (Phi-3.5 / Qwen2.5-Coder 7B / Llama 3.3 8B) | `self-host` / `localhost` | 0.00 | 0.00 | n/a | hardware cost only |
 
 > **Refresh & source-of-truth.** Prices drift — typically downward, roughly monthly. The single
-> source of truth for prices is a **machine-readable file** (format = learner's choice, e.g.
+> source of truth for prices is a **machine-readable file** (format to be chosen, e.g.
 > `prices.toml`); this human table is kept in sync with it, and the ADR-027 pre-flight estimator
 > reads the structured file — **never this prose table**. Re-verify on a **quarterly cadence** (and
 > on any provider price-change announcement) and bump the capture date above when you do. The
