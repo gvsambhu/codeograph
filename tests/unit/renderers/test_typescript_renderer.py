@@ -98,6 +98,32 @@ class TestFeaturePoliciesRefuseReason:
         result = dispatch_feature_policies(node, {}, config)
         assert result == "security", f"Expected 'security', got {result!r}"
 
+    @pytest.mark.parametrize("annotation", ["PreAuthorize", "Secured", "RolesAllowed"])
+    def test_method_security_defaults_to_refusal(self, annotation: str) -> None:
+        node = _make_class_node("com.example.SecureController")
+
+        assert dispatch_feature_policies(node, {}, TypeScriptConfig(), method_annotations=(annotation,)) == "security"
+
+    @pytest.mark.parametrize("annotation", ["PreAuthorize", "Secured", "RolesAllowed"])
+    def test_method_security_stub_hint_names_annotation(self, annotation: str) -> None:
+        node = _make_class_node("com.example.SecureController")
+        config = TypeScriptConfig(security_feature_policy="stub_todo")
+
+        result = dispatch_feature_policies(node, {}, config, method_annotations=(annotation,))
+
+        assert isinstance(result, dict)
+        assert f"annotation(s): {annotation}." in result["security_hint"]
+        assert "@UseGuards()" in result["security_hint"]
+
+    def test_security_stub_hint_combines_class_and_method_annotations(self) -> None:
+        node = _make_class_node("com.example.SecureController", annotations=["Secured"])
+        config = TypeScriptConfig(security_feature_policy="stub_todo")
+
+        result = dispatch_feature_policies(node, {}, config, method_annotations=("PreAuthorize", "GetMapping"))
+
+        assert isinstance(result, dict)
+        assert "annotation(s): PreAuthorize, Secured." in result["security_hint"]
+
     def test_webflux_refuse_returns_reason_string(self):
         """A WebFlux class with refuse policy returns 'webflux_refuse', not None."""
         node = _make_class_node("com.example.ReactiveService")
