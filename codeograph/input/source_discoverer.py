@@ -6,7 +6,7 @@ Responsibilities (ADR-002):
   - Detect the build tool for each module
   - Locate Java source roots inside each module
   - Build two-scope gitignore filters: one corpus-level (hardcoded fallbacks +
-    corpus-root .gitignore), one per-module (module-root .gitignore only)
+    corpus-root .gitignore), one per-module (root-anchored build outputs + module-root .gitignore)
   - Enumerate .java files per source root, applying both filters independently
     at their correct scope (corpus-relative path vs. module-relative path)
   - Return a fully-populated list[ModuleSpec] (including java_files) in
@@ -31,10 +31,6 @@ from codeograph.input.models import BuildTool, ModuleSpec
 # (relative to the corpus root).
 # ---------------------------------------------------------------------------
 _FALLBACK_IGNORE_PATTERNS: list[str] = [
-    # Build outputs
-    "target/",
-    "build/",
-    "out/",
     # IDE artefacts
     ".idea/",
     ".vscode/",
@@ -50,6 +46,10 @@ _FALLBACK_IGNORE_PATTERNS: list[str] = [
     ".venv/",
     "venv/",
 ]
+
+# Build outputs are excluded only at each module root. The leading slash keeps these from matching
+# same-named source packages deeper in the module.
+_MODULE_BUILD_OUTPUT_PATTERNS: list[str] = ["/target/", "/build/", "/out/"]
 
 # Standard Maven/Gradle source root layouts.
 # Tried in order; all that exist are included.
@@ -211,7 +211,7 @@ class SourceDiscoverer:
 
     def _build_module_filter(self, module_root: Path) -> pathspec.PathSpec[Any]:
         """
-        Build a module-scoped pathspec filter from module_root/.gitignore only.
+        Build a module-scoped filter from root-anchored build outputs and module_root/.gitignore.
 
         This filter is intentionally separate from the corpus filter. Patterns
         here are tested against module-root-relative paths in _list_java_files,
@@ -222,12 +222,13 @@ class SourceDiscoverer:
           module_filter.match_file("src/main/generated/Foo.java") → True  (ignored)
           # module-api's files are never tested against this filter
 
-        Returns an empty PathSpec (matches nothing) when no .gitignore exists.
+        The built-in build-output patterns are anchored at the module root; project ignore rules follow
+        them without changing their meaning.
         """
-        patterns: list[str] = []
+        patterns = list(_MODULE_BUILD_OUTPUT_PATTERNS)
         module_gitignore = module_root / ".gitignore"
         if module_gitignore.exists():
-            patterns = module_gitignore.read_text(encoding="utf-8").splitlines()
+            patterns.extend(module_gitignore.read_text(encoding="utf-8").splitlines())
         return pathspec.PathSpec.from_lines("gitwildmatch", patterns)
 
     # ------------------------------------------------------------------
@@ -250,10 +251,10 @@ class SourceDiscoverer:
 
           corpus_filter  ← tested against path relative to corpus_root
                            catches patterns from hardcoded list and corpus .gitignore
-                           e.g. "module-core/target/Foo.class"
+                           e.g. "module-core/src/main/generated-sources/Foo.java"
 
           module_filter  ← tested against path relative to module_root
-                           catches patterns from module-level .gitignore only,
+                           catches root-anchored build outputs and module-level .gitignore patterns,
                            scoped to this module — cannot affect sibling modules
                            e.g. "src/main/generated/Foo.java"
 
@@ -264,7 +265,7 @@ class SourceDiscoverer:
         :param corpus_root: Corpus root; anchors corpus-relative path computation.
         :param module_root: Module root; anchors module-relative path computation.
         :param corpus_filter: PathSpec from hardcoded fallbacks + corpus .gitignore.
-        :param module_filter: PathSpec from module-level .gitignore only.
+        :param module_filter: PathSpec from root-anchored build outputs and module-level .gitignore.
         :returns: Sorted list of absolute Path objects for .java files that pass both filters.
         """
         results = []
