@@ -32,7 +32,7 @@ source is only needed if you change the parser itself, and requires Maven — se
   complexity metrics, coarser stereotype detection). This is easy to miss: the run *succeeds*, but
   every node in `graph.json` reports `"extraction_mode": "regex_fallback"` instead of `"ast"`.
 - **Always check this after a run**, especially the first one in a new shell or CI environment.
-  `graph.json` is written single-line-compact by Pass 0 (and re-written pretty-printed by Pass 2),
+  `graph.json` is written single-line-compact,
   so a line-counting `grep -c` is unreliable — use a format-independent check instead:
   ```bash
   python -c "import json,collections;print(collections.Counter(n.get('extraction_mode') for n in json.load(open('<out-dir>/graph.json'))['nodes'] if 'extraction_mode' in n))"
@@ -149,9 +149,9 @@ are `.env`/environment only.
 
 | Stage | What it does | Command | Reads | Writes | Needs an LLM? |
 |---|---|---|---|---|---|
-| **Pass 0** — parse + graph build | AST parse of the corpus → deterministic graph | `codeograph run` (always runs) | source corpus | `graph.json`, `manifest.json` | No (but needs Java — §1.1) |
+| **Pass 0** — parse + graph build | AST parse of the corpus → deterministic graph | `codeograph run` (always runs) | source corpus | `graph.json` (`run` writes `manifest.json` when it finishes) | No (but needs Java — §1.1) |
 | **Pass 1** — per-class annotation | One LLM call per class: domain label, summary, migration hazards | `codeograph run` (skipped by `--ast-only`) | `graph.json` | `llm-annotations.json` | Yes |
-| **Pass 2** — corpus synthesis | One LLM call: cross-domain synthesis over all Pass-1 output | same `run` invocation, same flag | Pass-1 output | folded into `llm-annotations.json` | Yes |
+| **Pass 2** — corpus synthesis | One LLM call: cross-domain synthesis over all Pass-1 output | same `run` invocation, same flag | Pass-1 output | `corpus-synthesis.json` | Yes |
 | **Render** | Translates selected classes into idiomatic target-language source (full logic, not skeletons) + a deterministic project scaffold | `codeograph render` (**separate command**) | a prior `run`'s `graph.json` + `llm-annotations.json` | target-language project (e.g. `.ts` files, `package.json`) | Yes — one call per selected class |
 | **Eval** | Deterministic + code-quality scorecard checks against a run's output | `codeograph eval run` (or `run --eval`) | a run's output directory | `evals/*.json` scorecards | No |
 

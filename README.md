@@ -1,7 +1,7 @@
 # Codeograph
 
 Reads a Java/Spring Boot codebase and emits a deterministic knowledge graph — nodes, edges, complexity metrics, Spring-aware annotations — reproducible byte-for-byte across runs.
-*(Not yet on runs with LLM enrichment enabled, nor when the Java parser fails on a file — see [Known gaps](#known-gaps).)*
+*(Not yet when the Java parser fails on a file — see [Known gaps](#known-gaps).)*
 
 **Status:** pre-1.0 — deterministic graph, LLM enrichment, eval framework, TypeScript/NestJS renderer, run manifest + structured logging, cost-safety floor + multi-provider LLM support. See [`ROADMAP.md`](ROADMAP.md) for versions and what is planned, and [`docs/architecture.md`](docs/architecture.md) for the full pipeline.
 
@@ -34,7 +34,8 @@ Output (always start from `manifest.json`):
 |---|---|
 | `out/manifest.json` | Entry point: run identity, `schema_version: "2.0.0"`, SHA-256 of every artefact, `llm_skipped` flag |
 | `out/graph.json` | Deterministic AST graph — nodes, edges, complexity metrics |
-| `out/llm-annotations.json` | LLM semantic enrichment (full run only; absent on `--ast-only`, indicated by `llm_skipped: true`) |
+| `out/llm-annotations.json` | LLM per-node annotations, Pass 1 (full run only; absent on `--ast-only`, indicated by `llm_skipped: true`) |
+| `out/corpus-synthesis.json` | LLM corpus-level synthesis, Pass 2 (full run only; absent on `--ast-only`) |
 | `out/logs.jsonl` | Structured run log |
 
 Input can be a local directory path, a git URL, or a `.zip` archive.
@@ -86,7 +87,7 @@ tests/
 
 Codeograph includes an LLM enrichment pipeline (Passes 1 and 2) that adds semantic understanding alongside the deterministic AST graph, kept in its own file:
 
-- **Annotated Graph Output:** Detailed per-node semantics (Pass 1) and corpus-level synthesis (Pass 2) stored in `llm-annotations.json`.
+- **Annotated Graph Output:** Detailed per-node semantics (Pass 1) stored in `llm-annotations.json`; corpus-level synthesis (Pass 2) stored in `corpus-synthesis.json`.
 - **Response Cache:** A local SQLite cache (`cache.db`) stores responses. You can manage the cache using the `codeograph cache` CLI (e.g., `codeograph cache stats` or `codeograph cache purge`).
 - **Telemetry:** Every LLM call is recorded as a structured JSONL row in the `telemetry/` output folder, carrying token usage, latency, and cache-hit details.
 
@@ -193,10 +194,9 @@ The run manifest (`manifest.json`) is written once at the terminal checkpoint, a
 
 The limitations above are deliberate scope. These are different: places where the code does not yet do what this README, the requirements, or an accepted ADR says it does. Each is tracked for a fix.
 
-- **The graph is not byte-reproducible on runs with LLM enrichment enabled.** Corpus synthesis writes its project overview (`projectOverview`) into `graph.json` and rewrites the file outside the canonical form, so the graph differs from an enrichment-free run and the manifest's recorded hash no longer matches the file on disk. Runs with `--ast-only` are unaffected.
 - **A parser failure can change the graph.** When the Java parser times out on a file (30 s), crashes, or cannot start because Java is not available, that file is extracted by the regex fallback, with no retry. The same source can therefore produce a different graph on a slow or misconfigured machine. Each fallback is logged as a warning.
 - **No classpath resolution yet, for Maven or Gradle.** Method calls are resolved by a source-only heuristic (self-calls, and calls on a class, field or parameter whose type is a project class — imported, in the caller's own package, or through a wildcard import); a call through a local variable, and every call after the first in a chain, stays unresolved and is emitted as `calls_unresolved`, never dropped. Symbol-solver resolution against the local Maven repository (ADR-003) is not yet implemented.
-- **Some graph-scorecard checks measure less than their names say.** `structural_completeness` reports the share of declarations extracted by the full parser rather than comparing the graph against the source; `relationship_correctness` checks only that resolved calls point at nodes that exist; `internal_consistency` runs four rules: the check that every annotation names a class in the graph (next entry) is not among them, and its unresolved-call rule checks only that an origin and a target are present; `reproducibility` re-runs extraction without enrichment and compares those runs with each other, not with the scored graph, so it does not detect the difference on LLM-enabled runs described above, and it skips for git and archive sources when evaluated after the run with `eval run`. The rationale text in the committed example scorecards overstates the first three.
+- **Some graph-scorecard checks measure less than their names say.** `structural_completeness` reports the share of declarations extracted by the full parser rather than comparing the graph against the source; `relationship_correctness` checks only that resolved calls point at nodes that exist; `internal_consistency` runs four rules: the check that every annotation names a class in the graph (next entry) is not among them, and its unresolved-call rule checks only that an origin and a target are present; `reproducibility` re-runs extraction without enrichment and compares those runs with each other, not with the scored graph, and it skips for git and archive sources when evaluated after the run with `eval run`. The rationale text in the committed example scorecards overstates the first three.
 - **The annotations are not checked against the graph.** Every entry in `llm-annotations.json` should belong to a class in the graph, checked by the internal-consistency evaluation (ADR-006). No check reads the annotations yet, so an annotation for a class that is not in the graph goes unnoticed.
 - **Refused classes leave no placeholder.** A class refused by a feature policy, or whose render call fails, is left out of the rendered output; a refusal is logged at debug level only.
 - **Render policies and domain grouping cannot yet be set.** `codeograph render` reads only its command-line flags; the `[render.typescript]` configuration section is not read yet, so the defaults always apply — security and WebFlux classes refused, other unsupported features rendered as stub + TODO, package-prefix domain grouping. WebFlux classes are detected from the LLM's annotations rather than from the graph, so a class whose annotation is missing, or does not list its reactive return types, is rendered instead of refused.
