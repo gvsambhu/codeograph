@@ -1,7 +1,6 @@
 """Unit tests for ``generate_run_id()`` (ADR-022 Fork 3 Confirmation 4 + 5).
 
-Scaffolding is AI-generated; the assertion bodies are learner-write per
-the DC5 M12 spec. Note: run_id generation is governed by ADR-022
+Note: run_id generation is governed by ADR-022
 Fork 3, not ADR-025 directly; the tests live in this package because
 the assembler (which is ADR-025 territory) consumes run_id.
 
@@ -14,7 +13,7 @@ Per ADR-022 §"Confirmation":
 
 from __future__ import annotations
 
-# Imports used by the learner-written assertion bodies; suppress
+# Imports used by the assertion bodies; suppress
 # unused-import warnings until the bodies are filled in.
 import re  # noqa: F401
 

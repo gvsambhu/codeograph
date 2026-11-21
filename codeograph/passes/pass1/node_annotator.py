@@ -24,7 +24,7 @@ _N_FLOOR = 10
 # Cap on distinct failure reasons logged before a ratio/absolute abort raises.
 _MAX_LOGGED_FAILURE_SAMPLES = 5
 
-# Regex to extract Java method signatures for the signatures-only fallback (DC2-02).
+# Regex to extract Java method signatures for the signatures-only fallback.
 # Non-capturing group avoids finditer returning only the access-modifier capture.
 _METHOD_SIG_RE = re.compile(
     r"(?:public|private|protected|static|final|abstract|synchronized|native)"

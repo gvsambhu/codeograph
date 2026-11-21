@@ -1,4 +1,4 @@
-"""Tests for DomainGrouping strategies (M3 — ADR-009 Fork 2).
+"""Tests for DomainGrouping strategies (ADR-009 Fork 2).
 
 PackagePrefixGrouping: prefix-stripping auto-detection.
 ManualMappingGrouping: explicit mapping with longest-prefix-wins semantics.

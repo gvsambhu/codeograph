@@ -1,8 +1,5 @@
 """Unit tests for the ``schema_cli --check`` freshness gate (ADR-025 Confirmation #8).
 
-Scaffolding is AI-generated; the assertion bodies are learner-write per
-the DC5 M12 spec.
-
 Per ADR-025 §"Confirmation":
 * 8 — ``python -m codeograph.manifest.schema_cli --check`` exits 0 on a
       clean tree and non-zero when the Pydantic source changes without

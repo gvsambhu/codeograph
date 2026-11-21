@@ -139,9 +139,9 @@ class MethodFact(TypedDict):
     response_body: bool  # @ResponseBody
     response_status: str | None  # @ResponseStatus value string; int resolution needs symbol solver
     http_metadata: HttpMetadata | None
-    cyclomatic_complexity: int | None  # populated by M7; None here
-    cognitive_complexity: int | None  # populated by M7; None here
-    method_loc: int | None  # populated by M7; None here
+    cyclomatic_complexity: int | None  # populated by the complexity stage; None here
+    cognitive_complexity: int | None  # populated by the complexity stage; None here
+    method_loc: int | None  # populated by the complexity stage; None here
     calls: list[str]  # raw MethodCallExpr strings from body
 
 
@@ -203,10 +203,10 @@ class ParsedFile(_ParsedFileBase, total=False):
     table_name: str | None
     entry_point: bool
     fqcn_resolved: bool
-    wmc: int | None  # Weighted Methods per Class; M7
+    wmc: int | None  # Weighted Methods per Class
     cbo: int | None  # Coupling Between Objects, from this file alone; the graph stage recounts it
     referenced_types: list[str]  # every class the file names, as written, type arguments included; input to CBO
-    lcom4: int | None  # Lack of Cohesion of Methods 4; M7
+    lcom4: int | None  # Lack of Cohesion of Methods 4
 
     # --- interface-only ---
     extends_interfaces: list[str]

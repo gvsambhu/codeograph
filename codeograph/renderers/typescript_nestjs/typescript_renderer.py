@@ -8,23 +8,22 @@ Self-registers with RendererRegistry at import time:
 Rendering pipeline (high-level):
 
     1. ClassSelector partitions graph classes into domain groups and applies
-       the ADR-009 budget cap (M4).
+       the ADR-009 budget cap.
     2. For each selected class, the renderer dispatches to the LLM using the
        render prompt (``prompts/render_file/v1.md``).
     3. Feature policies (ADR-010 Fork 9) are applied before dispatching —
        refused classes are skipped, stub_with_todo classes get a canned stub.
-    4. Jinja2 scaffold templates (M6) emit the NestJS project skeleton.
+    4. Jinja2 scaffold templates emit the NestJS project skeleton.
     5. All file bytes are collected into a ``dict[PurePosixPath, bytes]``
        and returned to the caller.  The renderer never touches the filesystem.
 
 LLM call concurrency is capped at ``self._concurrency`` using asyncio
 ``Semaphore`` (same pattern as NodeAnnotator — see ADR-014).
 
-Learning notes for the implementer:
-    - The render prompt body lives in ``prompts/render_file/v1.md`` (M8).
-      That is the learner's primary writing task for DC3.
+Implementation notes:
+    - The render prompt body lives in ``prompts/render_file/v1.md``.
     - Feature-policy dispatch (step 3) is where ADR-010 §4 becomes code —
-      the WebFlux detection pattern is scaffolded with a TODO(learner) below.
+      the WebFlux detection pattern lives there.
     - asyncio concurrency pattern: Semaphore + gather is wired; ``_call_llm``
       shows the same ``asyncio.to_thread`` idiom as NodeAnnotator.
 """
@@ -99,8 +98,8 @@ class TypeScriptRenderer(Renderer[TypeScriptConfig]):  # noqa: UP046
 
         # Package-local PromptLoader for the render prompt.
         # Separate from self._prompts (which points at the main codeograph/prompts/).
-        # Will raise PromptLoadError until the learner writes the prompt body (M8)
-        # and runs scripts/update_prompt_hash_pins.py.
+        # Raises PromptLoadError if the prompt body changes without
+        # running scripts/update_prompt_hash_pins.py.
         self._render_prompts: PromptLoader = PromptLoader(Path(__file__).parent / "prompts")
 
     # ------------------------------------------------------------------
@@ -158,7 +157,7 @@ class TypeScriptRenderer(Renderer[TypeScriptConfig]):  # noqa: UP046
         # Step 2 — LLM rendering with concurrency cap
         semaphore = asyncio.Semaphore(self._concurrency)
         render_tasks = [self._render_group(result, annotations, node_map, semaphore) for result in selection_results]
-        # DC3-03: return_exceptions=True prevents one failing group from aborting all others.
+        # return_exceptions=True prevents one failing group from aborting all others.
         # Per-class isolation is handled inside _render_group itself.
         group_maps: list[dict[PurePosixPath, bytes] | BaseException] = await asyncio.gather(
             *render_tasks, return_exceptions=True
@@ -170,7 +169,7 @@ class TypeScriptRenderer(Renderer[TypeScriptConfig]):  # noqa: UP046
                 group_name = selection_results[i].group_name
                 logger.error("Render group '%s' failed entirely: %s", group_name, gmap)
                 continue
-            # DC3-04: detect duplicate output paths before merging.
+            # detect duplicate output paths before merging.
             for path in gmap:
                 if path in file_map:
                     raise ValueError(
@@ -190,7 +189,7 @@ class TypeScriptRenderer(Renderer[TypeScriptConfig]):  # noqa: UP046
                 for r in selection_results
             ]
             scaffold_map = self._scaffold_emitter.render_scaffold(domain_groups)
-            # DC3-04: scaffold keys must not clash with rendered class files.
+            # scaffold keys must not clash with rendered class files.
             for path in scaffold_map:
                 if path in file_map:
                     raise ValueError(
@@ -218,7 +217,7 @@ class TypeScriptRenderer(Renderer[TypeScriptConfig]):  # noqa: UP046
                 # graph, so this path should never be reached in normal operation.
                 continue
 
-            # DC3-03: isolate per-class render failures — one bad class must not
+            # isolate per-class render failures — one bad class must not
             # abort the rest of the group (D-008-2).
             try:
                 async with semaphore:
@@ -234,7 +233,7 @@ class TypeScriptRenderer(Renderer[TypeScriptConfig]):  # noqa: UP046
 
             if rendered is not None:
                 path, content = rendered
-                # DC3-04: intra-group duplicate — two classes in the same domain
+                # intra-group duplicate — two classes in the same domain
                 # resolving to the same output path is always a bug, not a runtime error.
                 if path in file_map:
                     raise ValueError(
@@ -265,7 +264,7 @@ class TypeScriptRenderer(Renderer[TypeScriptConfig]):  # noqa: UP046
             by a feature policy.
         """
         # --- Feature policies dispatch ---
-        # DC3-05: dispatch_feature_policies returns a str refuse-reason when the class
+        # dispatch_feature_policies returns a str refuse-reason when the class
         # is skipped, or a dict of render hints when it should proceed.
         hints = dispatch_feature_policies(class_node, annotations, self._config)
         if isinstance(hints, str):
@@ -303,7 +302,7 @@ class TypeScriptRenderer(Renderer[TypeScriptConfig]):  # noqa: UP046
         and calls ``provider.complete_structured()`` in a thread pool so the
         async event loop is not blocked.
 
-        **Precondition:** The prompt body must be written (M8) and the
+        **Precondition:** The prompt body must exist and the
         ``content_hash_pin`` must be updated by running
         ``scripts/update_prompt_hash_pins.py``.  Until then this method
         raises ``PromptLoadError``.

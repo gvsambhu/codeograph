@@ -73,7 +73,7 @@ def update_goldens(request: pytest.FixtureRequest) -> bool:
     return bool(request.config.getoption("--update-goldens"))
 
 
-# --- LLM Test Fixtures (DC2) ---
+# --- LLM Test Fixtures ---
 
 
 class MockLlmProvider(LlmProvider):

@@ -365,7 +365,7 @@ class TestErrorPaths:
 
     def test_regex_fallback_stub_id_and_fqcn_resolved(self, fb: RegexFallback, tmp_path: Path) -> None:
         """
-        Confirmation test for DC1R-01:
+        Confirmation test:
         Asserts that a regex-fallback stub carries the file:...#... id form and fqcn_resolved=False.
         """
         # Create a malformed Java file

@@ -1,8 +1,4 @@
-"""Unit tests for structured logging CLI flags, log filtering, and dual emission.
-
-Scaffolding is AI-generated; the assertion bodies are learner-write per the
-DC5 M12 spec. Each test has a ``# TODO(learner):`` marker.
-"""
+"""Unit tests for structured logging CLI flags, log filtering, and dual emission."""
 
 from __future__ import annotations
 

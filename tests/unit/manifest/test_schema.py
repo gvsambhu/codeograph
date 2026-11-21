@@ -1,8 +1,6 @@
 """Unit tests for the 2.0.0 manifest Pydantic schema (ADR-025 Confirmations 3, 5, 6, 9).
 
-Scaffolding is AI-generated; the assertion bodies are learner-write per the
-DC5 M12 spec. Each test has a ``# TODO(learner):`` marker naming the
-ADR-025 Confirmation item it implements.
+Each test implements one ADR-025 Confirmation item.
 
 Per ADR-025 §"Confirmation":
 * 3 — Manifest with any pointer whose ``sha256`` is ``null`` or non-64-hex
@@ -18,7 +16,7 @@ from __future__ import annotations
 
 import pydantic
 
-# Imports used by the learner-written assertion bodies; suppress
+# Imports used by the assertion bodies; suppress
 # unused-import warnings until the bodies are filled in.
 import pytest  # noqa: F401
 

@@ -36,7 +36,7 @@ class PlaintextFormatter(logging.Formatter):
     hardcoded ``"Z"`` suffix in the datefmt claims UTC, but Python's
     :class:`logging.Formatter` defaults to ``time.localtime``. Without
     this override, console timestamps would be local time falsely
-    labelled as UTC (DC5-FIXUP-01 Issue #1).
+    labelled as UTC.
     """
 
     converter = __import__("time").gmtime

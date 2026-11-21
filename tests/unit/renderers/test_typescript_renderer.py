@@ -84,12 +84,12 @@ class TestScaffoldSqliteBranch:
 
 
 # ---------------------------------------------------------------------------
-# DC3-05: dispatch_feature_policies returns named refuse reason (not None)
+# dispatch_feature_policies returns named refuse reason (not None)
 # ---------------------------------------------------------------------------
 
 
 class TestFeaturePoliciesRefuseReason:
-    """DC3-05: dispatch_feature_policies must return a named str reason, not None."""
+    """dispatch_feature_policies must return a named str reason, not None."""
 
     def test_security_refuse_returns_reason_string(self):
         """A security-annotated class with refuse policy returns 'security', not None."""
@@ -127,7 +127,7 @@ class TestFeaturePoliciesRefuseReason:
         assert isinstance(result, dict), f"Expected dict, got {type(result).__name__}"
 
     def test_security_refuse_class_is_skipped_by_renderer(self):
-        """DC3-05 integration: _render_class returns None for a security-refused class."""
+        """Integration: _render_class returns None for a security-refused class."""
         node = _make_class_node("com.example.SecureCtrl", annotations=["PreAuthorize"])
         renderer = _make_renderer(TypeScriptConfig(security_feature_policy="refuse"))
         result = asyncio.run(renderer._render_class(node, "orders", {}))
@@ -135,12 +135,12 @@ class TestFeaturePoliciesRefuseReason:
 
 
 # ---------------------------------------------------------------------------
-# DC3-04: Duplicate render path raises a loud ValueError
+# Duplicate render path raises a loud ValueError
 # ---------------------------------------------------------------------------
 
 
 class TestDuplicateRenderPath:
-    """DC3-04: assembling two classes that resolve to the same output path must raise."""
+    """assembling two classes that resolve to the same output path must raise."""
 
     def test_duplicate_group_path_raises(self):
         """Two domain groups producing the same output path must raise ValueError."""

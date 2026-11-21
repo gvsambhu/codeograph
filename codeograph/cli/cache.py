@@ -24,7 +24,6 @@ def stats() -> None:
     backend = SQLiteCacheBackend(db_path)
     stats = backend.stats()
 
-    # TODO(learner): format output to match preferences
     click.echo(f"Cache stats for {db_path}:")
     click.echo(f"Total entries: {stats.total_entries}")
     click.echo(f"Total size: {stats.total_size_bytes} bytes")

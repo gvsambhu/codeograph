@@ -1,4 +1,4 @@
-"""Tests for ClassSelector and SelectionResult (M4 — ADR-009).
+"""Tests for ClassSelector and SelectionResult (ADR-009).
 
 Strategy coverage:
   - take_all    : n ≤ cap
@@ -234,7 +234,7 @@ class TestStratifiedThresholdV1:
     def test_small_budget_round_robin_spread(self):
         """D-009-1 Confirmation: cap=3 with all three buckets populated must yield
         exactly one class from each difficulty band (high, mid, low), not three highs.
-        This is the DC3-01 regression test — the old sequential fill would have
+        This is the regression test for the sequential-fill bug — the old sequential fill would have
         returned [H1,H2,H3] with zero mid/low representation.
         """
         # high bucket: CBO ≥ 5 OR WMC ≥ 20

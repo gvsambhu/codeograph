@@ -16,7 +16,7 @@ _RATIONALE = (
 # Contains per-group SelectionResult extension fields (refused, stub_todos,
 # feature_policies_active) needed to compute v1_actually_emitted / v1_translatable.
 # Not yet written by the render CLI — this check skips until that step is added
-# (tracked as a follow-up to M5 runner wiring, DC4).
+# (tracked as a follow-up to runner wiring).
 _COVERAGE_SIDECAR_NAME = "coverage-data.{target}.json"
 
 
@@ -30,7 +30,7 @@ def check_coverage(output_dir: Path, target: str) -> CheckResult:
 
     Reads from evals/coverage-data.<target>.json sidecar written by cli/render.py.
     Skips with no_v1_translatable_features_in_corpus when sidecar is absent
-    (sidecar writing not yet wired — follow-up to M5 runner integration).
+    (sidecar writing not yet wired — follow-up to runner integration).
     """
     start_time = time.perf_counter()
 
@@ -56,7 +56,7 @@ def check_coverage(output_dir: Path, target: str) -> CheckResult:
                 "skip_reason": "no_v1_translatable_features_in_corpus",
                 "note": (
                     f"Coverage sidecar {sidecar_name} not found in evals/. "
-                    "This file is written by cli/render.py — wiring pending M5 runner integration."
+                    "This file is written by cli/render.py — wiring pending runner integration."
                 ),
             },
         )
