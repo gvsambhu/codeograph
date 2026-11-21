@@ -1,10 +1,10 @@
 from abc import ABC, abstractmethod
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor
 from typing import TypeVar
 
 from pydantic import BaseModel
 
-from codeograph.llm.errors import LlmError
+from codeograph.llm.errors import LlmCeilingExceededError, LlmError
 from codeograph.llm.models import LlmResult, Message, Tier
 
 T = TypeVar("T", bound=BaseModel)
@@ -47,14 +47,37 @@ class LlmProvider(ABC):
         max_concurrent: int = 5,
         override_model: str | None = None,
     ) -> list[LlmResult[T] | LlmError]:
-        """Default impl uses ThreadPoolExecutor. Provider-uniform."""
+        """Default impl uses ThreadPoolExecutor. Provider-uniform.
+
+        A spend ceiling ends the batch: once a call raises ``LlmCeilingExceededError`` no queued call is
+        started, calls already running finish and keep their results, and every request that never ran
+        is reported as that same ceiling error (so a caller can tell "stopped" from "failed").
+        """
+        ceiling: list[LlmCeilingExceededError] = []
+
         with ThreadPoolExecutor(max_workers=max_concurrent) as ex:
             futures = [
                 ex.submit(self.complete_structured, tier, msgs, schema, override_model=override_model, max_tokens=4096)
                 for msgs, schema in requests
             ]
+
+            def stop_queued(done: Future[LlmResult[T]]) -> None:
+                if done.cancelled():
+                    return
+                error = done.exception()
+                if isinstance(error, LlmCeilingExceededError):
+                    ceiling.append(error)
+                    for queued in futures:
+                        queued.cancel()
+
+            for f in futures:
+                f.add_done_callback(stop_queued)
+
             results: list[LlmResult[T] | LlmError] = []
             for f in futures:
+                if ceiling and f.cancelled():
+                    results.append(ceiling[0])
+                    continue
                 try:
                     results.append(f.result())
                 except LlmError as e:

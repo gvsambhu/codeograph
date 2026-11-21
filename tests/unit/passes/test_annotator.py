@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from codeograph.llm.errors import LlmError
+from codeograph.llm.errors import LlmCeilingExceededError, LlmError
 from codeograph.llm.models import LlmResult, TokenUsage
 from codeograph.passes.pass1.models import AnnotationRecord, NodeAnnotation
 from codeograph.passes.pass1.node_annotator import NodeAnnotator
@@ -419,3 +419,28 @@ def test_annotator_failure_below_n_floor_ok(mock_llm_provider, mock_prompt_loade
     # not once there and once again by the sample logger.
     failure_warnings = [r for r in caplog.records if "failed" in r.message]
     assert len(failure_warnings) == 2
+
+
+def test_annotator_stops_at_a_ceiling_and_reports_progress(mock_prompt_loader, tmp_path):
+    """A ceiling is not a failed class: Pass 1 stops, names the bound and how far it got, and writes nothing."""
+    from tests.unit.llm.test_provider_many_ceiling import _CeilingAfterProvider
+
+    provider = _CeilingAfterProvider(succeed=3)
+    output_dir = tmp_path / "annotations"
+    annotator = NodeAnnotator(
+        provider=provider,
+        prompt_loader=mock_prompt_loader,
+        output_dir=output_dir,
+        max_concurrent=1,
+        max_pass1_failure_ratio=1.0,  # a ratio gate that could never trip: only the ceiling can abort
+    )
+    nodes = [
+        {"id": f"N{i}", "name": f"A{i}", "category": "CLASS", "source_code": "class A {}", "dependencies": {}}
+        for i in range(10)
+    ]
+
+    with pytest.raises(LlmCeilingExceededError, match=r"ceiling reached.*annotated 3 of 10 classes"):
+        annotator.annotate(nodes)
+
+    assert provider.calls == 4, "no call is started after the one that hit the ceiling"
+    assert not (output_dir / "llm-annotations.json").exists()

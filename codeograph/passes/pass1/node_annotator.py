@@ -121,7 +121,14 @@ class NodeAnnotator:
             max_concurrent=self._max_concurrent,
         )
 
-        from codeograph.llm.errors import LlmError
+        from codeograph.llm.errors import LlmCeilingExceededError, LlmError
+
+        # A spend ceiling ends the run: it is not one more failed class. Calls that finished are cached by
+        # the caching layer, so a re-run with a higher ceiling does not pay for them again.
+        ceiling = next((r for r in all_results if isinstance(r, LlmCeilingExceededError)), None)
+        if ceiling is not None:
+            annotated = sum(1 for r in all_results if not isinstance(r, LlmError))
+            raise LlmCeilingExceededError(f"{ceiling}; annotated {annotated} of {len(all_results)} classes")
 
         normal_results = all_results[: len(normal)]
         sig_results = all_results[len(normal) :]
