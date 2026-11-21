@@ -172,6 +172,7 @@ def test_the_calls_output_cap_reaches_the_chat_model(make: Any, output_caps: lis
 def test_one_calls_cap_does_not_change_the_shared_chat_object(output_caps: list[int | None]) -> None:
     provider = _anthropic()
     shared = provider._chat_for("model-fast")
+    assert isinstance(shared, ChatAnthropic)
     before = shared.max_tokens
 
     provider.complete_structured(Tier.FAST, [Message(role="user", content="hi")], _Out, max_tokens=5)

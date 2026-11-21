@@ -109,7 +109,7 @@ def test_other_per_class_failures_still_skip_only_that_class(tmp_path: Path) -> 
     from codeograph.llm.errors import LlmBadInputError
 
     class _OneBadClassProvider(_CeilingOnCallProvider):
-        def complete_structured(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+        def complete_structured(self, *args, **kwargs):
             if self.calls == 1:
                 self.calls += 1
                 raise LlmBadInputError("bad class")
