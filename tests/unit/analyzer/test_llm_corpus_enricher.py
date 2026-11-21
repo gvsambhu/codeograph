@@ -1,6 +1,10 @@
+import hashlib
 import json
 from typing import Any
 from unittest.mock import MagicMock, patch
+
+import click
+import pytest
 
 from codeograph.analyzer.llm_corpus_enricher import LlmCorpusEnricher
 from codeograph.config.settings import Settings
@@ -8,9 +12,22 @@ from codeograph.llm.models import LlmResult, TokenUsage
 from codeograph.manifest.artefact import GraphArtefact
 from codeograph.passes.pass1.models import NodeAnnotation
 from codeograph.passes.pass1.node_annotator import NodeAnnotator
+from codeograph.passes.pass2.corpus_synthesizer import CORPUS_SYNTHESIS_FILENAME, CorpusSynthesizer
 from codeograph.passes.pass2.models import SynthesisResult
 from codeograph.telemetry.session_manager import TelemetrySessionManager
 from codeograph.telemetry.stats_aggregator import TelemetryStatsAggregator
+
+
+def _writing_synthesize(synthesis: SynthesisResult):
+    """Stand-in for ``CorpusSynthesizer.synthesize`` that writes the file the real one writes."""
+
+    def synthesize(self: CorpusSynthesizer, records: list[dict[str, Any]]) -> dict[str, Any]:
+        self._output_dir.mkdir(parents=True, exist_ok=True)
+        document = {"schema_version": "1.0.0", **synthesis.model_dump()}
+        (self._output_dir / CORPUS_SYNTHESIS_FILENAME).write_text(json.dumps(document), encoding="utf-8")
+        return synthesis.model_dump()
+
+    return synthesize
 
 
 def test_enrich_filters_to_class_nodes_and_loads_real_source(tmp_path, mock_llm_provider):
@@ -79,10 +96,7 @@ def test_enrich_filters_to_class_nodes_and_loads_real_source(tmp_path, mock_llm_
     )
 
     with patch.object(NodeAnnotator, "annotate", spy_annotate):
-        with patch(
-            "codeograph.passes.pass2.corpus_synthesizer.CorpusSynthesizer.synthesize",
-            return_value=synthesis.model_dump(),
-        ):
+        with patch.object(CorpusSynthesizer, "synthesize", _writing_synthesize(synthesis)):
             enricher.enrich(
                 corpus_id="test-corpus",
                 run_id="run1",
@@ -97,11 +111,10 @@ def test_enrich_filters_to_class_nodes_and_loads_real_source(tmp_path, mock_llm_
     assert "void bar()" in nodes_seen[0]["source_code"]
 
 
-def test_enrich_does_not_leak_source_code_into_graph_written_by_pass2(tmp_path, mock_llm_provider):
-    """Regression: NodeSourceLoader mutated the same dict objects graph_data["nodes"]
-    holds, so the injected source_code leaked into the graph.json Pass 2 re-serializes —
-    breaking CodeographKnowledgeGraph.model_validate() (extra='forbid') the next time
-    `codeograph render` loaded it. source_code must stay a Pass-1-only, in-memory input."""
+def test_enrich_leaves_graph_untouched_and_returns_both_llm_artefacts(tmp_path, mock_llm_provider):
+    """The graph is a function of the corpus alone: enrichment reads it but never rewrites it,
+    so the file on disk keeps the bytes the manifest's graph hash describes. Both LLM
+    artefacts come back with the sha256 of the bytes on disk and their own schema version."""
     corpus_root = tmp_path / "corpus"
     corpus_root.mkdir()
     (corpus_root / "Foo.java").write_text("public class Foo {}\n", encoding="utf-8")
@@ -143,25 +156,16 @@ def test_enrich_does_not_leak_source_code_into_graph_written_by_pass2(tmp_path, 
         stats_aggregator=TelemetryStatsAggregator(),
     )
 
-    captured: dict[str, dict[str, Any]] = {}
+    graph_bytes_before = graph_path.read_bytes()
+    synthesis = SynthesisResult(
+        description="d",
+        architecture_pattern="p",
+        domains=["test"],
+        cross_domain_dependencies=[],
+    )
 
-    def spy_synthesize(self, annotations, graph):
-        captured["graph"] = graph
-        graph["projectOverview"] = {
-            "description": "d",
-            "architecturePattern": "p",
-            "domains": ["test"],
-            "crossDomainDependencies": [],
-        }
-        return {
-            "description": "d",
-            "architecture_pattern": "p",
-            "domains": ["test"],
-            "cross_domain_dependencies": [],
-        }
-
-    with patch("codeograph.passes.pass2.corpus_synthesizer.CorpusSynthesizer.synthesize", spy_synthesize):
-        enricher.enrich(
+    with patch.object(CorpusSynthesizer, "synthesize", _writing_synthesize(synthesis)):
+        annotations_artefact, synthesis_artefact, _ = enricher.enrich(
             corpus_id="test-corpus",
             run_id="run1",
             graph_artefact=graph_artefact,
@@ -169,6 +173,35 @@ def test_enrich_does_not_leak_source_code_into_graph_written_by_pass2(tmp_path, 
             corpus_root=corpus_root,
         )
 
-    graph_seen_by_pass2 = captured["graph"]
-    for node in graph_seen_by_pass2["nodes"]:
-        assert "source_code" not in node
+    assert graph_path.read_bytes() == graph_bytes_before
+    assert "projectOverview" not in graph_path.read_text(encoding="utf-8")
+
+    assert annotations_artefact.path == out_dir / "llm-annotations.json"
+    assert synthesis_artefact.path == out_dir / CORPUS_SYNTHESIS_FILENAME
+    assert synthesis_artefact.schema_version == "1.0.0"
+    assert synthesis_artefact.sha256 == hashlib.sha256(synthesis_artefact.path.read_bytes()).hexdigest()
+
+
+def test_written_file_artefact_carries_path_version_and_hash(tmp_path):
+    written = tmp_path / "corpus-synthesis.json"
+    written.write_bytes(b'{"schema_version": "1.0.0"}')
+
+    artefact = LlmCorpusEnricher._artefact_of_written_file(
+        written, schema_version="1.0.0", label="corpus synthesis file"
+    )
+
+    assert artefact.path == written
+    assert artefact.schema_version == "1.0.0"
+    assert artefact.sha256 == hashlib.sha256(written.read_bytes()).hexdigest()
+
+
+def test_missing_written_file_is_a_producer_bug(tmp_path):
+    missing = tmp_path / "corpus-synthesis.json"
+
+    with pytest.raises(click.ClickException) as excinfo:
+        LlmCorpusEnricher._artefact_of_written_file(missing, schema_version="1.0.0", label="corpus synthesis file")
+
+    message = excinfo.value.message
+    assert "wrote no corpus synthesis file" in message
+    assert str(missing) in message
+    assert "producer bug" in message

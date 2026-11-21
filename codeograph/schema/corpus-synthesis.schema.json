@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/gvsambhu/codeograph/schemas/corpus-synthesis.schema.json",
+  "title": "Codeograph Corpus Synthesis",
+  "description": "Non-deterministic cross-domain synthesis of the whole corpus, produced by LLM Pass 2 from the Pass 1 annotations. Kept out of graph.json so the deterministic graph stays a function of the corpus alone. Not produced when --ast-only is used.",
+  "type": "object",
+  "required": ["schema_version", "description", "architecture_pattern", "domains", "cross_domain_dependencies"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^1\\.\\d+\\.\\d+$",
+      "description": "Version of this file's format. The pattern pins the major; minor and patch vary within it."
+    },
+    "description": {
+      "type": "string",
+      "description": "2-3 sentences describing what the system does in plain business English."
+    },
+    "architecture_pattern": {
+      "type": "string",
+      "description": "Overall architectural pattern (e.g., 'Layered Controller-Service-Repository with domain-driven packaging')."
+    },
+    "domains": {
+      "type": "array",
+      "description": "Echoed list of business domain names from the prompt.",
+      "items": { "type": "string" }
+    },
+    "cross_domain_dependencies": {
+      "type": "array",
+      "description": "Concrete cross-domain dependencies — injected fields only, not general patterns.",
+      "items": { "$ref": "#/$defs/CrossDomainDependency" }
+    }
+  },
+  "$defs": {
+    "CrossDomainDependency": {
+      "type": "object",
+      "required": ["from_class", "from_domain", "to_class", "to_domain", "dependency_type"],
+      "additionalProperties": false,
+      "properties": {
+        "from_class": {
+          "type": "string",
+          "description": "The fully-qualified class name that holds the dependency."
+        },
+        "from_domain": {
+          "type": "string",
+          "description": "The business domain the source class belongs to."
+        },
+        "to_class": {
+          "type": "string",
+          "description": "The class being injected or imported from another domain."
+        },
+        "to_domain": {
+          "type": "string",
+          "description": "The business domain the target class belongs to."
+        },
+        "dependency_type": {
+          "type": "string",
+          "description": "How the dependency is expressed: 'injected_field', 'method_param', 'return_type'."
+        }
+      }
+    }
+  }
+}

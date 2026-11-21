@@ -24,7 +24,11 @@ from codeograph.manifest.models import CacheStats
 from codeograph.passes.pass1.annotatable_nodes import select_annotatable_nodes
 from codeograph.passes.pass1.node_annotator import NodeAnnotator
 from codeograph.passes.pass1.node_source_loader import NodeSourceLoader
-from codeograph.passes.pass2.corpus_synthesizer import CorpusSynthesizer
+from codeograph.passes.pass2.corpus_synthesizer import (
+    CORPUS_SYNTHESIS_FILENAME,
+    CORPUS_SYNTHESIS_SCHEMA_VERSION,
+    CorpusSynthesizer,
+)
 from codeograph.telemetry.session_manager import TelemetrySessionManager
 from codeograph.telemetry.stats_aggregator import TelemetryStatsAggregator
 
@@ -53,19 +57,21 @@ class LlmCorpusEnricher:
         graph_artefact: GraphArtefact,
         out_dir: Path,
         corpus_root: Path,
-    ) -> tuple[GraphArtefact, dict[str, CacheStats] | None]:
+    ) -> tuple[GraphArtefact, GraphArtefact, dict[str, CacheStats] | None]:
         """Run the LLM passes to enrich the deterministic graph with semantic metadata.
 
         :param corpus_id:      Name of the corpus being enriched.
         :param graph_artefact: GraphArtefact from Pass 0 containing graph.json path and hash.
-        :param out_dir:        Output directory to write llm-annotations.json into.
+        :param out_dir:        Output directory to write llm-annotations.json and
+                                corpus-synthesis.json into.
         :param corpus_root:    Root of the source corpus on disk — resolves each node's
                                 `source_file` so Pass 1 can read the real class source
                                 (ADR-005; NodeSourceLoader).
         :returns:              A tuple of:
                                  - :class:`GraphArtefact` representing llm-annotations.json.
+                                 - :class:`GraphArtefact` representing corpus-synthesis.json.
                                  - Dict of pass names to :class:`CacheStats` aggregates.
-        :raises click.ClickException: If LLM execution succeeds but output file is missing.
+        :raises click.ClickException: If LLM execution succeeds but an output file is missing.
         """
         run_logger = RunIdLoggerAdapter(logger, run_id)
         run_logger.info(
@@ -91,7 +97,7 @@ class LlmCorpusEnricher:
         retry_policy = RetryPolicy()  # default policy
         prompt_loader = PromptLoader(Path(__file__).parent.parent / "prompts")
 
-        # Load graph from Pass 0
+        # Load graph from Pass 0 (read-only: the graph is never rewritten)
         with open(graph_artefact.path, encoding="utf-8") as f:
             graph_data = json.load(f)
 
@@ -100,7 +106,7 @@ class LlmCorpusEnricher:
         # body for the nodes that remain (NodeSourceLoader; 2026-07-06 manual-run finding).
         # Shallow-copy each node: source_code is a Pass-1-only input, never part of the
         # committed graph.schema.json — mutating the shared dicts would leak it into
-        # graph_data, which Pass 2 later re-serializes to disk (extra='forbid' violation).
+        # graph_data (extra='forbid' violation if it were ever serialised).
         nodes = [dict(n) for n in select_annotatable_nodes(graph_data.get("nodes", []))]
         NodeSourceLoader(corpus_root).load(nodes)
 
@@ -157,24 +163,22 @@ class LlmCorpusEnricher:
                 base_provider, retry_policy, session.cache_backend, session.emitter, ctx_p2
             )
             synthesizer = CorpusSynthesizer(provider_p2, prompt_loader, out_dir)
-            synthesizer.synthesize(annotations, graph_data)
+            synthesizer.synthesize(annotations)
         finally:
             session.emitter.close()
 
         click.echo("LLM passes complete.")
 
-        # --- Compute the llm-annotations artefact from the just-written file.
-        annotations_path = out_dir / "llm-annotations.json"
-        if not annotations_path.exists():
-            raise click.ClickException(
-                f"LLM passes completed but {annotations_path} was not produced. "
-                f"This is a producer bug; the manifest cannot be assembled "
-                f"without it (per ADR-025 §Invariants)."
-            )
-        llm_annotations_artefact = GraphArtefact(
-            path=annotations_path,
+        # --- Compute both artefacts from the just-written files.
+        llm_annotations_artefact = self._artefact_of_written_file(
+            out_dir / "llm-annotations.json",
             schema_version=graph_artefact.schema_version,  # same version as graph in v1
-            sha256=hashlib.sha256(annotations_path.read_bytes()).hexdigest(),
+            label="LLM annotations file",
+        )
+        corpus_synthesis_artefact = self._artefact_of_written_file(
+            out_dir / CORPUS_SYNTHESIS_FILENAME,
+            schema_version=CORPUS_SYNTHESIS_SCHEMA_VERSION,
+            label="corpus synthesis file",
         )
 
         # --- Aggregate cache_stats from telemetry.
@@ -184,4 +188,20 @@ class LlmCorpusEnricher:
             extra={"context": {"area": "enricher"}},
         )
 
-        return llm_annotations_artefact, cache_stats
+        return llm_annotations_artefact, corpus_synthesis_artefact, cache_stats
+
+    @staticmethod
+    def _artefact_of_written_file(path: Path, *, schema_version: str, label: str) -> GraphArtefact:
+        """Describe a file the LLM passes just wrote: its path, schema version and sha256.
+
+        :raises click.ClickException: If the passes reported success but wrote no file.
+        """
+        if not path.exists():
+            raise click.ClickException(
+                f"The LLM passes reported success but wrote no {label} ({path}). This is a producer bug."
+            )
+        return GraphArtefact(
+            path=path,
+            schema_version=schema_version,
+            sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
+        )

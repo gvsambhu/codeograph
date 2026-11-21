@@ -7,7 +7,7 @@ This page describes what is implemented **today** on `main`, and is updated as t
 | Component | What it produces |
 |---|---|
 | Deterministic graph pipeline | `graph.json` + the run's `manifest.json` |
-| LLM enrichment (Pass 1 annotator, Pass 2 synthesizer) | `llm-annotations.json`; a response cache; per-call telemetry |
+| LLM enrichment (Pass 1 annotator, Pass 2 synthesizer) | `llm-annotations.json` (Pass 1), `corpus-synthesis.json` (Pass 2); a response cache; per-call telemetry |
 | TypeScript/NestJS renderer, behind a pluggable renderer registry (ADR-008/010) | A rendered project |
 | Evaluation framework (ADR-017/018) | Scorecards, compile checks (not running yet — see [Known gaps](../README.md#known-gaps)), golden-graph regression |
 | Run manifest `2.0.0` (ADR-025), structured logging, secret scanning (ADR-022/023) | `manifest.json`, `logs.jsonl`; a CI gate |
@@ -51,7 +51,7 @@ Regex fallback (`codeograph/parser/regex_fallback.py`) handles malformed sources
 
 ### Output contract
 
-`graph.json` is byte-stable across runs given the same input (not yet on runs with LLM enrichment enabled, nor when the Java parser fails on a file — see [Known gaps](../README.md#known-gaps)):
+`graph.json` is byte-stable across runs given the same input (not yet when the Java parser fails on a file — see [Known gaps](../README.md#known-gaps)):
 
 - `json.dumps(..., sort_keys=True, separators=(",", ":"), ensure_ascii=False)` + trailing LF
 - Nodes sorted by `id`; edges sorted by `(kind, source, target)`
@@ -66,15 +66,19 @@ CI pins `TZ=UTC`, `LC_ALL=C.UTF-8`, `PYTHONHASHSEED=0` (see `.github/workflows/c
 
 ### Schema
 
-The manifest JSON Schema lives in `_generated/manifest.schema.json` — regenerated from the Pydantic source of truth (`codeograph/manifest/models.py`) via `python -m codeograph.manifest.schema_cli --generate`. CI freshness gate catches drift. Graph and LLM-annotation schemas live in `codeograph/schema/`.
+The manifest JSON Schema lives in `_generated/manifest.schema.json` — regenerated from the Pydantic source of truth (`codeograph/manifest/models.py`) via `python -m codeograph.manifest.schema_cli --generate`. CI freshness gate catches drift. The graph, LLM-annotation and corpus-synthesis schemas live in `codeograph/schema/`.
 
 ## LLM enrichment pipeline
 
-Two passes turn the deterministic graph into `llm-annotations.json`. The whole layer is skipped under `--ast-only` (the manifest records `llm_skipped: true`). Orchestrated by `LlmCorpusEnricher` (`codeograph/analyzer/llm_corpus_enricher.py`).
+Two passes turn the deterministic graph into LLM output kept in separate files: Pass 1 writes `llm-annotations.json`, Pass 2 writes `corpus-synthesis.json`. Neither pass writes to `graph.json`. The whole layer is skipped under `--ast-only` (the manifest records `llm_skipped: true`). Orchestrated by `LlmCorpusEnricher` (`codeograph/analyzer/llm_corpus_enricher.py`).
 
 ```
-graph.json  →  PASS 1 (per node)  →  PASS 2 (corpus-level)  →  llm-annotations.json
-               NodeAnnotator          CorpusSynthesizer
+graph.json  →  PASS 1 (per node)  →  llm-annotations.json
+               NodeAnnotator
+                    │  records, in memory
+                    ▼
+               PASS 2 (corpus-level)  →  corpus-synthesis.json
+               CorpusSynthesizer
 ```
 
 | Concern | Component | ADR |

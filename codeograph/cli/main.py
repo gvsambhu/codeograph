@@ -306,6 +306,7 @@ def run(
 
         # --- LLM passes (full run only) ------------------------------------
         llm_annotations_artefact = None
+        corpus_synthesis_artefact = None
         cache_stats = None
 
         if not ast_only:
@@ -329,7 +330,7 @@ def run(
                 stats_aggregator=stats_aggregator,
             )
             try:
-                llm_annotations_artefact, cache_stats = enricher.enrich(
+                llm_annotations_artefact, corpus_synthesis_artefact, cache_stats = enricher.enrich(
                     corpus_id=corpus_id,
                     run_id=run_id,
                     graph_artefact=graph_artefact,
@@ -369,6 +370,7 @@ def run(
             llm_skipped=ast_only,
             graph_artefact=graph_artefact,
             llm_annotations_artefact=llm_annotations_artefact,
+            corpus_synthesis_artefact=corpus_synthesis_artefact,
             cache_stats=cache_stats,
             scorecards=scorecards,
             compile_checks=None,

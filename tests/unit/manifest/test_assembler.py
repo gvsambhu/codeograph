@@ -39,7 +39,18 @@ def _llm_annotations_artefact(tmp_path: Path) -> GraphArtefact:
     )
 
 
-def _assemble_full(tmp_path: Path) -> Manifest:
+def _corpus_synthesis_artefact(tmp_path: Path) -> GraphArtefact:
+    """A conformant ``GraphArtefact`` for the corpus-synthesis file."""
+    synthesis_path = tmp_path / "corpus-synthesis.json"
+    synthesis_path.write_bytes(b"{}")
+    return GraphArtefact(
+        path=synthesis_path,
+        schema_version="1.0.0",
+        sha256="c" * 64,
+    )
+
+
+def _assemble_full(tmp_path: Path, *, with_synthesis: bool = False) -> Manifest:
     """Helper to assemble a full-run manifest."""
     assembler = ManifestAssembler()
     return assembler.assemble(
@@ -50,6 +61,7 @@ def _assemble_full(tmp_path: Path) -> Manifest:
         llm_skipped=False,
         graph_artefact=_graph_artefact(tmp_path),
         llm_annotations_artefact=_llm_annotations_artefact(tmp_path),
+        corpus_synthesis_artefact=_corpus_synthesis_artefact(tmp_path) if with_synthesis else None,
     )
 
 
@@ -92,6 +104,41 @@ class TestFullRunAssemble:
         m = _assemble_full(tmp_path)
         for ptr in m.artefacts.values():
             assert re.fullmatch(r"^[0-9a-f]{64}$", ptr.sha256) is not None
+
+
+class TestCorpusSynthesisPointer:
+    """The corpus-synthesis pointer: indexed on a full run, never on an ``--ast-only`` run,
+    and not required on a full run (a failed synthesis must stay representable as absent)."""
+
+    def test_full_run_with_synthesis_indexes_it(self, tmp_path: Path) -> None:
+        m = _assemble_full(tmp_path, with_synthesis=True)
+        pointer = m.artefacts["corpus_synthesis"]
+        assert pointer.path == "corpus-synthesis.json"
+        assert pointer.schema_version == "1.0.0"
+        assert pointer.sha256 == "c" * 64
+
+    def test_full_run_without_synthesis_has_no_pointer(self, tmp_path: Path) -> None:
+        m = _assemble_full(tmp_path, with_synthesis=False)
+        assert "corpus_synthesis" not in m.artefacts
+        assert set(m.artefacts) == {"graph", "llm_annotations"}
+
+    def test_ast_only_with_synthesis_artefact_raises(self, tmp_path: Path) -> None:
+        assembler = ManifestAssembler()
+        with pytest.raises(ValueError) as excinfo:
+            assembler.assemble(
+                run_id="2026-06-11T10-00-00Z-a1b2c3",
+                codeograph_version="0.1.0",
+                source_path=str(tmp_path / "source"),
+                corpus_id="test-corpus",
+                llm_skipped=True,
+                graph_artefact=_graph_artefact(tmp_path),
+                corpus_synthesis_artefact=_corpus_synthesis_artefact(tmp_path),
+            )
+        assert "llm_skipped=True but corpus_synthesis_artefact is set" in str(excinfo.value)
+
+    def test_ast_only_has_no_synthesis_pointer(self, tmp_path: Path) -> None:
+        m = _assemble_ast_only(tmp_path)
+        assert "corpus_synthesis" not in m.artefacts
 
 
 # ---------------------------------------------------------------------------

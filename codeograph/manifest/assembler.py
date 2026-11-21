@@ -1,7 +1,8 @@
 """ManifestAssembler — assembles the terminal 2.0.0 manifest from run-state fragments.
 
 The assembler is the single owner of the manifest-shape rules. The pipeline
-collects the artefacts it produces (graph, optionally llm_annotations), the
+collects the artefacts it produces (graph, optionally llm_annotations and
+corpus_synthesis), the
 cache_stats rollup, and the eval/render output pointers, then hands them all
 to the assembler for a single build. Strict-on-write Pydantic validation is
 the boundary check; the assembler never produces a manifest that violates
@@ -13,6 +14,10 @@ the assembler enforces these explicitly):
 * ``llm_skipped == True`` ⇒ ``llm_annotations_artefact`` MUST be ``None``.
 * ``llm_skipped == False`` ⇒ ``llm_annotations_artefact`` MUST be a
   :class:`GraphArtefact` (the LLM pass has produced the file and its sha).
+
+* ``llm_skipped == True`` ⇒ ``corpus_synthesis_artefact`` MUST be ``None``.
+* ``llm_skipped == False`` ⇒ ``corpus_synthesis_artefact`` MAY be ``None``: a
+  failed synthesis stays representable as an absent pointer.
 
 The assembler raises :class:`ValueError` on a violation rather than letting
 the Pydantic ``ValidationError`` mislead the reader about the root cause
@@ -56,6 +61,7 @@ class ManifestAssembler:
         llm_skipped: bool,
         graph_artefact: GraphArtefact,
         llm_annotations_artefact: GraphArtefact | None = None,
+        corpus_synthesis_artefact: GraphArtefact | None = None,
         cache_stats: dict[str, CacheStats] | None = None,
         scorecards: dict[str, ScorecardPointer] | None = None,
         compile_checks: dict[str, CompileChecksPointer] | None = None,
@@ -90,6 +96,10 @@ class ManifestAssembler:
                                            is ``False``; MUST be ``None``
                                            when ``llm_skipped`` is
                                            ``True``).
+        :param corpus_synthesis_artefact: The Pass 2 corpus synthesis
+                                           (MUST be ``None`` when
+                                           ``llm_skipped`` is ``True``;
+                                           optional on a full run).
         :param cache_stats:               Per-pass cache rollup
                                            (optional; ``None`` for
                                            ``--ast-only`` and for full
@@ -105,7 +115,10 @@ class ManifestAssembler:
         :returns:                         A :class:`Manifest` ready for
                                            strict-on-write serialisation.
         :raises ValueError:               If ``llm_skipped`` is inconsistent
-                                           with ``llm_annotations_artefact``.
+                                           with ``llm_annotations_artefact``,
+                                           or ``llm_skipped`` is ``True`` and
+                                           ``corpus_synthesis_artefact`` is
+                                           set.
         :raises pydantic.ValidationError: If a required field is missing or
                                            a pointer's ``sha256`` is not
                                            64-hex.
@@ -127,8 +140,16 @@ class ManifestAssembler:
                 "is false)."
             )
 
-        # --- Build the artefacts dict (always has graph; conditionally
-        #     has llm_annotations per the invariant above) -----------------
+        if llm_skipped and corpus_synthesis_artefact is not None:
+            raise ValueError(
+                "llm_skipped=True but corpus_synthesis_artefact is set "
+                f"({corpus_synthesis_artefact.path}). An --ast-only run omits "
+                "the corpus_synthesis pointer entirely; the synthesis file "
+                "must not exist on disk for the skipped state."
+            )
+
+        # --- Build the artefacts dict (always has graph; conditionally has
+        #     llm_annotations and corpus_synthesis per the invariants above) --
         artefacts: dict[str, ArtefactPointer] = {
             "graph": ArtefactPointer(
                 path=graph_artefact.path.name,
@@ -141,6 +162,13 @@ class ManifestAssembler:
                 path=llm_annotations_artefact.path.name,
                 schema_version=llm_annotations_artefact.schema_version,
                 sha256=llm_annotations_artefact.sha256,
+            )
+
+        if corpus_synthesis_artefact is not None:
+            artefacts["corpus_synthesis"] = ArtefactPointer(
+                path=corpus_synthesis_artefact.path.name,
+                schema_version=corpus_synthesis_artefact.schema_version,
+                sha256=corpus_synthesis_artefact.sha256,
             )
 
         return Manifest(

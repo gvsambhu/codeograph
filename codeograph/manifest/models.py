@@ -45,7 +45,7 @@ from codeograph.manifest.run_id import RUN_ID_PATTERN
 
 
 class ArtefactPointer(BaseModel):
-    """Pointer to a corpus-sized artefact (graph.json, llm-annotations.json).
+    """Pointer to a corpus-sized artefact (graph.json, llm-annotations.json, corpus-synthesis.json).
 
     Carries its own ``schema_version`` (ADR-025 Fork 4 / ADR-006 manifest-
     as-version-authority contract) so a consumer learns the artefact's

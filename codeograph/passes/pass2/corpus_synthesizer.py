@@ -3,6 +3,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
+from codeograph.graph.models.corpus_synthesis_schema import CodeographCorpusSynthesis
 from codeograph.llm._prompts_generated import PromptId
 from codeograph.llm.models import CacheHint, Message, Tier
 from codeograph.llm.prompts.loader import PromptLoader
@@ -11,6 +12,11 @@ from codeograph.llm.provider import LlmProvider
 from codeograph.passes.pass2.models import SynthesisResult
 
 logger = logging.getLogger(__name__)
+
+CORPUS_SYNTHESIS_FILENAME = "corpus-synthesis.json"
+# Full version of the file's format. The file and the manifest pointer are both written from
+# this one constant, so the two cannot disagree.
+CORPUS_SYNTHESIS_SCHEMA_VERSION = "1.0.0"
 
 
 class CorpusSynthesizer:
@@ -24,17 +30,20 @@ class CorpusSynthesizer:
         self._prompt_loader = prompt_loader
         self._output_dir = output_dir
 
-    def synthesize(self, records: list[dict[str, Any]], graph: dict[str, Any]) -> dict[str, Any]:
+    def synthesize(self, records: list[dict[str, Any]]) -> dict[str, Any]:
         """
         Run Pass 2 — single LLM call over aggregated Pass 1 annotations.
+
+        The result is written to ``corpus-synthesis.json`` in the output directory. The graph
+        is never read or written here: it holds no LLM-derived fields.
 
         Args:
             records: List of AnnotationRecord dicts from Pass 1 (llm-annotations.json).
                      Each record is an envelope: {node_id, degraded, annotation}.
-            graph:   graph.json dict from Pass 0 (read by the caller).
 
         Returns:
-            SynthesisResult dict written back into graph.json as top-level enrichments.
+            The SynthesisResult as a dict (the fields written to corpus-synthesis.json,
+            without ``schema_version``).
         """
         prompt = self._prompt_loader.get(PromptId.SYNTHESIZE_CORPUS)
 
@@ -85,18 +94,15 @@ class CorpusSynthesizer:
         synthesis: SynthesisResult = result.value
         synthesis_dict = synthesis.model_dump()
 
-        # Write enrichments back into graph top-level (per ADR-015 design)
-        graph["projectOverview"] = {
-            "description": synthesis.description,
-            "architecturePattern": synthesis.architecture_pattern,
-            "domains": synthesis.domains,
-            "crossDomainDependencies": [dep.model_dump() for dep in synthesis.cross_domain_dependencies],
-        }
+        document = CodeographCorpusSynthesis(
+            schema_version=CORPUS_SYNTHESIS_SCHEMA_VERSION,
+            **synthesis_dict,
+        )
 
         self._output_dir.mkdir(parents=True, exist_ok=True)
-        out_path = self._output_dir / "graph.json"
+        out_path = self._output_dir / CORPUS_SYNTHESIS_FILENAME
         with open(out_path, "w", encoding="utf-8") as fh:
-            json.dump(graph, fh, indent=2, ensure_ascii=False)
-        logger.info("Pass 2 complete — graph enriched and written to %s", out_path)
+            json.dump(document.model_dump(), fh, indent=2, ensure_ascii=False)
+        logger.info("Pass 2 complete — corpus synthesis written to %s", out_path)
 
         return synthesis_dict
