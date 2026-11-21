@@ -58,12 +58,12 @@ class InputAcquirer:
             acquirer.cleanup(corpus)
     """
 
-    def __init__(self) -> None:
+    def __init__(self, max_archive_extracted_bytes: int = 1_073_741_824) -> None:
         discoverer = SourceDiscoverer()
         self._acquirers: dict[AcquisitionSource, BaseAcquirer] = {
             AcquisitionSource.LOCAL: LocalAcquirer(discoverer),
             AcquisitionSource.GIT_URL: GitAcquirer(discoverer),
-            AcquisitionSource.ZIP: ZipAcquirer(discoverer),
+            AcquisitionSource.ZIP: ZipAcquirer(discoverer, max_archive_extracted_bytes),
         }
 
     @staticmethod

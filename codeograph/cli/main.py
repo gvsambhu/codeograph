@@ -274,7 +274,7 @@ def run(
     if llm_call_confirm_threshold is not None:
         settings.llm_call_confirm_threshold = llm_call_confirm_threshold
 
-    acquirer = InputAcquirer()
+    acquirer = InputAcquirer(max_archive_extracted_bytes=settings.max_archive_extracted_bytes)
     corpus = None
 
     try:
