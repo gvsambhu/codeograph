@@ -5,6 +5,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from codeograph.renderers.typescript_nestjs.typescript_config import TypeScriptConfig
     from codeograph.rendering.class_selector import RenderableNode
 
@@ -30,6 +32,7 @@ def dispatch_feature_policies(
     class_node: RenderableNode,
     annotations: dict[str, object],
     config: TypeScriptConfig,
+    method_annotations: Iterable[str] = (),
 ) -> dict[str, str] | str:
     """Evaluate feature policies for *class_node*.
 
@@ -43,8 +46,7 @@ def dispatch_feature_policies(
     hints: dict[str, str] = {}
 
     # --- Spring Security policy ---
-    class_annotations: set[str] = set(class_node.annotations or [])
-    security_hits = _SPRING_SECURITY_ANNOTATIONS & class_annotations
+    security_hits = _SPRING_SECURITY_ANNOTATIONS & set(class_node.annotations or ()).union(method_annotations)
     if security_hits:
         if config.security_feature_policy == "refuse":
             return "security"  # named refuse reason

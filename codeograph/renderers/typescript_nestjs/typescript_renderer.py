@@ -60,6 +60,8 @@ from codeograph.rendering.models import SelectionResult
 from codeograph.rendering.package_prefix_grouping import PackagePrefixGrouping
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from codeograph.graph.models.graph_schema import CodeographKnowledgeGraph
     from codeograph.llm.provider import LlmProvider
     from codeograph.rendering.class_selector import RenderableNode
@@ -157,13 +159,17 @@ class TypeScriptRenderer(Renderer[TypeScriptConfig]):  # noqa: UP046
 
         # Build fqcn → node lookup (class/interface/record/enum, ADR-010) for fast access.
         node_map = self._build_node_map(graph)
+        method_annotations_by_owner = self._build_method_annotation_index(graph)
 
         # Step 1 — class selection (ADR-009 three-tier ladder)
         selection_results = self._select_classes(graph)
 
         # Step 2 — LLM rendering with concurrency cap
         semaphore = asyncio.Semaphore(self._concurrency)
-        render_tasks = [self._render_group(result, annotations, node_map, semaphore) for result in selection_results]
+        render_tasks = [
+            self._render_group(result, annotations, node_map, semaphore, method_annotations_by_owner)
+            for result in selection_results
+        ]
         # return_exceptions=True prevents one failing group from aborting all others.
         # Per-class isolation is handled inside _render_group itself.
         group_maps: list[dict[PurePosixPath, bytes] | BaseException] = await asyncio.gather(
@@ -218,6 +224,7 @@ class TypeScriptRenderer(Renderer[TypeScriptConfig]):  # noqa: UP046
         annotations: dict[str, object],
         node_map: dict[str, RenderableNode],
         semaphore: asyncio.Semaphore,
+        method_annotations_by_owner: dict[str, set[str]],
     ) -> dict[PurePosixPath, bytes]:
         """Render all selected classes for one domain group."""
         file_map: dict[PurePosixPath, bytes] = {}
@@ -236,7 +243,12 @@ class TypeScriptRenderer(Renderer[TypeScriptConfig]):  # noqa: UP046
                     # Once a ceiling is reached no further class is started; running ones finish.
                     if self._ceiling is not None:
                         break
-                    rendered = await self._render_class(class_node, result.group_name, annotations)
+                    rendered = await self._render_class(
+                        class_node,
+                        result.group_name,
+                        annotations,
+                        method_annotations=method_annotations_by_owner.get(class_node.id) or (),
+                    )
             except LlmCeilingExceededError as exc:
                 # A ceiling is not a per-class failure: it stops the run (ADR-027 Fork 1).
                 if self._ceiling is None:
@@ -277,6 +289,8 @@ class TypeScriptRenderer(Renderer[TypeScriptConfig]):  # noqa: UP046
         class_node: RenderableNode,
         group_name: str,
         annotations: dict[str, object],
+        *,
+        method_annotations: Iterable[str] = (),
     ) -> tuple[PurePosixPath, bytes] | None:
         """Dispatch one class through the feature-policy → LLM pipeline.
 
@@ -287,7 +301,7 @@ class TypeScriptRenderer(Renderer[TypeScriptConfig]):  # noqa: UP046
         # --- Feature policies dispatch ---
         # dispatch_feature_policies returns a str refuse-reason when the class
         # is skipped, or a dict of render hints when it should proceed.
-        hints = dispatch_feature_policies(class_node, annotations, self._config)
+        hints = dispatch_feature_policies(class_node, annotations, self._config, method_annotations=method_annotations)
         if isinstance(hints, str):
             logger.debug(
                 "Class '%s' refused by policy '%s' — skipping.",
@@ -420,3 +434,19 @@ class TypeScriptRenderer(Renderer[TypeScriptConfig]):  # noqa: UP046
             if isinstance(node, (CN, IN, RN, EN)):
                 result[node.id] = node
         return result
+
+    def _build_method_annotation_index(self, graph: CodeographKnowledgeGraph) -> dict[str, set[str]]:
+        """Index method annotations by their containing type, including constructors."""
+        from codeograph.graph.models.graph_schema import ContainsEdge, MethodNode
+
+        annotations_by_method = {
+            method.id: method.annotations
+            for wrapper in graph.nodes
+            if isinstance(method := wrapper.root, MethodNode) and method.annotations
+        }
+        annotations_by_owner: dict[str, set[str]] = {}
+        for wrapper in graph.edges:
+            edge = wrapper.root
+            if isinstance(edge, ContainsEdge) and (annotations := annotations_by_method.get(edge.target)):
+                annotations_by_owner.setdefault(edge.source, set()).update(annotations)
+        return annotations_by_owner

@@ -9,7 +9,17 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from codeograph.graph.models.graph_schema import ClassNode, ExtractionMode, Modifier, Stereotype
+from codeograph.graph.models.graph_schema import (
+    ClassNode,
+    CodeographKnowledgeGraph,
+    ContainsEdge,
+    Edge,
+    ExtractionMode,
+    MethodNode,
+    Modifier,
+    Node,
+    Stereotype,
+)
 
 if TYPE_CHECKING:
     from codeograph.rendering.class_selector import RenderableNode
@@ -108,7 +118,7 @@ def test_render_group_basic():
     with patch.object(renderer, "_call_llm", new=AsyncMock(return_value=canned_ts)):
         # 6. Call _render_group
         semaphore = asyncio.Semaphore(5)
-        file_map = asyncio.run(renderer._render_group(result, {}, node_map, semaphore))
+        file_map = asyncio.run(renderer._render_group(result, {}, node_map, semaphore, {}))
 
     # 7. Assert
     has_ts = any(path.name.endswith(".ts") and not path.name.endswith(".module.ts") for path in file_map.keys())
@@ -209,6 +219,37 @@ class TestSecurityFeaturePolicy:
         assert "security_hint" not in captured[0]
 
 
+@pytest.mark.parametrize("is_constructor", [False, True], ids=["method", "constructor"])
+def test_render_refuses_controller_with_security_on_a_contained_method(is_constructor: bool) -> None:
+    secured = _make_class_node("com.example.orders.SecuredController", stereotype="RestController")
+    plain = _make_class_node("com.example.orders.PlainController", stereotype="RestController")
+    method_name = secured.name if is_constructor else "listOrders"
+    method = MethodNode(
+        id=f"{secured.id}#{method_name}()",
+        kind="method",
+        name=method_name,
+        return_type=secured.id if is_constructor else "void",
+        parameters=[],
+        modifiers=[],
+        annotations=["PreAuthorize"],
+        is_constructor=is_constructor,
+        line_range=[5, 8],
+    )
+    graph = CodeographKnowledgeGraph(
+        nodes=[Node(secured), Node(plain), Node(method)],
+        edges=[Edge(ContainsEdge(source=secured.id, target=method.id, kind="contains"))],
+    )
+    renderer = _make_renderer(TypeScriptConfig(include_scaffold=False))
+    completion = AsyncMock(return_value="export class PlainController {}")
+
+    with patch.object(renderer, "_call_llm", new=completion):
+        file_map = renderer.render(graph, {})
+
+    controller_files = {path.name for path in file_map if path.name.endswith(".controller.ts")}
+    assert controller_files == {"plain-controller.controller.ts"}
+    completion.assert_awaited_once_with(plain, {}, {})
+
+
 # ---------------------------------------------------------------------------
 # Issue #1 — File-name role suffix: Service → .service.ts
 # ---------------------------------------------------------------------------
@@ -235,7 +276,7 @@ class TestRoleFileSuffix:
         canned_ts = "export class OrderService {}\n"
         with patch.object(renderer, "_call_llm", new=AsyncMock(return_value=canned_ts)):
             semaphore = asyncio.Semaphore(5)
-            file_map = asyncio.run(renderer._render_group(result, {}, node_map, semaphore))
+            file_map = asyncio.run(renderer._render_group(result, {}, node_map, semaphore, {}))
 
         service_files = [p for p in file_map if p.name.endswith(".service.ts")]
         assert service_files, "Expected at least one .service.ts file"
@@ -263,7 +304,7 @@ class TestRoleFileSuffix:
         node_map: dict[str, RenderableNode] = {node.id: node}
         with patch.object(renderer, "_call_llm", new=AsyncMock(return_value="export class X {}")):
             semaphore = asyncio.Semaphore(5)
-            file_map = asyncio.run(renderer._render_group(result, {}, node_map, semaphore))
+            file_map = asyncio.run(renderer._render_group(result, {}, node_map, semaphore, {}))
 
         controller_files = [p for p in file_map if p.name.endswith(".controller.ts")]
         assert controller_files
@@ -287,7 +328,7 @@ class TestRenderErrorHandling:
         node_map: dict[str, Any],
     ) -> dict[PurePosixPath, bytes]:
         semaphore = asyncio.Semaphore(5)
-        return asyncio.run(renderer._render_group(result, annotations, node_map, semaphore))
+        return asyncio.run(renderer._render_group(result, annotations, node_map, semaphore, {}))
 
     # -- per-class failure ----------------------------------------------------------------
 
@@ -401,8 +442,6 @@ class TestMaxClassesPerDomainZero:
 
     def _corpus(self, tmp_path: Path) -> Path:
         """A run-output directory whose two domains both exceed the default cap of 3."""
-        from codeograph.graph.models.graph_schema import CodeographKnowledgeGraph, Node
-
         nodes = [
             Node(root=_make_class_node(f"com.example.{domain}.{domain.title()}{i}", stereotype=None))
             for domain, count in (("orders", self.ORDERS), ("users", self.USERS))
