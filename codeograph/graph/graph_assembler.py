@@ -23,6 +23,7 @@ Design decisions recorded in ADR-006.
 from __future__ import annotations
 
 import logging
+import re
 from collections import defaultdict
 from typing import Any
 
@@ -55,6 +56,12 @@ _JPA_CARDINALITY: dict[str, Cardinality] = {
 
 # Generic collection wrappers stripped when resolving RelationEdge targets
 _COLLECTION_WRAPPERS = ("List<", "Set<", "Collection<", "Optional<")
+
+# Match literals and comments as single tokens so their parentheses do not count.
+_CALL_EXPR_TOKENS = re.compile(
+    r'''"""(?:\\.|(?!""")[^\\])*"""|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|/\*.*?\*/|//[^\n]*|[()]''',
+    re.DOTALL,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -141,6 +148,8 @@ class GraphAssembler:
             param_index,
             method_index,
             import_maps,
+            wildcard_imports,
+            resolver,
         )
 
         # Step 4b — CBO needs the resolved calls, so it is set here, once, for every class
@@ -417,17 +426,19 @@ class GraphAssembler:
         param_index: dict[str, list[Any]],
         method_index: dict[str, dict[str, list[str]]],
         import_maps: dict[str, dict[str, str]],
+        wildcard_imports: dict[str, list[str]],
+        resolver: TypeNameResolver,
     ) -> None:
         """
-        Walk every CallsUnresolvedEdge. Where the callee type can be determined
-        and maps to a known corpus method, promote to CallsResolvedEdge and drop
-        the unresolved edge.
+        Walk every CallsUnresolvedEdge. Where the first call maps to a known
+        corpus method, add a CallsResolvedEdge. Keep the unresolved edge only
+        if the expression continues with further calls.
 
         Callee type resolution — four sub-cases in priority order:
           1. No callee variable / 'this.' prefix → self-call; class B = class A
-          2. Callee starts with uppercase         → static call; class B via import_map
-          3. Callee matches a field name          → field type via import_map
-          4. Callee matches a method param name   → param type via import_map
+          2. Callee starts with uppercase         → static call; class name resolved by the type-name resolver
+          3. Callee matches a field name          → field type resolved by the type-name resolver
+          4. Callee matches a method param name   → param type resolved by the type-name resolver
 
         Overloaded methods (same name, multiple signatures) each produce a
         separate CallsResolvedEdge. Full signature disambiguation requires a
@@ -446,10 +457,10 @@ class GraphAssembler:
             raw_expr = edge.root.raw_call_expr or edge.root.target
 
             class_a = source.split("#")[0]
-            import_map = import_maps.get(class_a, {})
             callee_var, method_name = self._parse_call_expr(raw_expr)
 
             class_b: str | None = None
+            receiver_type: str | None = None
 
             if callee_var is None:
                 # Case 1 — self-call (no dot / 'this.' stripped)
@@ -457,7 +468,7 @@ class GraphAssembler:
 
             elif callee_var[0].isupper():
                 # Case 2 — static call; callee is a class name
-                class_b = import_map.get(callee_var)
+                receiver_type = callee_var
 
             else:
                 # Case 3 — check field index
@@ -466,7 +477,7 @@ class GraphAssembler:
                     None,
                 )
                 if field:
-                    class_b = import_map.get(field.type)
+                    receiver_type = field.type
                 else:
                     # Case 4 — check param index
                     param = next(
@@ -474,7 +485,18 @@ class GraphAssembler:
                         None,
                     )
                     if param:
-                        class_b = import_map.get(param.type)
+                        receiver_type = param.type
+
+                if receiver_type is not None:
+                    receiver_type = receiver_type.partition("<")[0].partition("[")[0].strip()
+
+            if receiver_type is not None:
+                class_b = resolver.resolve(
+                    receiver_type,
+                    class_a.rpartition(".")[0],
+                    import_maps.get(class_a, {}),
+                    wildcard_imports.get(class_a, []),
+                )
 
             if not class_b:
                 logger.debug(
@@ -496,7 +518,8 @@ class GraphAssembler:
                 )
                 continue
 
-            to_remove.append(idx)
+            if not self._has_further_calls(raw_expr):
+                to_remove.append(idx)
             for target_id in candidates:
                 to_add.append(
                     Edge(
@@ -508,7 +531,7 @@ class GraphAssembler:
                     )
                 )
 
-        # Remove promoted edges in reverse order to preserve list indices
+        # Remove fully resolved edges in reverse order to preserve list indices
         for idx in reversed(to_remove):
             all_edges.pop(idx)
         all_edges.extend(to_add)
@@ -555,6 +578,20 @@ class GraphAssembler:
     # ------------------------------------------------------------------
     # Private helpers
     # ------------------------------------------------------------------
+
+    @staticmethod
+    def _has_further_calls(expr: str) -> bool:
+        """Check for another call after the first call's argument list closes."""
+        tokens = _CALL_EXPR_TOKENS.finditer(expr)
+        depth = 0
+        for token in tokens:
+            if token.group() == "(":
+                depth += 1
+            elif token.group() == ")":
+                depth -= 1
+                if depth == 0:
+                    return any(rest.group() == "(" for rest in tokens)
+        return False
 
     @staticmethod
     def _parse_call_expr(expr: str) -> tuple[str | None, str]:
