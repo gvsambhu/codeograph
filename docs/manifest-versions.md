@@ -2,13 +2,13 @@
 
 This document records every schema version bump for the run manifest at
 `<out>/manifest.json`. Per [ADR-022](adr/ADR-022-run-manifest-and-structured-logging.md)
-Fork 1, the manifest evolves **strict-additively** within `1.x.x` —
+Fork 1, the manifest evolves **strict-additively** within `2.x.x` —
 no field removal, rename, type change, or required/optional flip.
-Breaking changes require a `2.0.0` major bump + superseding ADR.
+Breaking changes require a `3.0.0` major bump + superseding ADR.
 
-The JSON Schema at `codeograph/_generated/manifest.schema.json` is the
+The JSON Schema at `_generated/manifest.schema.json` is the
 external contract for manifest consumers; it is regenerated from the
-Pydantic source of truth (`codeograph/codeograph/manifest/schema.py`)
+Pydantic source of truth (`codeograph/manifest/models.py`)
 via `python -m codeograph.manifest.schema_cli --generate` and pinned by
 a CI freshness gate.
 
@@ -42,8 +42,8 @@ deferred until a cost model exists). Strict-additive evolution resumes within
 `2.x.x`.
 
 **Locked target:** `2.0.0` as shipped on 2026-06-12. The Pydantic source of truth lives at
-`codeograph/codeograph/manifest/schema.py`; the committed JSON Schema artefact
-at `codeograph/_generated/manifest.schema.json` is regenerated from it.
+`codeograph/manifest/models.py`; the committed JSON Schema artefact
+at `_generated/manifest.schema.json` is regenerated from it.
 
 ## Future bumps
 
@@ -51,9 +51,9 @@ Any future additive change follows the table format above: one row per
 `schema_version` bump, naming the field, the consuming ADR, and the
 bump date. Per ADR-022 Fork 7, every bump requires:
 
-1. Update `codeograph/codeograph/manifest/schema.py`.
+1. Update `codeograph/manifest/models.py`.
 2. Run `python -m codeograph.manifest.schema_cli --generate`.
-3. Commit the regenerated `codeograph/_generated/manifest.schema.json`
+3. Commit the regenerated `_generated/manifest.schema.json`
    alongside the source change.
 4. CI freshness gate (`python -m codeograph.manifest.schema_cli --check`)
    catches drift on subsequent PRs.

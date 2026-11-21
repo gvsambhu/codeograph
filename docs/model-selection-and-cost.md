@@ -2,8 +2,8 @@
 
 > Prices were captured **2026-06-26** (see the dated price table in §6) and move frequently — treat
 > every figure as an **estimate, not a quote; verify before relying.** This file is also the **data
-> source for the ADR-027 pre-flight cost estimate**: the price table here is what the cost-safety
-> floor reads, so keep it dated and in sync with the machine-readable price source.
+> source for the ADR-027 pre-flight cost estimate**: the price table here mirrors
+> `codeograph/llm/prices.toml`, which the cost-safety floor reads, so keep it dated and in sync with the machine-readable price source.
 
 ---
 
@@ -120,8 +120,7 @@ table mirrors.
 | Local (Phi-3.5 / Qwen2.5-Coder 7B / Llama 3.3 8B) | `self-host` / `localhost` | 0.00 | 0.00 | n/a | hardware cost only |
 
 > **Refresh & source-of-truth.** Prices drift — typically downward, roughly monthly. The single
-> source of truth for prices is a **machine-readable file** (format to be chosen, e.g.
-> `prices.toml`); this human table is kept in sync with it, and the ADR-027 pre-flight estimator
+> source of truth for prices is a **machine-readable file**, `codeograph/llm/prices.toml`; this human table is kept in sync with it, and the ADR-027 pre-flight estimator
 > reads the structured file — **never this prose table**. Re-verify on a **quarterly cadence** (and
 > on any provider price-change announcement) and bump the capture date above when you do. The
 > **project maintainer** owns this refresh. External price *accuracy* cannot be CI-gated (it is
@@ -131,6 +130,8 @@ table mirrors.
 ---
 
 ## 7. Cost reality (≈300-class service, prefix-cache on)
+
+> Codeograph does not request prompt caching yet — see the README's [Known gaps](../README.md#known-gaps); the figures below assume it.
 
 Scales **linearly** with class count. A 25-class sample service is **cents** even on Sonnet.
 
@@ -197,7 +198,7 @@ keeping cost low, or you need to run against sensitive code in a specific jurisd
 open-weight model.
 
 **Why this model:** DeepSeek V4-Pro and MiniMax M3 sit in the "cheap-serious" tier: both report
-Opus-class or leading SWE-Bench scores for comprehension tasks while charging far less per output
+Opus-class or leading SWE-Bench (agentic-coding) scores — a harder task than this one — while charging far less per output
 token than Sonnet, and both are open-weight, so they can be re-hosted via providers like Together,
 Fireworks, OpenRouter, or Bedrock to decouple capability from first-party API jurisdiction.
 
@@ -211,7 +212,7 @@ called out in §4.
 #### 4. Production default → Claude Sonnet 4.6 / Gemini 3.1 Pro
 
 **Trigger:** You are running large or complex services whose output you will share with a team or
-client, or use to drive scaffolds you will build on, and you want the lowest practical error rate.
+client, or use to drive rendered source you will build on, and you want the lowest practical error rate.
 
 **Why this model:** Claude Sonnet 4.6 is the v1 default pin and the model v1 is designed around; its
 structured-output reliability is the best available for this style of task. Gemini 3.1 Pro is the
@@ -233,8 +234,9 @@ OpenRouter **supports** prompt caching (do not claim otherwise):
 * **Pass-through** `cache_control` for Anthropic / Alibaba-Qwen (forward the breakpoint).
 * It does **sticky routing** to maximize cache hits.
 * Genuinely absent only on **free `:free` routes** and on explicit-cache providers when the client
-  library forgets to forward the breakpoint (a verify-in-CI item — ADR-005's payload-snapshot test
-  catches it).
+  library forgets to forward the breakpoint (a verify-in-CI item — no test asserts the payload yet).
+
+Codeograph does not request prompt caching yet — see the README's [Known gaps](../README.md#known-gaps); the figures in §7 assume it.
 
 ADR-005 §6's "`cache_control` must stay reachable" is satisfiable via OpenRouter.
 
