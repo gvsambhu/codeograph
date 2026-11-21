@@ -7,7 +7,7 @@ name = "codeograph"
 # Single authored version location (ADR-026 Fork 4, option a). Read at runtime
 # via importlib.metadata; do not duplicate this literal in package source.
 version = "0.5.0"
-description = "Ingest a Java/Spring Boot codebase; emit a knowledge graph and a target-language migration scaffold"
+description = "Analyse a Java/Spring Boot codebase into a deterministic knowledge graph, and translate selected classes into idiomatic target-language source"
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.12"

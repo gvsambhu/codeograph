@@ -92,7 +92,8 @@ def cli(
     verbose: int,
     quiet: int,
 ) -> None:
-    """Ingest a Java/Spring Boot codebase; emit a knowledge graph and migration scaffold."""
+    """Analyse a Java/Spring Boot codebase into a deterministic knowledge graph, and translate
+    selected classes into idiomatic target-language source."""
     resolved = _resolve_log_level(log_level=log_level, verbose=verbose, quiet=quiet)
     # Initial configure_logging with out_dir=None installs the console
     # handler only. Subcommands that have an --out option (currently
